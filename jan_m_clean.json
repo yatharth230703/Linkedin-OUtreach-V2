@@ -1,0 +1,47 @@
+{
+  "full_name": "Jan M.",
+  "headline": "WU | Patterno",
+  "about_section": "No special talents. Just passionately curious.",
+  "current_position": "Founder's Associate at Patterno",
+  "company": "Patterno",
+  "location": "Hamburg, Germany",
+  "key_experience": [
+    "Founder's Associate at Patterno (Aug 2025 - Present)",
+    "Strategy Consulting at Porsche Consulting (2025)",
+    "Strategy Office at Hapag-Lloyd AG (2024)",
+    "Mergers & Acquisitions at HANSE Consulting (2023)"
+  ],
+  "recent_posts": [
+    {
+      "date": "2025-08-19",
+      "text": "Introducing Patterno AI – built to turn market signals into fast, smart decisions. As Founder's Associate at Patterno AI, I've had the chance to contribute directly to launching a SaaS-product that tackles one of the biggest challenges in enterprise today: data overload and decision latency. We transform external data, from commodity prices and news to geopolitical risks and regulations into auditable, €-quantified, and actionable recommendations.",
+      "engagement": "65 reactions, 11 comments, 4 reposts"
+    },
+    {
+      "date": "2024-09-11",
+      "text": "While on our Investment Banking Tour to Frankfurt, we will also be visiting KKR. We'll dive into several case studies on topics like Private Equity, Real Estate and Private Markets / Fundraising.",
+      "engagement": "33 reactions, 1 comment, 4 reposts"
+    }
+  ],
+  "key_interests": [
+    "Strategy consulting and business development",
+    "Enterprise intelligence and data analytics",
+    "Investment banking and private equity",
+    "Mergers & acquisitions",
+    "Real-time decision making systems",
+    "SaaS product development"
+  ],
+  "background": [
+    "Strategy consulting experience (Porsche Consulting)",
+    "Corporate strategy at major logistics company (Hapag-Lloyd)",
+    "M&A experience",
+    "Finance and investment banking knowledge",
+    "Currently working on AI-powered enterprise intelligence"
+  ],
+  "education_interests": [
+    "Vienna University of Economics and Business (WU)",
+    "Investment banking and finance",
+    "Private equity and real estate"
+  ],
+  "company_focus": "Working on Patterno AI's enterprise intelligence platform that transforms market signals into actionable business decisions."
+}

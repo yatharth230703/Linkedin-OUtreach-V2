@@ -1,14 +1,17 @@
+import json
 import time
 import random
 import os
 from datetime import datetime
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
-from selenium.webdriver.common.action_chains import ActionChains
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-
-# --- Helper Functions (From your snippets) ---
+from supabase import create_client, Client
+from dotenv import load_dotenv
+load_dotenv()
+# --- Supabase Configuration ---
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY") # Use Service Role key to bypass RLS if running server-side
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def human_pause(min_s: float = 0.3, max_s: float = 0.9):
     """Sleep for a random duration to mimic natural pauses."""
@@ -81,6 +84,95 @@ def log_action(driver, action_name):
         with open(html_path, 'w', encoding='utf-8') as f:
             f.write(driver.page_source)
     except: pass
+def get_leads_from_file(filename="leads.json"):
+    """Reads the list of URLs from a JSON file."""
+    try:
+        with open(filename, 'r') as f:
+            data = json.load(f)
+            # Handle user's specific format {"url1", "url2"} which is a set, or standard list ["url1"]
+            if isinstance(data, list):
+                return data
+            return list(data) # Convert if it's a dict/set-like structure
+    except FileNotFoundError:
+        print("⚠️ leads.json not found. Using dummy data.")
+        return []
+
+def check_if_exists(url):
+    """Checks Supabase to see if this URL is already in our DB."""
+    try:
+        response = supabase.table("leads").select("id, status").eq("linkedin_url", url).execute()
+        if response.data:
+            return True, response.data[0]
+        return False, None
+    except Exception as e:
+        print(f"⚠️ DB Read Error: {e}")
+        return False, None
+
+def scrape_profile_data(driver):
+    """
+    Extracts text from the current profile page. 
+    Uses generic XPaths to be more robust against class name changes.
+    """
+    profile_data = {
+        "full_name": "Unknown",
+        "headline": "",
+        "about": "",
+        "experience": ""
+    }
+    
+    try:
+        # 1. Get Name (Usually the first H1)
+        name_elem = driver.find_element(By.TAG_NAME, "h1")
+        profile_data["full_name"] = name_elem.text.strip()
+    except: pass
+
+    try:
+        # 2. Get Headline (Usually sub-text below name)
+        headline_elem = driver.find_element(By.XPATH, "//div[contains(@class, 'text-body-medium')]")
+        profile_data["headline"] = headline_elem.text.strip()
+    except: pass
+
+    try:
+        # 3. Get 'About' Section
+        # This is tricky; often requires clicking "see more". We'll grab the raw text block.
+        about_section = driver.find_element(By.ID, "about")
+        # Navigate to the parent section to get text
+        profile_data["about"] = about_section.find_element(By.XPATH, "./ancestor::section").text
+    except: pass
+
+    try:
+        # 4. Get 'Experience' Section Snapshot
+        exp_section = driver.find_element(By.ID, "experience")
+        profile_data["experience"] = exp_section.find_element(By.XPATH, "./ancestor::section").text
+    except: pass
+    
+    return profile_data
+
+def mock_ai_draft_generator(profile_data):
+    """
+    PLACEHOLDER: This is where you will connect your LLM later.
+    For Phase 1, we just return a formatted string to prove data flow works.
+    """
+    first_name = profile_data['full_name'].split(' ')[0]
+    return f"Hi {first_name}, I saw your experience in {profile_data['headline']}..."
+
+def save_lead_to_db(url, data, draft_msg):
+    """Inserts the scraped data into Supabase."""
+    payload = {
+        "linkedin_url": url,
+        "full_name": data["full_name"],
+        "headline": data["headline"],
+        "about_section": data["about"],
+        "experience_text": data["experience"],
+        "message_1_draft": draft_msg,
+        "status": "SCRAPED", # Ready for Human Review
+        "last_scraped_at": datetime.now().isoformat()
+    }
+    try:
+        supabase.table("leads").insert(payload).execute()
+        print(f"✅ Saved to DB: {data['full_name']}")
+    except Exception as e:
+        print(f"❌ DB Save Error: {e}")
 
 # --- Main Bot Logic ---
 

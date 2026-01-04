@@ -17,7 +17,7 @@ class OutreachMessages:
 
 class GeminiLinkedInMessager:
     def __init__(self):
-        self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY_TEST"))
         self.model = "gemini-3-flash-preview"
     
     def _generate_content(self, prompt: str) -> str:

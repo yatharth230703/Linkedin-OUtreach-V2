@@ -1,0 +1,8 @@
+2026/01/13-19:11:49.215 43b923 Reusing MANIFEST /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Local Storage/leveldb/MANIFEST-000001
+2026/01/13-19:11:49.219 43b923 Recovering log #6
+2026/01/13-19:11:49.219 43b923 (ignoring error) /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Local Storage/leveldb/000006.log: dropping 14691 bytes; Corruption: checksum mismatch
+2026/01/13-19:11:49.219 43b923 (ignoring error) /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Local Storage/leveldb/000006.log: dropping 6920 bytes; Corruption: missing start of fragmented record(2)
+2026/01/13-19:11:49.220 43b923 Reusing old log /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Local Storage/leveldb/000006.log 
+2026/01/13-19:13:51.682 43b927 Level-0 table #9: started
+2026/01/13-19:13:51.685 43b927 Level-0 table #9: 29390 bytes OK
+2026/01/13-19:13:51.687 43b927 Delete type=0 #6

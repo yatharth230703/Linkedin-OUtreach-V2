@@ -1,0 +1,222 @@
+2026-01-13 18:49:48,945 - INFO - ================================================================================
+2026-01-13 18:49:48,945 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-01-13 18:49:48,945 - INFO - ================================================================================
+2026-01-13 18:49:48,945 - INFO - ⏰ Wake time: 2026-01-13 18:49:48
+2026-01-13 18:49:48,945 - INFO - 🎲 Calculated initial delay: 56.0 minutes
+2026-01-13 18:49:48,945 - INFO - 📅 Estimated completion: 2026-01-13 22:30:48
+2026-01-13 18:49:50,031 - INFO - 🖥️ Active GUI applications: {'Finder', 'Chrome', 'Safari', 'Code'}
+2026-01-13 18:49:50,031 - WARNING - 🛑 User presence detected at startup!
+2026-01-13 18:49:50,031 - INFO - ⏳ Waiting for user inactivity (max 30 minutes)...
+2026-01-13 18:49:51,088 - INFO - 🖥️ Active GUI applications: {'Code', 'Chrome', 'Safari', 'Finder'}
+2026-01-13 18:49:51,089 - INFO - 👤 User still active, waiting 60s...
+2026-01-13 18:50:52,161 - INFO - 🖥️ Active GUI applications: {'Code', 'Chrome', 'Safari', 'Finder'}
+2026-01-13 18:50:52,162 - INFO - 👤 User still active, waiting 60s...
+2026-01-13 18:51:53,234 - INFO - 🖥️ Active GUI applications: {'Code', 'Chrome', 'Safari', 'Finder'}
+2026-01-13 18:51:53,236 - INFO - 👤 User still active, waiting 60s...
+2026-01-13 18:57:17,555 - INFO - ================================================================================
+2026-01-13 18:57:17,555 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-01-13 18:57:17,555 - INFO - ================================================================================
+2026-01-13 18:57:17,555 - INFO - ⏰ Wake time: 2026-01-13 18:57:17
+2026-01-13 18:57:17,555 - INFO - 🎲 Calculated initial delay: 95.0 minutes
+2026-01-13 18:57:17,555 - INFO - 📅 Estimated completion: 2026-01-13 23:17:17
+2026-01-13 18:57:17,581 - INFO - ⌨️ Recent input activity detected (idle: 0.1s)
+2026-01-13 18:57:17,581 - WARNING - 🛑 User presence detected at startup!
+2026-01-13 18:57:17,581 - INFO - ⏳ Waiting for user inactivity (max 30 minutes)...
+2026-01-13 18:57:17,606 - INFO - ⌨️ Recent input activity detected (idle: 0.1s)
+2026-01-13 18:57:17,606 - INFO - 👤 User still active, waiting 60s...
+2026-01-13 18:58:17,642 - INFO - ✅ No recent input activity (idle: 60.2s)
+2026-01-13 18:58:17,643 - INFO - ✅ User inactive - safe to proceed
+2026-01-13 18:58:17,643 - INFO - 💤 Starting initial delay: 95.0 minutes
+2026-01-13 19:03:11,511 - INFO - 🧪 TEST MODE ENABLED - Reduced timings and safety checks
+2026-01-13 19:03:11,511 - INFO - ================================================================================
+2026-01-13 19:03:11,511 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-01-13 19:03:11,511 - INFO - ================================================================================
+2026-01-13 19:03:11,511 - INFO - ⏰ Wake time: 2026-01-13 19:03:11
+2026-01-13 19:03:11,511 - INFO - 🎲 Calculated initial delay: 1.0 minutes
+2026-01-13 19:03:11,511 - INFO - 📅 Estimated completion: 2026-01-13 21:20:11
+2026-01-13 19:03:11,511 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:03:11,511 - INFO - 💤 Starting initial delay: 1.0 minutes
+2026-01-13 19:04:11,513 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:04:11,515 - INFO - 🚀 Starting bot sequence at: 2026-01-13 19:04:11
+2026-01-13 19:04:11,515 - INFO - ================================================================================
+2026-01-13 19:04:11,515 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:04:11,516 - INFO - 🚀 Starting Connection Bot: Drafts connection requests
+2026-01-13 19:04:12,173 - ERROR - ❌ Connection Bot failed: Exit code 1
+2026-01-13 19:04:12,173 - ERROR -    🔥 Traceback (most recent call last):
+2026-01-13 19:04:12,173 - ERROR -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/msg_draft_connection_bot1.py", line 13, in <module>
+2026-01-13 19:04:12,173 - ERROR -    🔥 from apify_scraper import scrape_linkedin_posts
+2026-01-13 19:04:12,173 - ERROR -    🔥 ModuleNotFoundError: No module named 'apify_scraper'
+2026-01-13 19:04:12,173 - INFO - ☕ Taking human break: 0.4 minutes (22s)
+2026-01-13 19:04:34,175 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:04:34,175 - INFO - ✅ Break completed - ready for next bot
+2026-01-13 19:04:34,175 - INFO - ================================================================================
+2026-01-13 19:04:34,175 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:04:34,176 - INFO - 🚀 Starting Message Bot: Sends queued messages
+2026-01-13 19:04:34,597 - ERROR - ❌ Message Bot failed: Exit code 1
+2026-01-13 19:04:34,597 - ERROR -    🔥 ...<8 lines>...
+2026-01-13 19:04:34,597 - ERROR -    🔥 )
+2026-01-13 19:04:34,597 - ERROR -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/msg_draft_connection_bot1.py", line 13, in <module>
+2026-01-13 19:04:34,597 - ERROR -    🔥 from apify_scraper import scrape_linkedin_posts
+2026-01-13 19:04:34,597 - ERROR -    🔥 ModuleNotFoundError: No module named 'apify_scraper'
+2026-01-13 19:04:34,597 - INFO - ☕ Taking human break: 0.2 minutes (14s)
+2026-01-13 19:04:48,601 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:04:48,602 - INFO - ✅ Break completed - ready for next bot
+2026-01-13 19:04:48,602 - INFO - ================================================================================
+2026-01-13 19:04:48,602 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:04:48,603 - INFO - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-01-13 19:04:49,151 - ERROR - ❌ Follow-up Bot failed: Exit code 1
+2026-01-13 19:04:49,151 - ERROR -    🔥 ...<8 lines>...
+2026-01-13 19:04:49,151 - ERROR -    🔥 )
+2026-01-13 19:04:49,151 - ERROR -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/msg_draft_connection_bot1.py", line 13, in <module>
+2026-01-13 19:04:49,151 - ERROR -    🔥 from apify_scraper import scrape_linkedin_posts
+2026-01-13 19:04:49,151 - ERROR -    🔥 ModuleNotFoundError: No module named 'apify_scraper'
+2026-01-13 19:04:49,151 - INFO - ================================================================================
+2026-01-13 19:04:49,151 - INFO - 📊 EXECUTION SUMMARY
+2026-01-13 19:04:49,151 - INFO - ================================================================================
+2026-01-13 19:04:49,151 - INFO - ✅ Successful bots: 0/3
+2026-01-13 19:04:49,151 - INFO - ⏱️ Total execution time: 0.6 minutes
+2026-01-13 19:04:49,151 - INFO - 🛑 Safety aborts: 0
+2026-01-13 19:04:49,151 - INFO - ❌ Errors: 3
+2026-01-13 19:04:49,151 - INFO - 🔥 Error details:
+2026-01-13 19:04:49,151 - INFO -    - Connection Bot: Exit code 1
+2026-01-13 19:04:49,151 - INFO -    - Message Bot: Exit code 1
+2026-01-13 19:04:49,151 - INFO -    - Follow-up Bot: Exit code 1
+2026-01-13 19:04:49,151 - INFO - 📄 Detailed stats saved to: execution_stats_20260113_190449.json
+2026-01-13 19:04:49,151 - INFO - ================================================================================
+2026-01-13 19:04:49,151 - INFO - 🎬 LinkedIn Bot Orchestrator Complete
+2026-01-13 19:04:49,151 - INFO - ================================================================================
+2026-01-13 19:05:20,071 - INFO - 🧪 TEST MODE ENABLED - Reduced timings and safety checks
+2026-01-13 19:05:20,071 - INFO - ================================================================================
+2026-01-13 19:05:20,071 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-01-13 19:05:20,071 - INFO - ================================================================================
+2026-01-13 19:05:20,071 - INFO - ⏰ Wake time: 2026-01-13 19:05:20
+2026-01-13 19:05:20,071 - INFO - 🎲 Calculated initial delay: 1.0 minutes
+2026-01-13 19:05:20,071 - INFO - 📅 Estimated completion: 2026-01-13 21:22:20
+2026-01-13 19:05:20,071 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:05:20,071 - INFO - 💤 Starting initial delay: 1.0 minutes
+2026-01-13 19:06:20,077 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:06:20,078 - INFO - 🚀 Starting bot sequence at: 2026-01-13 19:06:20
+2026-01-13 19:06:20,078 - INFO - ================================================================================
+2026-01-13 19:06:20,079 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:06:20,079 - INFO - 🚀 Starting Connection Bot: Drafts connection requests
+2026-01-13 19:06:20,683 - ERROR - ❌ Connection Bot failed: Exit code 1
+2026-01-13 19:06:20,683 - ERROR -    🔥 Traceback (most recent call last):
+2026-01-13 19:06:20,683 - ERROR -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/msg_draft_connection_bot1.py", line 14, in <module>
+2026-01-13 19:06:20,683 - ERROR -    🔥 from gemini_outreach import GeminiLinkedInMessager
+2026-01-13 19:06:20,683 - ERROR -    🔥 ModuleNotFoundError: No module named 'gemini_outreach'
+2026-01-13 19:06:20,683 - INFO - ☕ Taking human break: 0.4 minutes (26s)
+2026-01-13 19:06:46,686 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:06:46,686 - INFO - ✅ Break completed - ready for next bot
+2026-01-13 19:06:46,686 - INFO - ================================================================================
+2026-01-13 19:06:46,686 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:06:46,686 - INFO - 🚀 Starting Message Bot: Sends queued messages
+2026-01-13 19:06:47,253 - ERROR - ❌ Message Bot failed: Exit code 1
+2026-01-13 19:06:47,253 - ERROR -    🔥 ...<8 lines>...
+2026-01-13 19:06:47,253 - ERROR -    🔥 )
+2026-01-13 19:06:47,253 - ERROR -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/msg_draft_connection_bot1.py", line 14, in <module>
+2026-01-13 19:06:47,253 - ERROR -    🔥 from gemini_outreach import GeminiLinkedInMessager
+2026-01-13 19:06:47,253 - ERROR -    🔥 ModuleNotFoundError: No module named 'gemini_outreach'
+2026-01-13 19:06:47,253 - INFO - ☕ Taking human break: 0.2 minutes (10s)
+2026-01-13 19:06:57,257 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:06:57,258 - INFO - ✅ Break completed - ready for next bot
+2026-01-13 19:06:57,258 - INFO - ================================================================================
+2026-01-13 19:06:57,258 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:06:57,258 - INFO - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-01-13 19:06:57,655 - ERROR - ❌ Follow-up Bot failed: Exit code 1
+2026-01-13 19:06:57,655 - ERROR -    🔥 ...<8 lines>...
+2026-01-13 19:06:57,655 - ERROR -    🔥 )
+2026-01-13 19:06:57,655 - ERROR -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/msg_draft_connection_bot1.py", line 14, in <module>
+2026-01-13 19:06:57,655 - ERROR -    🔥 from gemini_outreach import GeminiLinkedInMessager
+2026-01-13 19:06:57,655 - ERROR -    🔥 ModuleNotFoundError: No module named 'gemini_outreach'
+2026-01-13 19:06:57,655 - INFO - ================================================================================
+2026-01-13 19:06:57,655 - INFO - 📊 EXECUTION SUMMARY
+2026-01-13 19:06:57,655 - INFO - ================================================================================
+2026-01-13 19:06:57,655 - INFO - ✅ Successful bots: 0/3
+2026-01-13 19:06:57,655 - INFO - ⏱️ Total execution time: 0.6 minutes
+2026-01-13 19:06:57,655 - INFO - 🛑 Safety aborts: 0
+2026-01-13 19:06:57,655 - INFO - ❌ Errors: 3
+2026-01-13 19:06:57,655 - INFO - 🔥 Error details:
+2026-01-13 19:06:57,655 - INFO -    - Connection Bot: Exit code 1
+2026-01-13 19:06:57,655 - INFO -    - Message Bot: Exit code 1
+2026-01-13 19:06:57,655 - INFO -    - Follow-up Bot: Exit code 1
+2026-01-13 19:06:57,656 - INFO - 📄 Detailed stats saved to: execution_stats_20260113_190657.json
+2026-01-13 19:06:57,656 - INFO - ================================================================================
+2026-01-13 19:06:57,656 - INFO - 🎬 LinkedIn Bot Orchestrator Complete
+2026-01-13 19:06:57,656 - INFO - ================================================================================
+2026-01-13 19:07:52,199 - INFO - 🧪 TEST MODE ENABLED - Reduced timings and safety checks
+2026-01-13 19:07:52,199 - INFO - ================================================================================
+2026-01-13 19:07:52,199 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-01-13 19:07:52,199 - INFO - ================================================================================
+2026-01-13 19:07:52,199 - INFO - ⏰ Wake time: 2026-01-13 19:07:52
+2026-01-13 19:07:52,199 - INFO - 🎲 Calculated initial delay: 0.0 minutes
+2026-01-13 19:07:52,199 - INFO - 📅 Estimated completion: 2026-01-13 21:23:52
+2026-01-13 19:07:52,199 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:07:52,199 - INFO - 💤 Starting initial delay: 0.0 minutes
+2026-01-13 19:07:52,199 - INFO - 🚀 Starting bot sequence at: 2026-01-13 19:07:52
+2026-01-13 19:07:52,199 - INFO - ================================================================================
+2026-01-13 19:07:52,199 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:07:52,199 - INFO - 🚀 Starting Connection Bot: Drafts connection requests
+2026-01-13 19:07:57,876 - ERROR - ❌ Connection Bot failed: Exit code 1
+2026-01-13 19:07:57,877 - ERROR -    🔥 13  undetected_chromedriver             0x0000000104c4ea98 undetected_chromedriver + 6515352
+2026-01-13 19:07:57,877 - ERROR -    🔥 14  undetected_chromedriver             0x0000000104c4ec53 undetected_chromedriver + 6515795
+2026-01-13 19:07:57,877 - ERROR -    🔥 15  undetected_chromedriver             0x0000000104c6191c undetected_chromedriver + 6592796
+2026-01-13 19:07:57,877 - ERROR -    🔥 16  libsystem_pthread.dylib             0x00007ff81ab3ae4d _pthread_start + 115
+2026-01-13 19:07:57,877 - ERROR -    🔥 17  libsystem_pthread.dylib             0x00007ff81ab36857 thread_start + 15
+2026-01-13 19:07:57,877 - INFO - ☕ Taking human break: 0.2 minutes (15s)
+2026-01-13 19:08:12,877 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:08:12,878 - INFO - ✅ Break completed - ready for next bot
+2026-01-13 19:08:12,878 - INFO - ================================================================================
+2026-01-13 19:08:12,878 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:08:12,878 - INFO - 🚀 Starting Message Bot: Sends queued messages
+2026-01-13 19:08:22,472 - INFO - ✅ Message Bot completed successfully in 0.2 minutes
+2026-01-13 19:08:22,472 - INFO -    📝 🚀 Opening LinkedIn...
+2026-01-13 19:08:22,472 - INFO -    📝 ❌ Critical Script Error: argument of type 'NoneType' is not iterable
+2026-01-13 19:08:22,473 - INFO -    📝 🔒 Closing browser session...
+2026-01-13 19:08:22,473 - INFO - ☕ Taking human break: 0.3 minutes (20s)
+2026-01-13 19:09:13,560 - INFO - 🧪 TEST MODE ENABLED - Reduced timings and safety checks
+2026-01-13 19:09:13,560 - INFO - ================================================================================
+2026-01-13 19:09:13,561 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-01-13 19:09:13,561 - INFO - ================================================================================
+2026-01-13 19:09:13,561 - INFO - ⏰ Wake time: 2026-01-13 19:09:13
+2026-01-13 19:09:13,561 - INFO - 🎲 Calculated initial delay: 0.0 minutes
+2026-01-13 19:09:13,561 - INFO - 📅 Estimated completion: 2026-01-13 21:25:13
+2026-01-13 19:09:13,561 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:09:13,561 - INFO - 💤 Starting initial delay: 0.0 minutes
+2026-01-13 19:09:13,561 - INFO - 🚀 Starting bot sequence at: 2026-01-13 19:09:13
+2026-01-13 19:09:13,561 - INFO - ================================================================================
+2026-01-13 19:09:13,561 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:09:13,561 - INFO - 🚀 Starting Connection Bot: Drafts connection requests
+2026-01-13 19:11:29,563 - INFO - ✅ Connection Bot completed successfully in 2.3 minutes
+2026-01-13 19:11:29,564 - INFO -    📝 🎉 Batch job complete!
+2026-01-13 19:11:29,564 - INFO -    📝 🔒 Closing browser session...
+2026-01-13 19:11:29,564 - INFO - ☕ Taking human break: 0.3 minutes (18s)
+2026-01-13 19:11:47,565 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:11:47,567 - INFO - ✅ Break completed - ready for next bot
+2026-01-13 19:11:47,567 - INFO - ================================================================================
+2026-01-13 19:11:47,567 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:11:47,567 - INFO - 🚀 Starting Message Bot: Sends queued messages
+2026-01-13 19:13:56,327 - INFO - ✅ Message Bot completed successfully in 2.1 minutes
+2026-01-13 19:13:56,327 - INFO -    📝 ✅ Successful messages: 3
+2026-01-13 19:13:56,327 - INFO -    📝 ❌ Failed messages: 0
+2026-01-13 19:13:56,327 - INFO -    📝 🔒 Closing browser session...
+2026-01-13 19:13:56,328 - INFO - ☕ Taking human break: 0.3 minutes (21s)
+2026-01-13 19:14:17,330 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:14:17,332 - INFO - ✅ Break completed - ready for next bot
+2026-01-13 19:14:17,332 - INFO - ================================================================================
+2026-01-13 19:14:17,332 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-13 19:14:17,332 - INFO - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-01-13 19:15:11,239 - INFO - ✅ Follow-up Bot completed successfully in 0.9 minutes
+2026-01-13 19:15:11,240 - INFO -    📝 ✅ Successful follow-ups: 1
+2026-01-13 19:15:11,240 - INFO -    📝 ❌ Failed follow-ups: 0
+2026-01-13 19:15:11,240 - INFO -    📝 🔒 Closing browser session...
+2026-01-13 19:15:11,240 - INFO - ================================================================================
+2026-01-13 19:15:11,240 - INFO - 📊 EXECUTION SUMMARY
+2026-01-13 19:15:11,240 - INFO - ================================================================================
+2026-01-13 19:15:11,240 - INFO - ✅ Successful bots: 3/3
+2026-01-13 19:15:11,240 - INFO - ⏱️ Total execution time: 6.0 minutes
+2026-01-13 19:15:11,240 - INFO - 🛑 Safety aborts: 0
+2026-01-13 19:15:11,240 - INFO - ❌ Errors: 0
+2026-01-13 19:15:11,240 - INFO - 📄 Detailed stats saved to: execution_stats_20260113_191511.json
+2026-01-13 19:15:11,240 - INFO - ================================================================================
+2026-01-13 19:15:11,240 - INFO - 🎬 LinkedIn Bot Orchestrator Complete
+2026-01-13 19:15:11,240 - INFO - ================================================================================

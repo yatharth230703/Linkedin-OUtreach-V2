@@ -1,0 +1,41 @@
+{
+  "wake_time": "2026-01-13T19:05:20.071536",
+  "calculated_delay": 1.0,
+  "actual_start_time": "2026-01-13T19:06:20.078716",
+  "bot_executions": [
+    {
+      "name": "Connection Bot",
+      "script": "msg_draft_connection_bot1.py",
+      "start_time": "2026-01-13T19:06:20.079904",
+      "end_time": "2026-01-13T19:06:20.683733",
+      "duration_seconds": 0.603824,
+      "success": false,
+      "error": "Exit code 1"
+    },
+    {
+      "name": "Message Bot",
+      "script": "send_message.py",
+      "start_time": "2026-01-13T19:06:46.687642",
+      "end_time": "2026-01-13T19:06:47.253909",
+      "duration_seconds": 0.56626,
+      "success": false,
+      "error": "Exit code 1"
+    },
+    {
+      "name": "Follow-up Bot",
+      "script": "send_followup.py",
+      "start_time": "2026-01-13T19:06:57.259087",
+      "end_time": "2026-01-13T19:06:57.655642",
+      "duration_seconds": 0.39655,
+      "success": false,
+      "error": "Exit code 1"
+    }
+  ],
+  "total_duration": 37.57693,
+  "safety_aborts": 0,
+  "errors": [
+    "Connection Bot: Exit code 1",
+    "Message Bot: Exit code 1",
+    "Follow-up Bot: Exit code 1"
+  ]
+}

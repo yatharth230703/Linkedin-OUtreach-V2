@@ -1,4 +1,5 @@
 .env
-/pycache
+/__pycache__
 /user_data_yatharth
 /screenshots
+/venv

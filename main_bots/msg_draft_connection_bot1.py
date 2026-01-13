@@ -455,7 +455,7 @@ def main():
             print("⚠️ No leads found in leads.json. Exiting.")
             return
 
-        daily_limit = 20
+        daily_limit = 18
         count = 0
         
         print(f"📋 Found {len(target_urls)} leads. Processing max {daily_limit} today.")

@@ -1,0 +1,37 @@
+{
+  "wake_time": "2026-01-13T19:09:13.561051",
+  "calculated_delay": 0.0,
+  "actual_start_time": "2026-01-13T19:09:13.561142",
+  "bot_executions": [
+    {
+      "name": "Connection Bot",
+      "script": "msg_draft_connection_bot1.py",
+      "start_time": "2026-01-13T19:09:13.562065",
+      "end_time": "2026-01-13T19:11:29.564669",
+      "duration_seconds": 136.002593,
+      "success": true,
+      "error": null
+    },
+    {
+      "name": "Message Bot",
+      "script": "send_message.py",
+      "start_time": "2026-01-13T19:11:47.569604",
+      "end_time": "2026-01-13T19:13:56.328069",
+      "duration_seconds": 128.758455,
+      "success": true,
+      "error": null
+    },
+    {
+      "name": "Follow-up Bot",
+      "script": "send_followup.py",
+      "start_time": "2026-01-13T19:14:17.333832",
+      "end_time": "2026-01-13T19:15:11.240292",
+      "duration_seconds": 53.906452,
+      "success": true,
+      "error": null
+    }
+  ],
+  "total_duration": 357.679157,
+  "safety_aborts": 0,
+  "errors": []
+}

@@ -429,18 +429,27 @@ def message_all_followup_leads(driver, leads_to_message):
     Iterate through all identified leads and send follow-up messages using their position values.
     Processes leads in order from top to bottom as they appear on LinkedIn page.
     """
-    print(f"🚀 Starting to send follow-up messages to {len(leads_to_message)} leads...")
+    # Set daily limit randomly between 10-15 messages
+    daily_limit = random.randint(10, 15)
+    print(f"🚀 Starting to send follow-up messages (Daily limit: {daily_limit})...")
+    print(f"📋 Found {len(leads_to_message)} leads available for follow-up")
+    
+    # Limit the leads to process based on daily limit
+    leads_to_process = leads_to_message[:daily_limit]
+    
+    if len(leads_to_message) > daily_limit:
+        print(f"⚠️ Limiting to {daily_limit} follow-ups today (out of {len(leads_to_message)} available)")
     
     scroll_to_top(driver)
     
     successful_messages = 0
     failed_messages = 0
     
-    # leads_to_message is now a list, maintaining order from LinkedIn page
-    for idx, lead_data in enumerate(leads_to_message):
+    # leads_to_process is now a list, maintaining order from LinkedIn page
+    for idx, lead_data in enumerate(leads_to_process):
         try:
             name = lead_data['name']
-            print(f"\n📤 Processing follow-up lead {idx + 1}/{len(leads_to_message)}: {name}")
+            print(f"\n📤 Processing follow-up lead {idx + 1}/{len(leads_to_process)}: {name}")
             
             k = lead_data['position_k']
             

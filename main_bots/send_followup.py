@@ -1,11 +1,12 @@
-## since connections are a dynamically updated value I will not download a static version I will dynamically scrape them 
-
-## scrape connections , tally against supabase entries, generate final list and iterate through all leads connections 
+## Follow-up message automation for LinkedIn connections
+## Sends follow-up messages (message_2_draft) to leads where:
+## - status = "first message sent"
+## - last_contacted_at is more than 3 days ago
 
 import os
 import time
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
@@ -13,7 +14,7 @@ from supabase import create_client, Client
 from dotenv import load_dotenv
 
 # Import main automation functions from msg_draft_connection
-from msg_draft_connection import (
+from msg_draft_connection_bot1 import (
     human_pause, 
     human_scroll, 
     human_move_click, 
@@ -25,163 +26,23 @@ from msg_draft_connection import (
 ) 
 
 
-def scrape_all_connections(driver):
+def update_lead_status_to_followup_sent(full_name, headline):
     """
-    Scrape all connections from LinkedIn connections page with infinite scrolling support.
-    Returns a dictionary with connection data.
-    """
-    print("🔍 Starting to scrape connections...")
-    
-    connections_dict = {}
-    seen_profiles = set()  # Track unique profiles to avoid duplicates
-    scroll_attempts = 0
-    max_scroll_attempts = 50  # Prevent infinite loops
-    no_new_connections_count = 0
-    max_no_new_count = 5  # Stop if no new connections found after 5 scrolls
-    
-    while scroll_attempts < max_scroll_attempts and no_new_connections_count < max_no_new_count:
-        try:
-            # Find all connection cards on current view
-            connection_elements = driver.find_elements(
-                By.XPATH, 
-                "//li[contains(@class, 'mn-connection-card')]"
-            )
-            
-            # Alternative selectors in case the main one doesn't work
-            if not connection_elements:
-                connection_elements = driver.find_elements(
-                    By.XPATH,
-                    "//div[contains(@class, 'mn-connection-card')]"
-                )
-            
-            if not connection_elements:
-                connection_elements = driver.find_elements(
-                    By.XPATH,
-                    "//li[contains(@class, 'connection-card')]"
-                )
-            
-            initial_count = len(connections_dict)
-            
-            print(f"   📋 Found {len(connection_elements)} connection elements on screen")
-            
-            # Process each connection element
-            for element in connection_elements:
-                try:
-                    connection_data = {}
-                    
-                    # Extract name
-                    name_elem = element.find_element(By.XPATH, ".//span[contains(@class, 'mn-connection-card__name')]")
-                    if not name_elem:
-                        name_elem = element.find_element(By.XPATH, ".//a[contains(@class, 'mn-connection-card__link')]")
-                    
-                    full_name = name_elem.text.strip()
-                    
-                    # Skip if we've already processed this person
-                    if full_name in seen_profiles:
-                        continue
-                    
-                    seen_profiles.add(full_name)
-                    connection_data['full_name'] = full_name
-                    
-                    # Extract LinkedIn profile URL
-                    try:
-                        profile_link = element.find_element(By.XPATH, ".//a[contains(@href, '/in/')]")
-                        linkedin_url = profile_link.get_attribute('href')
-                        # Clean the URL (remove query parameters)
-                        if '?' in linkedin_url:
-                            linkedin_url = linkedin_url.split('?')[0]
-                        connection_data['linkedin_url'] = linkedin_url
-                    except:
-                        connection_data['linkedin_url'] = "URL not found"
-                    
-                    # Extract headline/title
-                    try:
-                        headline_elem = element.find_element(By.XPATH, ".//span[contains(@class, 'mn-connection-card__occupation')]")
-                        connection_data['headline'] = headline_elem.text.strip()
-                    except:
-                        connection_data['headline'] = "Headline not available"
-                    
-                    # Extract company (if available)
-                    try:
-                        company_elem = element.find_element(By.XPATH, ".//span[contains(@class, 'mn-connection-card__company')]")
-                        connection_data['company'] = company_elem.text.strip()
-                    except:
-                        connection_data['company'] = "Company not available"
-                    
-                    # Extract connection date (if available)
-                    try:
-                        date_elem = element.find_element(By.XPATH, ".//time")
-                        connection_data['connected_date'] = date_elem.get_attribute('datetime')
-                    except:
-                        connection_data['connected_date'] = "Date not available"
-                    
-                    # Use full name as key (could also use LinkedIn URL)
-                    connections_dict[full_name] = connection_data
-                    
-                except Exception as e:
-                    print(f"   ⚠️ Error processing connection element: {e}")
-                    continue
-            
-            new_connections_found = len(connections_dict) - initial_count
-            print(f"   ✅ Processed {new_connections_found} new connections (Total: {len(connections_dict)})")
-            
-            # Check if we found new connections
-            if new_connections_found == 0:
-                no_new_connections_count += 1
-                print(f"   ⏳ No new connections found. Attempt {no_new_connections_count}/{max_no_new_count}")
-            else:
-                no_new_connections_count = 0  # Reset counter if we found new connections
-            
-            # Scroll down to load more connections
-            print("   ⬇️ Scrolling to load more connections...")
-            
-            # Scroll to bottom of page
-            driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-            human_pause(2, 4)
-            
-            # Additional scroll with random offset for human-like behavior
-            human_scroll(driver, max_offset=200)
-            human_pause(1, 2)
-            
-            scroll_attempts += 1
-            
-            # Check if we've reached the end (look for "end of connections" indicator)
-            try:
-                end_indicators = driver.find_elements(
-                    By.XPATH, 
-                    "//*[contains(text(), 'You've reached the end') or contains(text(), 'No more connections')]"
-                )
-                if end_indicators:
-                    print("   🏁 Reached end of connections list")
-                    break
-            except:
-                pass
-                
-        except Exception as e:
-            print(f"   ❌ Error during scrolling iteration {scroll_attempts}: {e}")
-            scroll_attempts += 1
-            human_pause(2, 3)
-            continue
-    
-    print(f"\n🎉 Scraping complete! Found {len(connections_dict)} total connections")
-    print(f"📊 Scroll attempts: {scroll_attempts}")
-    
-    return connections_dict
-
-
-def update_lead_status_to_sent(full_name, headline):
-    """
-    Update the status of a lead to "first message sent" in Supabase.
+    Update the status of a lead to "follow-up sent" and set last_contacted_at timestamp in Supabase.
     Matches by full_name only for reliability.
     """
     try:
-        # Update the lead's status where full_name matches
+        # Get current timestamp in ISO format
+        current_timestamp = datetime.now().isoformat()
+        
+        # Update the lead's status and last_contacted_at where full_name matches
         response = supabase.table('leads').update({
-            'status': 'first message sent'
+            'status': 'follow-up sent',
+            'last_contacted_at': current_timestamp
         }).eq('full_name', full_name).execute()
         
         if response.data:
-            print(f"✅ Updated status for {full_name} to 'first message sent'")
+            print(f"✅ Updated status for {full_name} to 'follow-up sent' with timestamp {current_timestamp}")
             return True
         else:
             print(f"⚠️ No matching lead found in database for {full_name}")
@@ -192,47 +53,64 @@ def update_lead_status_to_sent(full_name, headline):
         return False
 
 
-def get_supabase_leads_data():
+def get_supabase_followup_leads_data():
     """
-    Fetch all leads from Supabase with their full_name, headline, status, and message_1_draft.
+    Fetch leads from Supabase that need follow-up messages:
+    - status = "first message sent"
+    - last_contacted_at is more than 3 days ago
+    - has message_2_draft available
+    
     Returns a dictionary with full_name as key and lead data as value.
     """
     try:
-        print("📊 Fetching all leads data from Supabase...")
-        response = supabase.table('leads').select('full_name, headline, status, message_1_draft').execute()
+        print("📊 Fetching follow-up leads data from Supabase...")
+        
+        # Calculate the cutoff date (3 days ago)
+        three_days_ago = (datetime.now() - timedelta(days=3)).isoformat()
+        
+        # Fetch leads with status "first message sent" and last_contacted_at more than 3 days ago
+        response = supabase.table('leads').select(
+            'full_name, headline, status, message_2_draft, last_contacted_at'
+        ).eq('status', 'first message sent').lt('last_contacted_at', three_days_ago).execute()
         
         leads_data = {}
-        contacted_leads = set()
+        eligible_leads = []
         total_leads = 0
+        skipped_no_draft = 0
         
         for lead in response.data:
             total_leads += 1
             full_name = lead.get('full_name', '').strip()
             headline = lead.get('headline', '').strip()
             status = lead.get('status', '').strip()
-            message_1_draft = lead.get('message_1_draft', '').strip() if lead.get('message_1_draft') else ''
+            message_2_draft = lead.get('message_2_draft', '').strip() if lead.get('message_2_draft') else ''
+            last_contacted_at = lead.get('last_contacted_at', '')
             
             if full_name:
-                # Store lead data using full_name as key (more reliable matching)
-                leads_data[full_name] = {
-                    'full_name': full_name,
-                    'headline': headline,
-                    'status': status,
-                    'message_1_draft': message_1_draft
-                }
-                
-                # Track contacted leads separately
-                if status == "first message sent":
-                    contacted_leads.add(full_name)
+                # Only include leads that have a message_2_draft
+                if message_2_draft:
+                    leads_data[full_name] = {
+                        'full_name': full_name,
+                        'headline': headline,
+                        'status': status,
+                        'message_2_draft': message_2_draft,
+                        'last_contacted_at': last_contacted_at
+                    }
+                    eligible_leads.append(full_name)
+                else:
+                    skipped_no_draft += 1
+                    print(f"⏭️ Skipping {full_name} - no message_2_draft available")
         
-        print(f"✅ Found {total_leads} total leads in database")
-        print(f"   - {len(contacted_leads)} with 'first message sent' status")
-        print(f"   - {len(leads_data) - len(contacted_leads)} available for messaging")
+        print(f"✅ Found {total_leads} leads with 'first message sent' status (>3 days ago)")
+        print(f"   - {len(eligible_leads)} have message_2_draft available")
+        print(f"   - {skipped_no_draft} skipped (no message_2_draft)")
         
-        return leads_data, contacted_leads
+        return leads_data, set(eligible_leads)
         
     except Exception as e:
         print(f"❌ Error fetching Supabase data: {e}")
+        import traceback
+        traceback.print_exc()
         return {}, set()
 
 
@@ -243,20 +121,20 @@ def scroll_to_top(driver):
     human_pause(2, 4)
 
 
-def scrape_all_connections_brute(driver):
+def scrape_all_connections_for_followup(driver):
     """
-    Multi-level framework to scrape connections and identify leads to message.
-    Only processes connections that exist in Supabase database.
+    Multi-level framework to scrape connections and identify leads needing follow-up.
+    Only processes connections that exist in Supabase database and need follow-up.
     Returns dictionary with connection data and their positions for messaging.
     
     IMPORTANT: The order of leads_to_message follows the order scraped from LinkedIn
     (top to bottom), NOT the order in Supabase. This ensures sequential messaging.
     Matching is done by full_name only (more reliable than name+headline).
     """
-    print("🔍 Starting connection scraping and lead identification...")
+    print("🔍 Starting connection scraping and follow-up lead identification...")
     
-    # Get all leads data from Supabase
-    supabase_leads_data, contacted_leads = get_supabase_leads_data()
+    # Get all follow-up leads data from Supabase
+    supabase_leads_data, eligible_leads = get_supabase_followup_leads_data()
     
     ## Scrape names
     names_xp = ""
@@ -272,7 +150,7 @@ def scrape_all_connections_brute(driver):
             print(f"📋 Reached end of names at position {i}")
             break 
     
-    print(f"✅ Found {len(names_list)} names")
+    print(f"✅ Found {len(names_list)} names") 
     print("*" * 80)
     human_pause(3, 5)
     
@@ -299,6 +177,7 @@ def scrape_all_connections_brute(driver):
     connections_dict = {}
     leads_to_message = []  # Changed to list to preserve order
     skipped_not_in_db = 0
+    skipped_not_eligible = 0
     
     # Ensure both lists have same length (take minimum)
     min_length = min(len(names_list), len(headline_list))
@@ -312,7 +191,6 @@ def scrape_all_connections_brute(driver):
         
         # Check if this connection exists in Supabase database (by name only)
         if name not in supabase_leads_data:
-            print(f"⏭️ Skipping {name} - not found in Supabase database")
             skipped_not_in_db += 1
             continue
         
@@ -324,21 +202,21 @@ def scrape_all_connections_brute(driver):
             'headline': headline,  # Use scraped headline for display
             'headline_db': lead_db_data['headline'],  # Store DB headline for reference
             'position_k': k,
-            'contacted': False,
-            'message_1_draft': lead_db_data['message_1_draft'],
-            'status': lead_db_data['status']
+            'message_2_draft': lead_db_data['message_2_draft'],
+            'status': lead_db_data['status'],
+            'last_contacted_at': lead_db_data['last_contacted_at']
         }
         
-        # Check if this lead has been contacted before (status = "first message sent")
-        if name in contacted_leads:
-            connection_data['contacted'] = True
-            print(f"⏭️ Skipping {name} - already has 'first message sent' status")
-        else:
+        # Check if this lead is eligible for follow-up
+        if name in eligible_leads:
             # Append to list to maintain order from LinkedIn page
             leads_to_message.append(connection_data)
-            print(f"🎯 New lead identified (position {k}): {name} - needs first message")
-            if lead_db_data['message_1_draft']:
-                print(f"   📝 Message draft: {lead_db_data['message_1_draft'][:50]}...")
+            print(f"🎯 Follow-up lead identified (position {k}): {name}")
+            print(f"   📅 Last contacted: {lead_db_data['last_contacted_at']}")
+            if lead_db_data['message_2_draft']:
+                print(f"   📝 Follow-up message: {lead_db_data['message_2_draft'][:50]}...")
+        else:
+            skipped_not_eligible += 1
         
         connections_dict[name] = connection_data
     
@@ -346,11 +224,11 @@ def scrape_all_connections_brute(driver):
     print(f"   Total connections scraped: {min_length}")
     print(f"   Skipped (not in database): {skipped_not_in_db}")
     print(f"   Found in database: {len(connections_dict)}")
-    print(f"   Previously contacted: {len(connections_dict) - len(leads_to_message)}")
-    print(f"   New leads to message: {len(leads_to_message)}")
+    print(f"   Not eligible for follow-up: {skipped_not_eligible}")
+    print(f"   Leads needing follow-up: {len(leads_to_message)}")
     
     if leads_to_message:
-        print(f"\n📋 Message order (top to bottom):")
+        print(f"\n📋 Follow-up message order (top to bottom):")
         for i, lead in enumerate(leads_to_message, 1):
             print(f"   {i}. {lead['name']} (position k={lead['position_k']})")
     
@@ -517,121 +395,41 @@ def is_dialog_open(driver):
     return False
 
 
-def find_send_button(driver):
-    """Helper function to find the send button with multiple selectors"""
-    send_selectors = [
-        ".msg-form__send-button",
-        "button.msg-form__send-button",
-        "button[type='submit']",
-        "button[data-control-name='send']",
-    ]
-    
-    xpath_selectors = [
-        "//button[contains(@class, 'msg-form__send')]",
-        "//button[contains(text(), 'Send')]"
-    ]
-    
-    # Try CSS selectors first
-    for selector in send_selectors:
-        try:
-            elements = driver.find_elements(By.CSS_SELECTOR, selector)
-            for elem in elements:
-                if elem.is_displayed() and elem.is_enabled():
-                    print(f"   ✅ Found send button via: {selector}")
-                    return elem
-        except:
-            continue
-    
-    # Try XPath selectors
-    for xpath in xpath_selectors:
-        try:
-            elements = driver.find_elements(By.XPATH, xpath)
-            for elem in elements:
-                if elem.is_displayed() and elem.is_enabled():
-                    print(f"   ✅ Found send button via XPath: {xpath}")
-                    return elem
-        except:
-            continue
-    
-    return None
-
-
-def close_message_dialog(driver, lead_name):
-    """Helper function to close the message dialog"""
-    close_selectors = [
-        ".msg-overlay-bubble-header__control--close-btn",
-        "button[aria-label='Close your conversation']",
-        "button[aria-label*='Close']",
-        ".artdeco-modal__dismiss"
-    ]
-    
-    xpath_selectors = [
-        "//button[contains(@class, 'msg-overlay-bubble-header__control') and contains(@aria-label, 'Close')]",
-        "/html/body/div/div[4]//div/div[3]/div/aside[1]/div[2]/div[1]/header/div[3]/button[2]"
-    ]
-    
-    # Try CSS selectors first
-    for selector in close_selectors:
-        try:
-            close_button = driver.find_element(By.CSS_SELECTOR, selector)
-            if close_button.is_displayed():
-                human_move_click(driver, close_button)
-                print(f"   ✅ Closed message dialog for {lead_name}")
-                human_pause(1, 2)
-                return True
-        except:
-            continue
-    
-    # Try XPath selectors
-    for xpath in xpath_selectors:
-        try:
-            close_button = driver.find_element(By.XPATH, xpath)
-            if close_button.is_displayed():
-                human_move_click(driver, close_button)
-                print(f"   ✅ Closed message dialog via XPath for {lead_name}")
-                human_pause(1, 2)
-                return True
-        except:
-            continue
-    
-    print(f"   ⚠️ Could not find close button for {lead_name}")
-    return False
-
-
-def send_message_to_lead(driver, lead_data):
+def send_followup_to_lead(driver, lead_data):
     """
-    Send message to a specific lead using the message_relay function.
+    Send follow-up message to a specific lead using the message_relay function.
     """
-    print(f"💬 Preparing to send message to: {lead_data['name']}")
+    print(f"💬 Preparing to send follow-up message to: {lead_data['name']}")
     print(f"   Position K: {lead_data['position_k']}")
     print(f"   Headline: {lead_data['headline']}")
+    print(f"   Last contacted: {lead_data['last_contacted_at']}")
     
-    # Get the message draft for this lead
-    message_text = lead_data.get('message_1_draft', '')
+    # Get the follow-up message draft for this lead
+    message_text = lead_data.get('message_2_draft', '')
     
     if not message_text:
-        print(f"⚠️ No message draft found for {lead_data['name']}")
+        print(f"⚠️ No follow-up message draft found for {lead_data['name']}")
         return False
     
-    print(f"   📝 Message: {message_text[:100]}...")
+    print(f"   📝 Follow-up message: {message_text[:100]}...")
     
     # Call message relay to handle the actual messaging
     success = message_relay(driver, message_text, lead_data['name'])
     
     if success:
         # Update status in Supabase after successful message
-        db_success = update_lead_status_to_sent(lead_data['name'], lead_data['headline'])
+        db_success = update_lead_status_to_followup_sent(lead_data['name'], lead_data['headline'])
         return db_success
     
     return False
 
 
-def message_all_leads(driver, leads_to_message):
+def message_all_followup_leads(driver, leads_to_message):
     """
-    Iterate through all identified leads and send messages using their position values.
+    Iterate through all identified leads and send follow-up messages using their position values.
     Processes leads in order from top to bottom as they appear on LinkedIn page.
     """
-    print(f"🚀 Starting to message {len(leads_to_message)} leads...")
+    print(f"🚀 Starting to send follow-up messages to {len(leads_to_message)} leads...")
     
     scroll_to_top(driver)
     
@@ -642,7 +440,7 @@ def message_all_leads(driver, leads_to_message):
     for idx, lead_data in enumerate(leads_to_message):
         try:
             name = lead_data['name']
-            print(f"\n📤 Processing lead {idx + 1}/{len(leads_to_message)}: {name}")
+            print(f"\n📤 Processing follow-up lead {idx + 1}/{len(leads_to_message)}: {name}")
             
             k = lead_data['position_k']
             
@@ -657,15 +455,15 @@ def message_all_leads(driver, leads_to_message):
                 human_move_click(driver, message_button)
                 human_pause(3, 4)
                 
-                # Call the message sending function
-                success = send_message_to_lead(driver, lead_data)
+                # Call the follow-up message sending function
+                success = send_followup_to_lead(driver, lead_data)
                 
                 if success:
                     successful_messages += 1
-                    print(f"✅ Successfully processed message for {name}")
+                    print(f"✅ Successfully processed follow-up message for {name}")
                 else:
                     failed_messages += 1
-                    print(f"❌ Failed to send message to {name}")
+                    print(f"❌ Failed to send follow-up message to {name}")
                 
             except Exception as e:
                 print(f"❌ Error clicking message button for {name}: {e}")
@@ -673,32 +471,29 @@ def message_all_leads(driver, leads_to_message):
                 continue
                 
             # Add delay between messages to avoid rate limiting
-            human_pause(3, 6)
+            human_pause(5, 7)
             
         except Exception as e:
             print(f"❌ Error processing lead {lead_data.get('name', 'unknown')}: {e}")
             failed_messages += 1
             continue
     
-    print(f"\n📊 Messaging Summary:")
+    print(f"\n📊 Follow-up Messaging Summary:")
     print(f"   Successful: {successful_messages}")
     print(f"   Failed: {failed_messages}")
     print(f"   Total processed: {successful_messages + failed_messages}")
     
     return successful_messages, failed_messages
-    
-    
-
 
 
 def main():
-    """Navigate to LinkedIn connections page using the same automation setup"""
+    """Navigate to LinkedIn connections page and send follow-up messages"""
     
     # Copy exact Chrome options from msg_draft_connection.py
     options = uc.ChromeOptions()
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    user_data_path = os.path.join(script_dir, "user_data")
+    user_data_path = os.path.join(script_dir, "user_data_yatharth")
     options.add_argument(f"--user-data-dir={user_data_path}")
     
     options.add_argument('--ignore-certificate-errors')
@@ -718,7 +513,7 @@ def main():
     })
 
     try:
-        print("🚀 Opening LinkedIn...")
+        print("🚀 Opening LinkedIn for follow-up messages...")
         driver.get("https://www.linkedin.com/")
         
         log_action(driver, "linkedin_homepage")
@@ -744,23 +539,26 @@ def main():
         log_action(driver, "connections_page")
         print("✅ Successfully reached connections page!")
         
-        # Scrape connections and identify leads to message
-        connections_dict, leads_to_message = scrape_all_connections_brute(driver)
+        # Scrape connections and identify leads needing follow-up
+        connections_dict, leads_to_message = scrape_all_connections_for_followup(driver)
         
         if leads_to_message:
-            print(f"\n🎯 Found {len(leads_to_message)} new leads to message!")
+            print(f"\n🎯 Found {len(leads_to_message)} leads needing follow-up messages!")
             
-            # Start messaging process
-            successful, failed = message_all_leads(driver, leads_to_message)
+            # Start follow-up messaging process
+            successful, failed = message_all_followup_leads(driver, leads_to_message)
             
-            print(f"\n🏁 Messaging campaign completed!")
-            print(f"   ✅ Successful messages: {successful}")
-            print(f"   ❌ Failed messages: {failed}")
+            print(f"\n🏁 Follow-up messaging campaign completed!")
+            print(f"   ✅ Successful follow-ups: {successful}")
+            print(f"   ❌ Failed follow-ups: {failed}")
         else:
-            print("\n📭 No new leads to message. All connections have been contacted previously.")
+            print("\n📭 No leads need follow-up messages at this time.")
+            print("   Either all leads have been followed up, or it hasn't been 3 days yet.")
 
     except Exception as e:
         print(f"❌ Critical Script Error: {e}")
+        import traceback
+        traceback.print_exc()
         log_action(driver, "critical_failure")
         
     finally:

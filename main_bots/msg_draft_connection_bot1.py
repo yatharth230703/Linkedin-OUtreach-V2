@@ -158,6 +158,27 @@ def get_leads_from_file(filename="leads.json"):
         return []
 
 
+def remove_lead_from_file(url, filename="leads.json"):
+    """Remove a processed lead from leads.json"""
+    try:
+        with open(filename, 'r') as f:
+            leads = json.load(f)
+        
+        # Remove the URL from the list
+        if url in leads:
+            leads.remove(url)
+            
+            # Write back to file
+            with open(filename, 'w') as f:
+                json.dump(leads, f, indent=2)
+            
+            print(f"   🗑️  Removed {url} from leads.json")
+            return True
+    except Exception as e:
+        print(f"   ⚠️ Could not remove lead from file: {e}")
+        return False
+
+
 def check_if_exists(url):
     try:
         response = supabase.table("leads").select("id, status").eq("linkedin_url", url).execute()
@@ -394,7 +415,7 @@ def main():
     options = uc.ChromeOptions()
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    user_data_path = os.path.join(script_dir, "user_data")
+    user_data_path = os.path.join(script_dir, "user_data_yatharth")
     options.add_argument(f"--user-data-dir={user_data_path}")
     
     options.add_argument('--ignore-certificate-errors')
@@ -502,6 +523,10 @@ def main():
                     status=db_status_update, 
                     last_contacted=last_contacted
                 )
+                
+                # --- PHASE 4: CLEANUP ---
+                # Remove from leads.json since it's now processed and in DB
+                remove_lead_from_file(url, "leads.json")
                 
                 count += 1
 

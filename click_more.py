@@ -271,7 +271,7 @@ def main():
     options = uc.ChromeOptions()
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    user_data_path = os.path.join(script_dir, "user_data")
+    user_data_path = os.path.join(script_dir, "user_data_yatharth")
     options.add_argument(f"--user-data-dir={user_data_path}")
     
     options.add_argument('--ignore-certificate-errors')

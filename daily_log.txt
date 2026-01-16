@@ -220,3 +220,31 @@
 2026-01-13 19:15:11,240 - INFO - ================================================================================
 2026-01-13 19:15:11,240 - INFO - 🎬 LinkedIn Bot Orchestrator Complete
 2026-01-13 19:15:11,240 - INFO - ================================================================================
+2026-01-14 19:04:29,587 - INFO - 🧪 TEST MODE ENABLED - Reduced timings and safety checks
+2026-01-14 19:04:29,588 - INFO - ================================================================================
+2026-01-14 19:04:29,588 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-01-14 19:04:29,588 - INFO - ================================================================================
+2026-01-14 19:04:29,588 - INFO - ⏰ Wake time: 2026-01-14 19:04:29
+2026-01-14 19:04:29,588 - INFO - 🎲 Calculated initial delay: 2.0 minutes
+2026-01-14 19:04:29,588 - INFO - 📅 Estimated completion: 2026-01-14 21:22:29
+2026-01-14 19:04:29,588 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-14 19:04:29,588 - INFO - 💤 Starting initial delay: 2.0 minutes
+2026-01-14 19:06:08,773 - INFO - 🧪 TEST MODE ENABLED - Reduced timings and safety checks
+2026-01-14 19:06:08,773 - INFO - ================================================================================
+2026-01-14 19:06:08,773 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-01-14 19:06:08,773 - INFO - ================================================================================
+2026-01-14 19:06:08,773 - INFO - ⏰ Wake time: 2026-01-14 19:06:08
+2026-01-14 19:06:08,773 - INFO - 🎲 Calculated initial delay: 2.0 minutes
+2026-01-14 19:06:08,773 - INFO - 📅 Estimated completion: 2026-01-14 21:24:08
+2026-01-14 19:06:08,773 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-14 19:06:08,773 - INFO - 💤 Starting initial delay: 2.0 minutes
+2026-01-14 19:08:08,775 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-14 19:08:08,776 - INFO - 🚀 Starting bot sequence at: 2026-01-14 19:08:08
+2026-01-14 19:08:08,776 - INFO - ================================================================================
+2026-01-14 19:08:08,777 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-14 19:08:08,777 - INFO - 🚀 Starting Connection Bot: Drafts connection requests
+2026-01-14 19:08:22,098 - INFO - ✅ Connection Bot completed successfully in 0.2 minutes
+2026-01-14 19:08:22,099 - INFO -    📝 ✅ Session Active. Ready to start automation.
+2026-01-14 19:08:22,099 - INFO -    📝 ⚠️ No leads found in leads.json. Exiting.
+2026-01-14 19:08:22,099 - INFO -    📝 🔒 Closing browser session...
+2026-01-14 19:08:22,099 - INFO - ☕ Taking human break: 0.5 minutes (28s)

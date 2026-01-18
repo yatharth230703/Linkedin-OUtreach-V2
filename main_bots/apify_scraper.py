@@ -1,10 +1,31 @@
 """Apify LinkedIn Posts Scraper Module"""
 import os
 import json
+from datetime import datetime, timedelta
 from apify_client import ApifyClient
 from dotenv import load_dotenv
 
 load_dotenv()
+
+def is_within_one_month(posted_date: str) -> bool:
+    """
+    Check if a post date is within the last month.
+    
+    Args:
+        posted_date: Date string in format 'YYYY-MM-DD'
+    
+    Returns:
+        True if within last month, False otherwise
+    """
+    if not posted_date:
+        return False
+    
+    try:
+        post_date = datetime.strptime(posted_date, '%Y-%m-%d')
+        one_month_ago = datetime.now() - timedelta(days=30)
+        return post_date >= one_month_ago
+    except (ValueError, TypeError):
+        return False
 
 def scrape_linkedin_posts(linkedin_url: str, limit: int = 100) -> list[dict]:
     """
@@ -35,6 +56,16 @@ def scrape_linkedin_posts(linkedin_url: str, limit: int = 100) -> list[dict]:
     
     filtered_results = []
     for item in client.dataset(run["defaultDatasetId"]).iterate_items():
+        # Filter for regular posts only
+        post_type = item.get("post_type")
+        if post_type != "regular":
+            continue
+        
+        # Filter for posts within the last month
+        posted_date = item.get("posted_at", {}).get("date")
+        if not is_within_one_month(posted_date):
+            continue
+        
         filtered_item = {
             "posted_at": {
                 "date": item.get("posted_at", {}).get("date"),

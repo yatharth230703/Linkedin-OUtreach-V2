@@ -249,8 +249,9 @@ def message_relay(driver, message_text, lead_name):
         # Send message using Ctrl+Enter
         print(f"   📤 Sending message via Ctrl+Enter...")
         actions = ActionChains(driver)
-        actions.key_down(Keys.CONTROL).send_keys(Keys.RETURN).key_up(Keys.CONTROL).perform()
-        
+        actions.send_keys(Keys.RETURN).perform()
+        #actions.send_keys(Keys.RETURN).perform()
+
         print(f"   ✅ Message sent to {lead_name}")
         human_pause(2, 3)
         
@@ -293,11 +294,13 @@ def close_dialog_safely(driver, lead_name):
     if dialog_still_open:
         print(f"   ⚠️ Dialog still open, trying additional close methods...")
         
-        # Method 2: Try clicking the close button
+        # Method 2: Try clicking the close button (English and German labels)
         close_selectors = [
             ".msg-overlay-bubble-header__control--close-btn",
             "button[aria-label='Close your conversation']",
+            "button[aria-label='Schließen Sie Ihr Gespräch']",
             "button[aria-label*='Close']",
+            "button[aria-label*='Schließen']",
             ".artdeco-modal__dismiss"
         ]
         
@@ -440,12 +443,19 @@ def message_all_leads(driver, leads_to_message):
             
             k = lead_data['position_k']
             
-            # Construct message button XPath using position k       
+            # Construct message button XPath using position k - try both English and German
             message_button_xpath = f"/html/body/div/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div[{k}]/div/div[2]/div/div/a"
             
             try:
                 # Find and click the message button
                 message_button = driver.find_element(By.XPATH, message_button_xpath)
+                
+                # Verify it's actually a message button (English or German)
+                button_text = message_button.get_attribute("aria-label") or message_button.text
+                if not any(keyword in button_text.lower() for keyword in ["message", "nachricht"]):
+                    print(f"⚠️ Button found but not a message button: {button_text}")
+                    failed_messages += 1
+                    continue
                 
                 # Human-like click
                 human_move_click(driver, message_button)
@@ -479,7 +489,6 @@ def message_all_leads(driver, leads_to_message):
     print(f"   Failed: {failed_messages}")
     print(f"   Total processed: {successful_messages + failed_messages}")
     
-    return successful_messages, failed_messages
     
     return successful_messages, failed_messages
     

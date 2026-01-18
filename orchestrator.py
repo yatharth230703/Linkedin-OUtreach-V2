@@ -52,10 +52,10 @@ class LinkedInBotOrchestrator:
         
         # Apply test mode settings after logging is set up
         if test_mode:
-            self.MAX_INITIAL_DELAY_MINUTES = 2  # 2 minutes max delay
+            self.MAX_INITIAL_DELAY_MINUTES = 0  # No initial delay in test mode
             self.MIN_BREAK_SECONDS = 10  # 10 seconds
             self.MAX_BREAK_SECONDS = 30  # 30 seconds
-            self.logger.info("🧪 TEST MODE ENABLED - Reduced timings and safety checks")
+            self.logger.info("🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks")
         
         # Bot execution order and paths
         self.script_dir = Path(__file__).parent

@@ -301,12 +301,14 @@ class LinkedInInteractionManager:
         """
         Determines if the user is CONNECTED, NOT_CONNECTED, or PENDING.
         """
-        # 1. Check for "Pending" button (Invited but not accepted)
-        if self._is_element_present("//button[contains(., 'Pending')]"):
+        # 1. Check for "Pending" button (Invited but not accepted) - English or German
+        if (self._is_element_present("//button[contains(., 'Pending')]") or
+            self._is_element_present("//button[contains(., 'Ausstehend')]")):
             return "PENDING"
 
-        # 2. Check for Visible "Connect" button
-        if self._is_element_present("//button[.//span[text()='Connect']]"):
+        # 2. Check for Visible "Connect" button (English or German)
+        if (self._is_element_present("//button[.//span[text()='Connect']]") or 
+            self._is_element_present("//button[.//span[text()='Vernetzen']]")):
             return "NOT_CONNECTED"
 
         # 3. Check for "Connect" hidden in "More" dropdown
@@ -315,7 +317,8 @@ class LinkedInInteractionManager:
         # However, to be certain, we assume "CONNECTED" if "Message" is present 
         # AND "Connect" is NOT visible.
         
-        has_message_btn = self._is_element_present("//button[starts-with(@aria-label, 'Message')]")
+        has_message_btn = (self._is_element_present("//button[starts-with(@aria-label, 'Message')]") or
+                           self._is_element_present("//button[starts-with(@aria-label, 'Nachricht')]"))
         
         if has_message_btn:
             return "CONNECTED"
@@ -337,7 +340,8 @@ class LinkedInInteractionManager:
             try:
                 connect_xpath = f"/html/body/div[{i}]/div[3]/div/div/div[2]/div/div/main/section[1]/div[2]/div[3]/div/button"
                 connect_click = self.driver.find_element(By.XPATH, connect_xpath)
-                if connect_click.text == "Connect":
+                # Check for both English and German text
+                if connect_click.text in ["Connect", "Vernetzen"]:
                     human_move_click(self.driver, connect_click)
                     human_pause(3, 5)
                     connect_found = True
@@ -349,13 +353,13 @@ class LinkedInInteractionManager:
             # Scenario B: Hidden inside "More" button (using click_more.py approach)
             print("   🕵️ 'Connect' hidden. Checking 'More' menu...")
             
-            # Find and click "More" button
+            # Find and click "More" button (English or German)
             more_found = False
             for i in range(3, 8):
                 try:
                     more_xpath = f"/html/body/div[{i}]/div[3]/div/div/div[2]/div/div/main/section[1]/div[2]/div[3]/div/div[2]/button"
                     more_button = self.driver.find_element(By.XPATH, more_xpath)
-                    if more_button.text == "More":
+                    if more_button.text in ["More", "Mehr"]:
                         human_move_click(self.driver, more_button)
                         human_pause(3, 4)
                         more_found = True
@@ -367,13 +371,13 @@ class LinkedInInteractionManager:
                 print("   ❌ No 'More' button found.")
                 return False
             
-            # Find and click "Connect" in dropdown
+            # Find and click "Connect" in dropdown (English or German)
             connect_in_dropdown = False
             for i in range(3, 8):
                 try:
                     more_connect_xpath = f"/html/body/div[{i}]/div[3]/div/div/div[2]/div/div/main/section[1]/div[2]/div[3]/div/div[2]/div/div/ul/li[3]/div"
                     connect_click = self.driver.find_element(By.XPATH, more_connect_xpath)
-                    if connect_click.text == "Connect":
+                    if connect_click.text in ["Connect", "Vernetzen"]:
                         human_move_click(self.driver, connect_click)
                         human_pause(3, 5)
                         connect_in_dropdown = True
@@ -385,25 +389,54 @@ class LinkedInInteractionManager:
                 print("   ⚠️ Could not find 'Connect' in More dropdown.")
                 return False
 
-        # Handle "Add a Note" Modal (Always Send without Note)
+        # Handle "Add a Note" Modal (Always Send without Note) - Support both English and German
         human_pause(1, 2)
         
-        # Try to find "Send without a note" button using the exact XPath from click_more.py
+        # Try to find "Send without a note" button using the exact XPath from click_more.py (English or German)
         try:
             send_btn = self.driver.find_element(By.XPATH, "/html/body/div[4]/div/div/div[3]/button[2]")
-            if send_btn.text == "Send without a note":
+            if send_btn.text in ["Send without a note", "Ohne Notiz senden"]:
                 human_move_click(self.driver, send_btn)
                 human_pause(3, 4)
                 print("   ✅ Connection request sent (No Note).")
                 return True
         except Exception:
             # Fallback to the original approach if the exact XPath doesn't work
-            send_no_note_xpath = "//button[@aria-label='Send without a note']"
-            if self._is_element_present(send_no_note_xpath):
-                send_btn = self.driver.find_element(By.XPATH, send_no_note_xpath)
-                human_move_click(self.driver, send_btn)
-                print("   ✅ Connection request sent (No Note).")
-                return True
+            send_no_note_selectors = [
+                "//button[@aria-label='Send without a note']",
+                "//button[@aria-label='Ohne Notiz senden']",
+                "//button[contains(text(), 'Send without a note')]",
+                "//button[contains(text(), 'Ohne Notiz senden')]"
+            ]
+            
+            for selector in send_no_note_selectors:
+                if self._is_element_present(selector):
+                    send_btn = self.driver.find_element(By.XPATH, selector)
+                    human_move_click(self.driver, send_btn)
+                    print("   ✅ Connection request sent (No Note).")
+                    return True
+        # Also try alternative selectors for German interface
+        alternative_selectors = [
+            "//button[contains(text(), 'Nachricht hinzufügen')]",  # "Add message" in German
+            "//button[contains(text(), 'Ohne Notiz senden')]",     # "Send without note" in German
+            "/html/body/div[3]/div/div/div[3]/button[2]",          # Alternative div structure
+            "/html/body/div[5]/div/div/div[3]/button[2]"           # Another alternative
+        ]
+        
+        for selector in alternative_selectors:
+            try:
+                if selector.startswith("//"):
+                    elements = self.driver.find_elements(By.XPATH, selector)
+                else:
+                    elements = self.driver.find_elements(By.CSS_SELECTOR, selector)
+                
+                for elem in elements:
+                    if elem.is_displayed() and elem.text in ["Send without a note", "Ohne Notiz senden"]:
+                        human_move_click(self.driver, elem)
+                        print("   ✅ Connection request sent (No Note) - Alternative method.")
+                        return True
+            except:
+                continue
         
         # Sometimes it just sends without modal (rare, but possible)
         print("   ⚠️ No modal appeared. Assuming request sent.")

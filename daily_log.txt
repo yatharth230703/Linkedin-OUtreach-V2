@@ -248,3 +248,21 @@
 2026-01-14 19:08:22,099 - INFO -    📝 ⚠️ No leads found in leads.json. Exiting.
 2026-01-14 19:08:22,099 - INFO -    📝 🔒 Closing browser session...
 2026-01-14 19:08:22,099 - INFO - ☕ Taking human break: 0.5 minutes (28s)
+2026-01-18 21:54:03,033 - INFO - 🧪 TEST MODE ENABLED - Reduced timings and safety checks
+2026-01-18 21:54:03,034 - INFO - ================================================================================
+2026-01-18 21:54:03,034 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-01-18 21:54:03,034 - INFO - ================================================================================
+2026-01-18 21:54:03,034 - INFO - ⏰ Wake time: 2026-01-18 21:54:03
+2026-01-18 21:54:03,034 - INFO - 🎲 Calculated initial delay: 1.0 minutes
+2026-01-18 21:54:03,034 - INFO - 📅 Estimated completion: 2026-01-19 00:11:03
+2026-01-18 21:54:03,034 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-18 21:54:03,034 - INFO - 💤 Starting initial delay: 1.0 minutes
+2026-01-18 21:54:09,037 - INFO - 🧪 TEST MODE ENABLED - Reduced timings and safety checks
+2026-01-18 21:54:09,037 - INFO - ================================================================================
+2026-01-18 21:54:09,037 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-01-18 21:54:09,037 - INFO - ================================================================================
+2026-01-18 21:54:09,037 - INFO - ⏰ Wake time: 2026-01-18 21:54:09
+2026-01-18 21:54:09,037 - INFO - 🎲 Calculated initial delay: 2.0 minutes
+2026-01-18 21:54:09,037 - INFO - 📅 Estimated completion: 2026-01-19 00:12:09
+2026-01-18 21:54:09,037 - INFO - 🧪 Test mode - skipping user presence checks
+2026-01-18 21:54:09,037 - INFO - 💤 Starting initial delay: 2.0 minutes

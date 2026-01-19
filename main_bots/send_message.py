@@ -6,6 +6,7 @@ import os
 import time
 import random
 from datetime import datetime
+from difflib import SequenceMatcher
 import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
@@ -24,6 +25,62 @@ from msg_draft_connection_bot1 import (
     supabase
 ) 
 
+
+
+def validate_lead_match(scraped_name, scraped_headline, db_lead_data, similarity_threshold=0.7):
+    """
+    Validate that scraped LinkedIn data matches Supabase database entry.
+    
+    Args:
+        scraped_name: Name scraped from LinkedIn
+        scraped_headline: Headline scraped from LinkedIn  
+        db_lead_data: Lead data from Supabase database
+        similarity_threshold: Minimum similarity score (0.0-1.0)
+    
+    Returns:
+        dict: {
+            'is_match': bool,
+            'confidence': float,
+            'reason': str,
+            'should_proceed': bool,
+            'name_similarity': float,
+            'headline_similarity': float
+        }
+    """
+    db_name = db_lead_data.get('full_name', '').strip()
+    db_headline = db_lead_data.get('headline', '').strip()
+    
+    # Name matching (should be exact or very close)
+    name_similarity = SequenceMatcher(None, scraped_name.lower(), db_name.lower()).ratio()
+    
+    # Headline matching (can be more flexible)
+    headline_similarity = SequenceMatcher(None, scraped_headline.lower(), db_headline.lower()).ratio()
+    
+    # Overall confidence score
+    confidence = (name_similarity * 0.7) + (headline_similarity * 0.3)
+    
+    # Determine if it's a match
+    is_match = name_similarity > 0.9 and headline_similarity > similarity_threshold
+    
+    # Determine if we should proceed
+    should_proceed = is_match or (name_similarity > 0.95 and headline_similarity > 0.5)
+    
+    # Reason for decision
+    if is_match:
+        reason = f"Strong match (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+    elif should_proceed:
+        reason = f"Acceptable match with manual review (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+    else:
+        reason = f"Poor match - potential mismatch (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+    
+    return {
+        'is_match': is_match,
+        'confidence': confidence,
+        'reason': reason,
+        'should_proceed': should_proceed,
+        'name_similarity': name_similarity,
+        'headline_similarity': headline_similarity
+    }
 
 
 def update_lead_status_to_sent(full_name, headline):
@@ -160,6 +217,7 @@ def scrape_all_connections_brute(driver):
     connections_dict = {}
     leads_to_message = []  # Changed to list to preserve order
     skipped_not_in_db = 0
+    skipped_poor_match = 0
     
     # Ensure both lists have same length (take minimum)
     min_length = min(len(names_list), len(headline_list))
@@ -180,6 +238,21 @@ def scrape_all_connections_brute(driver):
         # Get lead data from Supabase
         lead_db_data = supabase_leads_data[name]
         
+        # Validate that scraped data matches database data
+        validation_result = validate_lead_match(name, headline, lead_db_data)
+        
+        if not validation_result['should_proceed']:
+            print(f"⚠️ Skipping {name} - {validation_result['reason']}")
+            print(f"   Scraped headline: {headline}")
+            print(f"   Database headline: {lead_db_data['headline']}")
+            skipped_poor_match += 1
+            continue
+        
+        if not validation_result['is_match']:
+            print(f"🔍 Proceeding with caution for {name} - {validation_result['reason']}")
+            print(f"   Scraped headline: {headline}")
+            print(f"   Database headline: {lead_db_data['headline']}")
+        
         connection_data = {
             'name': name,
             'headline': headline,  # Use scraped headline for display
@@ -187,7 +260,8 @@ def scrape_all_connections_brute(driver):
             'position_k': k,
             'contacted': False,
             'message_1_draft': lead_db_data['message_1_draft'],
-            'status': lead_db_data['status']
+            'status': lead_db_data['status'],
+            'validation_result': validation_result  # Store validation info
         }
         
         # Check if this lead has been contacted before (status = "first message sent")
@@ -198,6 +272,7 @@ def scrape_all_connections_brute(driver):
             # Append to list to maintain order from LinkedIn page
             leads_to_message.append(connection_data)
             print(f"🎯 New lead identified (position {k}): {name} - needs first message")
+            print(f"   🎯 Match confidence: {validation_result['confidence']:.2f}")
             if lead_db_data['message_1_draft']:
                 print(f"   📝 Message draft: {lead_db_data['message_1_draft'][:50]}...")
         
@@ -206,6 +281,7 @@ def scrape_all_connections_brute(driver):
     print(f"\n📊 Summary:")
     print(f"   Total connections scraped: {min_length}")
     print(f"   Skipped (not in database): {skipped_not_in_db}")
+    print(f"   Skipped (poor match): {skipped_poor_match}")
     print(f"   Found in database: {len(connections_dict)}")
     print(f"   Previously contacted: {len(connections_dict) - len(leads_to_message)}")
     print(f"   New leads to message: {len(leads_to_message)}")

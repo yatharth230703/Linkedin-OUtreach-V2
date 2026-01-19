@@ -1,3 +1,4 @@
-2026/01/14-19:08:11.153 51d360 Reusing MANIFEST /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Local Storage/leveldb/MANIFEST-000001
-2026/01/14-19:08:11.156 51d360 Recovering log #8
-2026/01/14-19:08:11.157 51d360 Reusing old log /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Local Storage/leveldb/000008.log 
+2026/01/19-16:17:05.117 89b00c Reusing MANIFEST /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Local Storage/leveldb/MANIFEST-000001
+2026/01/19-16:17:05.122 89b00c Recovering log #8
+2026/01/19-16:17:05.122 89b00c (ignoring error) /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Local Storage/leveldb/000008.log: dropping 21325 bytes; Corruption: checksum mismatch
+2026/01/19-16:17:05.122 89b00c Reusing old log /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Local Storage/leveldb/000008.log 

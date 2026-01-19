@@ -12,7 +12,7 @@ def is_within_one_month(posted_date: str) -> bool:
     Check if a post date is within the last month.
     
     Args:
-        posted_date: Date string in format 'YYYY-MM-DD'
+        posted_date: Date string in format 'YYYY-MM-DD HH:MM:SS' or 'YYYY-MM-DD'
     
     Returns:
         True if within last month, False otherwise
@@ -21,7 +21,13 @@ def is_within_one_month(posted_date: str) -> bool:
         return False
     
     try:
-        post_date = datetime.strptime(posted_date, '%Y-%m-%d')
+        # Try parsing with time first (format: '2026-01-19 07:43:34')
+        if ' ' in posted_date:
+            post_date = datetime.strptime(posted_date, '%Y-%m-%d %H:%M:%S')
+        else:
+            # Fallback to date only format
+            post_date = datetime.strptime(posted_date, '%Y-%m-%d')
+        
         one_month_ago = datetime.now() - timedelta(days=30)
         return post_date >= one_month_ago
     except (ValueError, TypeError):

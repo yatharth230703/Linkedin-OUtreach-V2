@@ -13,9 +13,6 @@ from dotenv import load_dotenv
 from apify_scraper import scrape_linkedin_posts
 from gemini_outreach import GeminiLinkedInMessager
 
-# Import proxy configuration
-from proxy_config import setup_proxy_for_chrome, print_proxy_status
-
 load_dotenv()
 
 # --- Supabase Configuration ---
@@ -448,9 +445,6 @@ class LinkedInInteractionManager:
 
 
 def main():
-    # Print proxy status
-    print_proxy_status()
-    
     options = uc.ChromeOptions()
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -466,9 +460,6 @@ def main():
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
     ]
     options.add_argument(f'--user-agent={user_agents[0]}')
-
-    # Setup proxy configuration
-    options = setup_proxy_for_chrome(options)
 
     driver = uc.Chrome(options=options)
 

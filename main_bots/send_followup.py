@@ -24,7 +24,10 @@ from msg_draft_connection_bot1 import (
     SUPABASE_URL,
     SUPABASE_KEY,
     supabase
-) 
+)
+
+# Import proxy configuration
+from proxy_config import setup_proxy_for_chrome, print_proxy_status 
 
 
 def validate_lead_match(scraped_name, scraped_headline, db_lead_data, similarity_threshold=0.7):
@@ -583,6 +586,9 @@ def message_all_followup_leads(driver, leads_to_message):
 def main():
     """Navigate to LinkedIn connections page and send follow-up messages"""
     
+    # Print proxy status
+    print_proxy_status()
+    
     # Copy exact Chrome options from msg_draft_connection.py
     options = uc.ChromeOptions()
     
@@ -599,6 +605,9 @@ def main():
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
     ]
     options.add_argument(f'--user-agent={user_agents[0]}')
+
+    # Setup proxy configuration
+    options = setup_proxy_for_chrome(options)
 
     driver = uc.Chrome(options=options)
 

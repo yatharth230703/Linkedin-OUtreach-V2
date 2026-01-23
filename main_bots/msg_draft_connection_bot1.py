@@ -12,9 +12,7 @@ from dotenv import load_dotenv
 
 from apify_scraper import scrape_linkedin_posts
 from gemini_outreach import GeminiLinkedInMessager
-
-# Import proxy configuration
-from proxy_config import setup_proxy_for_chrome, print_proxy_status
+from proxy_requests import get_proxy_session
 
 load_dotenv()
 
@@ -447,15 +445,38 @@ class LinkedInInteractionManager:
 
 
 
-def main():
-    # Print proxy status
-    print_proxy_status()
+def test_proxy_connection():
+    """Test proxy connection and show IP information"""
+    proxy_session = get_proxy_session()
     
+    try:
+        print("🔍 Testing proxy connection...")
+        response = proxy_session.get("https://httpbin.org/ip", timeout=10)
+        
+        if response.status_code == 200:
+            ip_data = response.json()
+            proxy_ip = ip_data.get("origin", "Unknown")
+            print(f"✅ Proxy working! IP: {proxy_ip}")
+            return True
+        else:
+            print(f"⚠️ Proxy test failed with status: {response.status_code}")
+            return False
+            
+    except Exception as e:
+        print(f"❌ Proxy test failed: {e}")
+        return False
+
+def main():
+    # Test proxy connection first
+    test_proxy_connection()
+    
+    # Setup Chrome options (no proxy for browser)
     options = uc.ChromeOptions()
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
     user_data_path = os.path.join(script_dir, "user_data_yatharth")
     options.add_argument(f"--user-data-dir={user_data_path}")
+    options.add_argument("--profile-directory=Default")
     
     options.add_argument('--ignore-certificate-errors')
     options.add_argument('--ignore-ssl-errors')
@@ -467,9 +488,7 @@ def main():
     ]
     options.add_argument(f'--user-agent={user_agents[0]}')
 
-    # Setup proxy configuration
-    options = setup_proxy_for_chrome(options)
-
+    # Create driver with undetected-chromedriver (no proxy issues)
     driver = uc.Chrome(options=options)
 
     driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
@@ -479,7 +498,7 @@ def main():
     try:
         print("🚀 Opening LinkedIn...")
         driver.get("https://www.linkedin.com/")
-        
+        #time.sleep(100)
         log_action(driver, "linkedin_homepage")
         human_pause(3, 5)
 

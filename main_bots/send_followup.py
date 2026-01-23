@@ -26,8 +26,8 @@ from msg_draft_connection_bot1 import (
     supabase
 )
 
-# Import proxy configuration
-from proxy_config import setup_proxy_for_chrome, print_proxy_status 
+# Import proxy session for HTTP requests
+from proxy_requests import get_proxy_session 
 
 
 def validate_lead_match(scraped_name, scraped_headline, db_lead_data, similarity_threshold=0.7):
@@ -586,10 +586,7 @@ def message_all_followup_leads(driver, leads_to_message):
 def main():
     """Navigate to LinkedIn connections page and send follow-up messages"""
     
-    # Print proxy status
-    print_proxy_status()
-    
-    # Copy exact Chrome options from msg_draft_connection.py
+    # Setup Chrome options (no proxy for browser)
     options = uc.ChromeOptions()
     
     script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -606,9 +603,7 @@ def main():
     ]
     options.add_argument(f'--user-agent={user_agents[0]}')
 
-    # Setup proxy configuration
-    options = setup_proxy_for_chrome(options)
-
+    # Create driver with undetected-chromedriver
     driver = uc.Chrome(options=options)
 
     driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {

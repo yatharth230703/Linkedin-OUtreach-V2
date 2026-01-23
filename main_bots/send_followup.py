@@ -29,6 +29,9 @@ from msg_draft_connection_bot1 import (
 # Import proxy session for HTTP requests
 from proxy_requests import get_proxy_session 
 
+# Import login functionality
+from login_credentials import ensure_linkedin_login 
+
 
 def validate_lead_match(scraped_name, scraped_headline, db_lead_data, similarity_threshold=0.7):
     """
@@ -586,29 +589,15 @@ def message_all_followup_leads(driver, leads_to_message):
 def main():
     """Navigate to LinkedIn connections page and send follow-up messages"""
     
-    # Setup Chrome options (no proxy for browser)
-    options = uc.ChromeOptions()
+    # Ensure LinkedIn login before starting bot operations
+    print("🔐 Ensuring LinkedIn login...")
+    driver = ensure_linkedin_login()
     
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    user_data_path = os.path.join(script_dir, "user_data_yatharth")
-    options.add_argument(f"--user-data-dir={user_data_path}")
+    if not driver:
+        print("❌ Could not establish LinkedIn session. Exiting.")
+        return
     
-    options.add_argument('--ignore-certificate-errors')
-    options.add_argument('--ignore-ssl-errors')
-    options.add_argument('--disable-webrtc')
-    options.set_capability('acceptInsecureCerts', True)
-
-    user_agents = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-    ]
-    options.add_argument(f'--user-agent={user_agents[0]}')
-
-    # Create driver with undetected-chromedriver
-    driver = uc.Chrome(options=options)
-
-    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-        "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-    })
+    print("✅ LinkedIn session established. Starting follow-up bot...")
 
     try:
         print("🚀 Opening LinkedIn for follow-up messages...")
@@ -616,13 +605,6 @@ def main():
         
         log_action(driver, "linkedin_homepage")
         human_pause(3, 5)
-
-        # Check if user is logged in (same logic as original)
-        if "feed" not in driver.current_url and ("login" in driver.current_url or "signup" in driver.current_url):
-            print("⚠️ User is NOT logged in.")
-            print("👉 Please log in manually in the browser window now.")
-            print("👉 Press ENTER in this terminal once you see your LinkedIn Feed...")
-            input()
         
         print("✅ Session Active. Ready to navigate to connections.")
         human_scroll(driver)

@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from apify_scraper import scrape_linkedin_posts
 from gemini_outreach import GeminiLinkedInMessager
 from proxy_requests import get_proxy_session
+from login_credentials import ensure_linkedin_login
 
 load_dotenv()
 
@@ -470,44 +471,22 @@ def main():
     # Test proxy connection first
     test_proxy_connection()
     
-    # Setup Chrome options (no proxy for browser)
-    options = uc.ChromeOptions()
+    # Ensure LinkedIn login before starting bot operations
+    print("🔐 Ensuring LinkedIn login...")
+    driver = ensure_linkedin_login()
     
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    user_data_path = os.path.join(script_dir, "user_data_yatharth")
-    options.add_argument(f"--user-data-dir={user_data_path}")
-    options.add_argument("--profile-directory=Default")
+    if not driver:
+        print("❌ Could not establish LinkedIn session. Exiting.")
+        return
     
-    options.add_argument('--ignore-certificate-errors')
-    options.add_argument('--ignore-ssl-errors')
-    options.add_argument('--disable-webrtc')
-    options.set_capability('acceptInsecureCerts', True)
-
-    user_agents = [
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36"
-    ]
-    options.add_argument(f'--user-agent={user_agents[0]}')
-
-    # Create driver with undetected-chromedriver (no proxy issues)
-    driver = uc.Chrome(options=options)
-
-    driver.execute_cdp_cmd("Page.addScriptToEvaluateOnNewDocument", {
-        "source": "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-    })
+    print("✅ LinkedIn session established. Starting bot operations...")
 
     try:
         print("🚀 Opening LinkedIn...")
         driver.get("https://www.linkedin.com/")
-        #time.sleep(100)
         log_action(driver, "linkedin_homepage")
         human_pause(3, 5)
 
-        if "feed" not in driver.current_url and ("login" in driver.current_url or "signup" in driver.current_url):
-            print("⚠️ User is NOT logged in.")
-            print("👉 Please log in manually in the browser window now.")
-            print("👉 Press ENTER in this terminal once you see your LinkedIn Feed...")
-            input()
-        
         print("✅ Session Active. Ready to start automation.")
         human_scroll(driver)
 

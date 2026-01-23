@@ -88,3 +88,5 @@ def scrape_linkedin_posts(linkedin_url: str, limit: int = 100) -> list[dict]:
         filtered_results.append(filtered_item)
     
     return filtered_results
+
+

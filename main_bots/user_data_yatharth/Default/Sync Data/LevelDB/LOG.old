@@ -1,3 +1,2 @@
-2026/01/24-01:31:46.659 b75cbf Reusing MANIFEST /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Sync Data/LevelDB/MANIFEST-000001
-2026/01/24-01:31:46.660 b75cbf Recovering log #3
-2026/01/24-01:31:46.660 b75cbf Reusing old log /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Sync Data/LevelDB/000003.log 
+2026/01/24-04:41:39.403 b97983 Creating DB /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Sync Data/LevelDB since it was missing.
+2026/01/24-04:41:39.424 b97983 Reusing MANIFEST /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/main_bots/user_data_yatharth/Default/Sync Data/LevelDB/MANIFEST-000001

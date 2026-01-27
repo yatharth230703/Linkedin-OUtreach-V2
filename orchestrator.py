@@ -35,7 +35,7 @@ class LinkedInBotOrchestrator:
     Master orchestrator for LinkedIn automation bots with safety features.
     """
     
-    def __init__(self, test_mode=False):
+    def __init__(self, test_mode=False, template_name="template_1"):
         # Configuration
         self.EXECUTION_WINDOW_HOURS = 5
         self.MAX_INITIAL_DELAY_MINUTES = 180  # 3 hours
@@ -46,6 +46,7 @@ class LinkedInBotOrchestrator:
         
         # Initialize test mode flag first
         self.test_mode = test_mode
+        self.template_name = template_name
         
         # Initialize logging BEFORE using it
         self.setup_logging()
@@ -57,9 +58,12 @@ class LinkedInBotOrchestrator:
             self.MAX_BREAK_SECONDS = 30  # 30 seconds
             self.logger.info("🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks")
         
+        # Log template selection
+        self.logger.info(f"🎯 Using prompt template: {template_name}")
+        
         # Bot execution order and paths
         self.script_dir = Path(__file__).parent
-        self.main_bots_dir = self.script_dir / "main_bots"
+        self.main_bots_dir = self.script_dir / "Linkedin_cloud_bot"
         
         self.bot_sequence = [
             {
@@ -93,7 +97,7 @@ class LinkedInBotOrchestrator:
         
         # Bot execution order and paths
         self.script_dir = Path(__file__).parent
-        self.main_bots_dir = self.script_dir / "main_bots"
+        self.main_bots_dir = self.script_dir / "Linkedin_cloud_bot"
         
         self.bot_sequence = [
             {
@@ -357,9 +361,15 @@ class LinkedInBotOrchestrator:
         start_time = datetime.now()
         
         try:
+            # Build command with template argument for connection bot
+            cmd = [sys.executable, str(script_path)]
+            if bot_config["script"] == "msg_draft_connection_bot1.py":
+                cmd.append(f"--{self.template_name}")
+                self.logger.info(f"   🎯 Using template: {self.template_name}")
+            
             # Execute bot script
             result = subprocess.run(
-                [sys.executable, str(script_path)],
+                cmd,
                 cwd=str(self.main_bots_dir),  # Set working directory
                 capture_output=True,
                 text=True,
@@ -569,10 +579,22 @@ def main():
     parser = argparse.ArgumentParser(description='LinkedIn Bot Orchestrator')
     parser.add_argument('--test', action='store_true', 
                        help='Run in test mode (reduced delays, skip safety checks)')
+    parser.add_argument('--template_1', action='store_const', const='template_1', dest='template',
+                       help='Use template 1 (default professional outreach)')
+    parser.add_argument('--template_2', action='store_const', const='template_2', dest='template',
+                       help='Use template 2')
+    parser.add_argument('--template_3', action='store_const', const='template_3', dest='template',
+                       help='Use template 3')
+    parser.add_argument('--template_4', action='store_const', const='template_4', dest='template',
+                       help='Use template 4')
+    
     args = parser.parse_args()
     
+    # Default to template_1 if no template specified
+    template_name = args.template or 'template_1'
+    
     try:
-        orchestrator = LinkedInBotOrchestrator(test_mode=args.test)
+        orchestrator = LinkedInBotOrchestrator(test_mode=args.test, template_name=template_name)
         success = orchestrator.run_orchestration()
         
         # Exit with appropriate code

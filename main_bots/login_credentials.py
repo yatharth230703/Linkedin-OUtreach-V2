@@ -208,6 +208,105 @@ def find_element_with_fallback(driver, xpath, css_selector, element_name):
     print(f"❌ Could not find {element_name}")
     return None
 
+def check_linkedin_app_challenge(driver):
+    """
+    Check if LinkedIn is showing the "Check your LinkedIn app" challenge screen
+    This appears for some accounts with 2FA before the OTP verification
+    Returns True if app challenge is detected, False otherwise
+    """
+    try:
+        print("🔍 Checking for LinkedIn app challenge screen...")
+        
+        # Multiple selectors to detect the app challenge screen
+        app_challenge_selectors = [
+            # Main heading
+            ("//h1[contains(text(), 'Check your LinkedIn app')]", "heading: Check your LinkedIn app"),
+            ("//h1[@class='header__content__heading__inapp']", "class: header__content__heading__inapp"),
+            # Subheading text
+            ("//p[contains(text(), 'We sent a notification to your signed in devices')]", "text: notification sent"),
+            ("//p[@class='header__content__subheading']", "class: header__content__subheading"),
+            # Resend button
+            ("//button[@id='reset-password-submit-button']", "ID: reset-password-submit-button"),
+            ("//button[@class='form__submit__inapp']", "class: form__submit__inapp"),
+            # Try another way link
+            ("//a[@id='try-another-way']", "ID: try-another-way"),
+            ("//a[contains(text(), 'Verify using SMS')]", "text: Verify using SMS"),
+            # Page title
+            ("//title[contains(text(), 'LinkedIn App Challenge')]", "title: LinkedIn App Challenge"),
+        ]
+        
+        for selector, description in app_challenge_selectors:
+            try:
+                if selector.startswith("//"):
+                    element = driver.find_element(By.XPATH, selector)
+                else:
+                    element = driver.find_element(By.CSS_SELECTOR, selector)
+                
+                if element and element.is_displayed():
+                    print(f"✅ App challenge detected using: {description}")
+                    return True
+            except Exception:
+                continue
+        
+        print("❌ No app challenge screen detected")
+        return False
+        
+    except Exception as e:
+        print(f"⚠️ Error checking for app challenge: {e}")
+        return False
+
+def handle_linkedin_app_challenge(driver):
+    """
+    Handle the LinkedIn app challenge screen
+    Waits for user to approve on their mobile app, then continues
+    """
+    try:
+        print("\n📱 LINKEDIN APP CHALLENGE DETECTED")
+        print("=" * 60)
+        print("🔔 LinkedIn sent a notification to your signed-in devices")
+        print("📱 Please open your LinkedIn mobile app and tap 'Yes' to confirm")
+        print("⏳ Waiting for you to approve the login on your mobile device...")
+        print("=" * 60)
+        
+        # Log the current state for debugging
+        log_action(driver, "app_challenge_detected")
+        
+        # Wait for the user to approve on their mobile device
+        # LinkedIn typically redirects automatically after approval
+        max_wait_time = 120  # 2 minutes maximum wait
+        check_interval = 3   # Check every 3 seconds
+        
+        for i in range(0, max_wait_time, check_interval):
+            print(f"⏳ Waiting... ({i + check_interval}s / {max_wait_time}s)")
+            human_pause(check_interval - 0.5, check_interval + 0.5)
+            
+            # Check if we're still on the app challenge page
+            if not check_linkedin_app_challenge(driver):
+                print("✅ App challenge completed! Continuing with login flow...")
+                log_action(driver, "app_challenge_completed")
+                return True
+            
+            # Check if we've been redirected to a different page
+            current_url = driver.current_url.lower()
+            if "checkpoint" not in current_url and "challenge" not in current_url:
+                print("✅ Redirected away from challenge page - assuming approved")
+                log_action(driver, "app_challenge_redirected")
+                return True
+        
+        # If we've waited the maximum time, ask user to manually continue
+        print("⏰ Maximum wait time reached")
+        print("👉 If you've approved on your mobile device, press ENTER to continue")
+        print("👉 If you need to use SMS verification instead, we'll handle that next")
+        input("Press ENTER when ready to continue...")
+        
+        log_action(driver, "app_challenge_manual_continue")
+        return True
+        
+    except Exception as e:
+        print(f"❌ Error handling app challenge: {e}")
+        log_action(driver, "app_challenge_error")
+        return False
+
 def check_if_logged_in(driver):
     """
     Sanity check function to determine if user is logged in
@@ -587,10 +686,21 @@ def linkedin_login():
         human_move_click(driver, signin_button)
         
         # Wait for login to process
-        human_pause(5, 8)
+        human_pause(2, 3)  # Shorter initial wait to check for app challenge
         log_action(driver, "login_attempted")
         
-        # First, check if login was successful using our sanity check
+        # Check for LinkedIn app challenge first (appears immediately after login)
+        if check_linkedin_app_challenge(driver):
+            if not handle_linkedin_app_challenge(driver):
+                print("❌ Failed to handle app challenge")
+                log_action(driver, "app_challenge_failed")
+                driver.quit()
+                return None
+            
+            # After app challenge, wait a bit more for page to settle
+            human_pause(3, 5)
+        
+        # Check if login was successful using our sanity check
         if check_if_logged_in(driver):
             print("✅ Login successful! Session cookies saved to user data directory.")
             log_action(driver, "login_success")

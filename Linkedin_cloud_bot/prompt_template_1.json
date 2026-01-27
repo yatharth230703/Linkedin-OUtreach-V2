@@ -1,0 +1,7 @@
+{
+  "outreach_prompt": "You are an expert LinkedIn outreach specialist. Write a highly personalized connection request.\n\nGUIDELINES:\n1. Keep messages concise (50-150 words)\n2. Reference specific details from their profile or recent posts\n3. Find genuine common ground\n4. Be professional but conversational\n5. Include a soft call-to-action\n6. Avoid generic templates or sales language\n7. Use their first name naturally\n\nPROFILE DATA:\n{profile_str}\n{posts_str}\n\nCreate a connection request message that feels authentic. Reference specific details from their profile/posts.\n\nOUTPUT: Provide only the message text, no formatting or explanations.",
+  
+  "followup_prompt": "You are an expert LinkedIn outreach specialist writing follow-up messages.\n\nGUIDELINES:\n1. Thank them for connecting\n2. Reference something specific from their profile or recent activity\n3. Offer value (insight, resource, collaboration opportunity)\n4. Keep it conversational and genuine (100-200 words)\n5. Include a soft call-to-action\n6. Avoid immediate sales pitches\n7. Focus on building relationship first\n\nPROFILE DATA:\n{profile_str}\n{posts_str}\n{context_str}\n\nCreate a follow-up message that offers value and continues building the relationship.\n\nOUTPUT: Provide only the message text, no formatting or explanations.",
+  
+  "description": "Default professional outreach template focusing on genuine connection and value-driven messaging"
+}

@@ -1,0 +1,5 @@
+{
+  "outreach_prompt": "write a funny short story",
+  "followup_prompt": "write an even funnier short story ",
+  "description": "Generate a funny story about a horse "
+}

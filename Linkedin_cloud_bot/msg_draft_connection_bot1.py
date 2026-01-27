@@ -235,11 +235,11 @@ def fetch_profile_posts(linkedin_url: str) -> list[dict]:
         return []
 
 
-def generate_ai_messages(profile_data: dict, posts_data: list[dict]) -> tuple[str, str]:
-    """Generate outreach and followup messages using Gemini"""
+def generate_ai_messages(profile_data: dict, posts_data: list[dict], template_name: str = "template_1") -> tuple[str, str]:
+    """Generate outreach and followup messages using Gemini with specified template"""
     try:
-        print("   🤖 Generating AI messages...")
-        messager = GeminiLinkedInMessager()
+        print(f"   🤖 Generating AI messages using {template_name}...")
+        messager = GeminiLinkedInMessager(template_name=template_name)
         messages = messager.generate_messages(profile_data, posts_data)
         print("   ✅ Messages generated")
         return messages.outreach_message, messages.followup_message
@@ -587,6 +587,25 @@ def handle_faulty_url(url):
 
 
 def main():
+    import argparse
+    
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='LinkedIn Connection Bot with Template Support')
+    parser.add_argument('--template_1', action='store_const', const='template_1', dest='template',
+                       help='Use template 1 (default professional outreach)')
+    parser.add_argument('--template_2', action='store_const', const='template_2', dest='template',
+                       help='Use template 2')
+    parser.add_argument('--template_3', action='store_const', const='template_3', dest='template',
+                       help='Use template 3')
+    parser.add_argument('--template_4', action='store_const', const='template_4', dest='template',
+                       help='Use template 4')
+    
+    args = parser.parse_args()
+    
+    # Default to template_1 if no template specified
+    template_name = args.template or 'template_1'
+    print(f"🎯 Using prompt template: {template_name}")
+    
     # Test proxy connection first
     test_proxy_connection()
     
@@ -663,7 +682,7 @@ def main():
                     continue
                 
                 posts_data = fetch_profile_posts(url)
-                outreach_msg, followup_msg = generate_ai_messages(profile_data, posts_data)
+                outreach_msg, followup_msg = generate_ai_messages(profile_data, posts_data, template_name)
                 print("   ✅ Data gathering complete.")
 
                 # --- CRITICAL FIX: RESET VIEWPORT ---

@@ -467,6 +467,93 @@ def test_proxy_connection():
         print(f"❌ Proxy test failed: {e}")
         return False
 
+def is_valid_linkedin_url(url):
+    """
+    Validate if the URL is a proper LinkedIn profile URL.
+    Returns True if valid, False if faulty.
+    """
+    try:
+        # Basic URL validation
+        if not url or not isinstance(url, str):
+            return False
+        
+        # Check if it's a LinkedIn URL
+        if not url.startswith(('http://', 'https://')):
+            return False
+        
+        # Check if it contains linkedin.com
+        if 'linkedin.com' not in url.lower():
+            return False
+        
+        # Check if it's a profile URL (contains /in/)
+        if '/in/' not in url:
+            return False
+        
+        # Check for common faulty patterns
+        faulty_patterns = [
+            'linkedin.com/company/',  # Company page instead of profile
+            'linkedin.com/school/',   # School page
+            'linkedin.com/posts/',    # Post URL
+            'linkedin.com/feed/',     # Feed URL
+            'linkedin.com/jobs/',     # Jobs URL
+            'linkedin.com/search/',   # Search URL
+            'linkedin.com/groups/',   # Groups URL
+        ]
+        
+        for pattern in faulty_patterns:
+            if pattern in url.lower():
+                return False
+        
+        return True
+        
+    except Exception:
+        return False
+
+
+def handle_faulty_url(url):
+    """
+    Handle faulty URLs by saving minimal data to Supabase.
+    Only linkedin_url and id get real values, rest remain empty, name = "FAULTY LINK"
+    """
+    print(f"   ⚠️ Faulty URL detected: {url}")
+    
+    try:
+        # Create minimal payload for faulty URLs
+        faulty_payload = {
+            "linkedin_url": url,
+            "full_name": "FAULTY LINK",
+            "headline": "",
+            "about_section": "",
+            "experience_text": "",
+            "message_1_draft": "",
+            "status": "FAULTY_URL",
+            "connection_status": "FAULTY_URL",
+            "last_scraped_at": datetime.now().isoformat()
+        }
+        
+        # Try to add new columns if they exist
+        try:
+            faulty_payload.update({
+                "profile_posts": None,
+                "message_2_draft": "",
+            })
+        except:
+            pass  # Ignore if columns don't exist
+        
+        # Save to database
+        supabase.table("leads").insert(faulty_payload).execute()
+        print(f"   ✅ Faulty URL saved to DB: {url}")
+        
+        # Remove from leads.json since it's processed
+        remove_lead_from_file(url, "leads.json")
+        
+        return True
+        
+    except Exception as e:
+        print(f"   ❌ Error saving faulty URL to DB: {e}")
+        return False
+
+
 def main():
     # Test proxy connection first
     test_proxy_connection()
@@ -507,6 +594,13 @@ def main():
 
             print(f"\n[{count + 1}/{daily_limit}] 🔍 Checking: {url}")
 
+            # PHASE 0: VALIDATE URL FIRST
+            if not is_valid_linkedin_url(url):
+                print(f"   🚫 Invalid LinkedIn URL detected: {url}")
+                handle_faulty_url(url)
+                count += 1  # Still count towards daily limit
+                continue
+
             exists, record = check_if_exists(url)
             if exists:
                 status = record.get('status', 'UNKNOWN')
@@ -516,8 +610,25 @@ def main():
             li_manager = LinkedInInteractionManager(driver)
 
             try:
+                # Try to navigate to the URL
                 driver.get(url)
                 human_pause(4, 7)
+                
+                # Check if we actually landed on a LinkedIn profile page
+                current_url = driver.current_url.lower()
+                page_title = driver.title.lower()
+                
+                # Additional validation after page load
+                if ('linkedin.com' not in current_url or 
+                    'page not found' in page_title or 
+                    'profile not found' in page_title or
+                    '404' in page_title or
+                    '/in/' not in current_url):
+                    
+                    print(f"   🚫 Page load validation failed. URL leads to invalid page.")
+                    handle_faulty_url(url)
+                    count += 1
+                    continue
 
                 # --- PHASE 1: DATA GATHERING (Scraping) ---
                 # This naturally scrolls down to Experience/About sections
@@ -525,6 +636,17 @@ def main():
                 # Initial scroll to trigger lazy loading
                 human_scroll(driver, max_offset=600)
                 profile_data = scrape_profile_data(driver)
+                
+                # Additional validation: Check if we got meaningful profile data
+                if (profile_data["full_name"] == "Unknown" or 
+                    not profile_data["full_name"] or 
+                    len(profile_data["full_name"].strip()) < 2):
+                    
+                    print(f"   🚫 Could not extract valid profile data. Treating as faulty URL.")
+                    handle_faulty_url(url)
+                    count += 1
+                    continue
+                
                 posts_data = fetch_profile_posts(url)
                 outreach_msg, followup_msg = generate_ai_messages(profile_data, posts_data)
                 print("   ✅ Data gathering complete.")
@@ -572,7 +694,14 @@ def main():
 
             except Exception as e_inner:
                 print(f"   ❌ Error processing this lead: {e_inner}")
+                print(f"   🚫 Treating as faulty URL due to processing error.")
+                
+                # Log the error for debugging
                 log_action(driver, "error_lead_processing")
+                
+                # Handle as faulty URL to ensure continuity
+                handle_faulty_url(url)
+                count += 1
                 continue
 
             sleep_time = random.randint(60, 180) 

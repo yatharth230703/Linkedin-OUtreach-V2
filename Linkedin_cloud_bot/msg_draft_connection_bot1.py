@@ -467,46 +467,78 @@ def test_proxy_connection():
         print(f"❌ Proxy test failed: {e}")
         return False
 
-def is_valid_linkedin_url(url):
+def is_profile_accessible(driver, url):
     """
-    Validate if the URL is a proper LinkedIn profile URL.
-    Returns True if valid, False if faulty.
+    Check if the LinkedIn profile URL is accessible (not 404 or deleted).
+    Returns True if accessible, False if 404/not found.
     """
     try:
-        # Basic URL validation
-        if not url or not isinstance(url, str):
-            return False
+        # Navigate to the URL
+        driver.get(url)
+        human_pause(4, 7)
         
-        # Check if it's a LinkedIn URL
-        if not url.startswith(('http://', 'https://')):
-            return False
+        # Get current page info
+        current_url = driver.current_url.lower()
+        page_title = driver.title.lower()
         
-        # Check if it contains linkedin.com
-        if 'linkedin.com' not in url.lower():
-            return False
-        
-        # Check if it's a profile URL (contains /in/)
-        if '/in/' not in url:
-            return False
-        
-        # Check for common faulty patterns
-        faulty_patterns = [
-            'linkedin.com/company/',  # Company page instead of profile
-            'linkedin.com/school/',   # School page
-            'linkedin.com/posts/',    # Post URL
-            'linkedin.com/feed/',     # Feed URL
-            'linkedin.com/jobs/',     # Jobs URL
-            'linkedin.com/search/',   # Search URL
-            'linkedin.com/groups/',   # Groups URL
+        # Check for 404 indicators
+        error_indicators = [
+            'page not found',
+            'profile not found', 
+            'this profile doesn\'t exist',
+            'user not found',
+            '404',
+            'not available',
+            'profile unavailable',
+            'member not found',
+            'this linkedin member doesn\'t exist'
         ]
         
-        for pattern in faulty_patterns:
-            if pattern in url.lower():
+        # Check page title for error indicators
+        for indicator in error_indicators:
+            if indicator in page_title:
+                print(f"   🚫 404 detected in page title: {page_title}")
                 return False
         
-        return True
+        # Check if redirected away from LinkedIn profile
+        if 'linkedin.com' not in current_url or '/in/' not in current_url:
+            print(f"   🚫 Redirected away from profile: {current_url}")
+            return False
         
-    except Exception:
+        # Check page source for error messages
+        try:
+            page_source = driver.page_source.lower()
+            error_messages = [
+                'this profile doesn\'t exist',
+                'profile not found',
+                'member not found',
+                'page not found',
+                'user not found'
+            ]
+            
+            for error_msg in error_messages:
+                if error_msg in page_source:
+                    print(f"   🚫 404 detected in page content: {error_msg}")
+                    return False
+                    
+        except Exception:
+            pass  # If we can't check page source, continue with other checks
+        
+        # Check if we can find basic profile elements (name)
+        try:
+            name_elem = driver.find_element(By.TAG_NAME, "h1")
+            if name_elem and name_elem.text.strip():
+                print(f"   ✅ Profile accessible - found name: {name_elem.text.strip()}")
+                return True
+        except Exception:
+            pass
+        
+        # If we can't find a name element, it might be a 404 or restricted profile
+        print(f"   🚫 No profile name found - likely 404 or restricted")
+        return False
+        
+    except Exception as e:
+        print(f"   ❌ Error checking profile accessibility: {e}")
         return False
 
 
@@ -594,13 +626,6 @@ def main():
 
             print(f"\n[{count + 1}/{daily_limit}] 🔍 Checking: {url}")
 
-            # PHASE 0: VALIDATE URL FIRST
-            if not is_valid_linkedin_url(url):
-                print(f"   🚫 Invalid LinkedIn URL detected: {url}")
-                handle_faulty_url(url)
-                count += 1  # Still count towards daily limit
-                continue
-
             exists, record = check_if_exists(url)
             if exists:
                 status = record.get('status', 'UNKNOWN')
@@ -609,27 +634,17 @@ def main():
 
             li_manager = LinkedInInteractionManager(driver)
 
-            try:
-                # Try to navigate to the URL
-                driver.get(url)
-                human_pause(4, 7)
-                
-                # Check if we actually landed on a LinkedIn profile page
-                current_url = driver.current_url.lower()
-                page_title = driver.title.lower()
-                
-                # Additional validation after page load
-                if ('linkedin.com' not in current_url or 
-                    'page not found' in page_title or 
-                    'profile not found' in page_title or
-                    '404' in page_title or
-                    '/in/' not in current_url):
-                    
-                    print(f"   🚫 Page load validation failed. URL leads to invalid page.")
-                    handle_faulty_url(url)
-                    count += 1
-                    continue
+            # PHASE 0: CHECK IF PROFILE IS ACCESSIBLE (404 detection)
+            if not is_profile_accessible(driver, url):
+                print(f"   🚫 Profile not accessible (404 or deleted): {url}")
+                handle_faulty_url(url)
+                count += 1  # Still count towards daily limit
+                continue
 
+            try:
+                # Profile is accessible, continue with data gathering
+                # Note: We already navigated to the URL in is_profile_accessible()
+                
                 # --- PHASE 1: DATA GATHERING (Scraping) ---
                 # This naturally scrolls down to Experience/About sections
                 print("   ⬇️  Scraping profile data (scrolling down)...")
@@ -659,7 +674,7 @@ def main():
                 human_pause(2, 3)  # Wait for scroll to finish and layout to settle
 
                 # --- PHASE 2: INTERACTION (Connecting/Messaging) ---
-                print("   🔍 Checking Connection Status...")
+                print("   � Checking Connection Status...")
                 status = li_manager.get_connection_status()
                 print(f"   👉 Status: {status}")
 

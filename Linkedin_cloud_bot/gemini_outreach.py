@@ -14,7 +14,10 @@ load_dotenv()
 class OutreachMessages:
     """Container for generated outreach messages"""
     outreach_message: str
-    followup_message: str
+    followup_message_1: str
+    followup_message_2: str
+    followup_message_3: str
+    followup_message_4: str
 
 
 class GeminiLinkedInMessager:
@@ -34,12 +37,15 @@ class GeminiLinkedInMessager:
                 template_data = json.load(f)
             
             # Validate template has required fields
-            if not template_data.get('outreach_prompt') or not template_data.get('followup_prompt'):
+            required_fields = ['outreach_prompt', 'followup_1_prompt', 'followup_2_prompt', 'followup_3_prompt', 'followup_4_prompt']
+            missing_fields = [field for field in required_fields if not template_data.get(field)]
+            
+            if missing_fields:
                 if template_name != "template_1":
-                    print(f"⚠️ Template {template_name} is empty or invalid, falling back to template_1")
+                    print(f"⚠️ Template {template_name} is missing fields: {missing_fields}, falling back to template_1")
                     return self._load_template("template_1")
                 else:
-                    raise ValueError("Template 1 must have valid prompts")
+                    raise ValueError(f"Template 1 must have all required prompts. Missing: {missing_fields}")
             
             print(f"✅ Loaded template: {template_name} - {template_data.get('description', 'No description')}")
             return template_data
@@ -133,7 +139,7 @@ Experience: {profile_data.get('experience', '')}
 
         return self._generate_content(prompt)
     
-    def generate_followup_message(self, profile_data: dict, posts_data: list[dict] = None, context: str = "", debug: bool = False) -> str:
+    def generate_followup_message(self, profile_data: dict, posts_data: list[dict] = None, context: str = "", followup_number: int = 1, debug: bool = False) -> str:
         """
         Generate a follow-up message after connection acceptance using the loaded template.
         
@@ -141,6 +147,7 @@ Experience: {profile_data.get('experience', '')}
             profile_data: Dict with full_name, headline, about, experience
             posts_data: Optional list of recent posts
             context: Additional context about previous interaction
+            followup_number: Which follow-up this is (1-4)
             debug: If True, print debug information about posts data
         
         Returns:
@@ -170,22 +177,31 @@ Experience: {profile_data.get('experience', '')}
         
         context_str = f"\nAdditional context: {context}" if context else ""
         
+        # Select the appropriate prompt based on follow-up number
+        prompt_key = f'followup_{followup_number}_prompt'
+        
+        if prompt_key not in self.template_data:
+            print(f"⚠️ Warning: {prompt_key} not found in template, using followup_1_prompt as fallback")
+            prompt_key = 'followup_1_prompt'
+        
         # Use template prompt and format with data
-        prompt = self.template_data['followup_prompt'].format(
+        prompt = self.template_data[prompt_key].format(
             profile_str=profile_str,
             posts_str=posts_str,
             context_str=context_str
         )
         
         if debug:
+            print(f"   🔍 DEBUG: Using prompt: {prompt_key}")
             print(f"   🔍 DEBUG: Final prompt length: {len(prompt)} chars")
             print(f"   🔍 DEBUG: Posts section in prompt: {'Recent Posts:' in prompt}")
+            print(f"   🔍 DEBUG: Follow-up number: {followup_number}")
 
         return self._generate_content(prompt)
     
     def generate_messages(self, profile_data: dict, posts_data: list[dict] = None, debug: bool = False) -> OutreachMessages:
         """
-        Generate both outreach and followup messages.
+        Generate outreach and 4 follow-up messages.
         
         Args:
             profile_data: Dict with full_name, headline, about, experience
@@ -193,12 +209,27 @@ Experience: {profile_data.get('experience', '')}
             debug: If True, print debug information about posts data
         
         Returns:
-            OutreachMessages dataclass with both messages
+            OutreachMessages dataclass with outreach and 4 follow-up messages
         """
+        print("   🤖 Generating initial outreach message...")
         outreach = self.generate_outreach_message(profile_data, posts_data, debug=debug)
-        followup = self.generate_followup_message(profile_data, posts_data, debug=debug)
+        
+        print("   🤖 Generating follow-up message 1...")
+        followup_1 = self.generate_followup_message(profile_data, posts_data, followup_number=1, debug=debug)
+        
+        print("   🤖 Generating follow-up message 2...")
+        followup_2 = self.generate_followup_message(profile_data, posts_data, followup_number=2, debug=debug)
+        
+        print("   🤖 Generating follow-up message 3...")
+        followup_3 = self.generate_followup_message(profile_data, posts_data, followup_number=3, debug=debug)
+        
+        print("   🤖 Generating follow-up message 4...")
+        followup_4 = self.generate_followup_message(profile_data, posts_data, followup_number=4, debug=debug)
         
         return OutreachMessages(
             outreach_message=outreach,
-            followup_message=followup
+            followup_message_1=followup_1,
+            followup_message_2=followup_2,
+            followup_message_3=followup_3,
+            followup_message_4=followup_4
         )

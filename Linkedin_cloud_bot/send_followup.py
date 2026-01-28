@@ -89,10 +89,52 @@ def validate_lead_match(scraped_name, scraped_headline, db_lead_data, similarity
     }
 
 
-def update_lead_status_to_followup_sent(full_name, headline):
+def determine_next_followup_message(lead_data):
     """
-    Update the status of a lead to "follow-up sent" and set last_contacted_at timestamp in Supabase.
+    Determine which follow-up message to send next based on status.
+    
+    Status progression:
+    - "first message sent" -> send message_2_draft (follow-up 1)
+    - "follow-up 1 sent" -> send message_3_draft (follow-up 2)
+    - "follow-up 2 sent" -> send message_4_draft (follow-up 3)
+    - "follow-up 3 sent" -> send message_5_draft (follow-up 4)
+    - "follow-up 4 sent" -> no more follow-ups
+    
+    Returns:
+        tuple: (message_text, next_status, followup_number) or (None, None, None) if no more follow-ups
+    """
+    status = lead_data.get('status', '').strip()
+    
+    if status == "first message sent":
+        message = lead_data.get('message_2_draft', '').strip()
+        return (message, "follow-up 1 sent", 1) if message else (None, None, None)
+    
+    elif status == "follow-up 1 sent":
+        message = lead_data.get('message_3_draft', '').strip()
+        return (message, "follow-up 2 sent", 2) if message else (None, None, None)
+    
+    elif status == "follow-up 2 sent":
+        message = lead_data.get('message_4_draft', '').strip()
+        return (message, "follow-up 3 sent", 3) if message else (None, None, None)
+    
+    elif status == "follow-up 3 sent":
+        message = lead_data.get('message_5_draft', '').strip()
+        return (message, "follow-up 4 sent", 4) if message else (None, None, None)
+    
+    else:
+        # No more follow-ups or unknown status
+        return (None, None, None)
+
+
+def update_lead_status_to_followup_sent(full_name, headline, next_status):
+    """
+    Update the status of a lead to the next follow-up status and set last_contacted_at timestamp in Supabase.
     Matches by full_name only for reliability.
+    
+    Args:
+        full_name: Lead's full name
+        headline: Lead's headline (for logging)
+        next_status: The new status to set (e.g., "follow-up 1 sent", "follow-up 2 sent", etc.)
     """
     try:
         # Get current timestamp in ISO format
@@ -100,12 +142,12 @@ def update_lead_status_to_followup_sent(full_name, headline):
         
         # Update the lead's status and last_contacted_at where full_name matches
         response = supabase.table('leads').update({
-            'status': 'follow-up sent',
+            'status': next_status,
             'last_contacted_at': current_timestamp
         }).eq('full_name', full_name).execute()
         
         if response.data:
-            print(f"✅ Updated status for {full_name} to 'follow-up sent' with timestamp {current_timestamp}")
+            print(f"✅ Updated status for {full_name} to '{next_status}' with timestamp {current_timestamp}")
             return True
         else:
             print(f"⚠️ No matching lead found in database for {full_name}")
@@ -119,9 +161,9 @@ def update_lead_status_to_followup_sent(full_name, headline):
 def get_supabase_followup_leads_data():
     """
     Fetch leads from Supabase that need follow-up messages:
-    - status = "first message sent"
+    - status in ["first message sent", "follow-up 1 sent", "follow-up 2 sent", "follow-up 3 sent"]
     - last_contacted_at is more than 3 days ago
-    - has message_2_draft available
+    - has the appropriate message draft available
     
     Returns a dictionary with full_name as key and lead data as value.
     """
@@ -131,42 +173,65 @@ def get_supabase_followup_leads_data():
         # Calculate the cutoff date (3 days ago)
         three_days_ago = (datetime.now() - timedelta(days=3)).isoformat()
         
-        # Fetch leads with status "first message sent" and last_contacted_at more than 3 days ago
+        # Fetch leads with eligible statuses and last_contacted_at more than 3 days ago
+        eligible_statuses = ["first message sent", "follow-up 1 sent", "follow-up 2 sent", "follow-up 3 sent"]
+        
         response = supabase.table('leads').select(
-            'full_name, headline, status, message_2_draft, last_contacted_at'
-        ).eq('status', 'first message sent').lt('last_contacted_at', three_days_ago).execute()
+            'full_name, headline, status, message_2_draft, message_3_draft, message_4_draft, message_5_draft, last_contacted_at'
+        ).in_('status', eligible_statuses).lt('last_contacted_at', three_days_ago).execute()
         
         leads_data = {}
         eligible_leads = []
         total_leads = 0
         skipped_no_draft = 0
+        status_breakdown = {
+            "first message sent": 0,
+            "follow-up 1 sent": 0,
+            "follow-up 2 sent": 0,
+            "follow-up 3 sent": 0
+        }
         
         for lead in response.data:
             total_leads += 1
             full_name = lead.get('full_name', '').strip()
             headline = lead.get('headline', '').strip()
             status = lead.get('status', '').strip()
-            message_2_draft = lead.get('message_2_draft', '').strip() if lead.get('message_2_draft') else ''
             last_contacted_at = lead.get('last_contacted_at', '')
             
+            # Count by status
+            if status in status_breakdown:
+                status_breakdown[status] += 1
+            
             if full_name:
-                # Only include leads that have a message_2_draft
-                if message_2_draft:
-                    leads_data[full_name] = {
-                        'full_name': full_name,
-                        'headline': headline,
-                        'status': status,
-                        'message_2_draft': message_2_draft,
-                        'last_contacted_at': last_contacted_at
-                    }
+                # Store all message drafts
+                lead_info = {
+                    'full_name': full_name,
+                    'headline': headline,
+                    'status': status,
+                    'message_2_draft': lead.get('message_2_draft', '').strip() if lead.get('message_2_draft') else '',
+                    'message_3_draft': lead.get('message_3_draft', '').strip() if lead.get('message_3_draft') else '',
+                    'message_4_draft': lead.get('message_4_draft', '').strip() if lead.get('message_4_draft') else '',
+                    'message_5_draft': lead.get('message_5_draft', '').strip() if lead.get('message_5_draft') else '',
+                    'last_contacted_at': last_contacted_at
+                }
+                
+                # Determine which message they need
+                message_text, next_status, followup_num = determine_next_followup_message(lead_info)
+                
+                if message_text:
+                    leads_data[full_name] = lead_info
                     eligible_leads.append(full_name)
+                    print(f"   ✅ {full_name} - needs follow-up #{followup_num}")
                 else:
                     skipped_no_draft += 1
-                    print(f"⏭️ Skipping {full_name} - no message_2_draft available")
+                    print(f"   ⏭️ Skipping {full_name} - no message draft available for next follow-up")
         
-        print(f"✅ Found {total_leads} leads with 'first message sent' status (>3 days ago)")
-        print(f"   - {len(eligible_leads)} have message_2_draft available")
-        print(f"   - {skipped_no_draft} skipped (no message_2_draft)")
+        print(f"\n✅ Found {total_leads} leads with eligible status (>3 days ago)")
+        print(f"   Status breakdown:")
+        for status, count in status_breakdown.items():
+            print(f"      - {status}: {count}")
+        print(f"   - {len(eligible_leads)} have next message draft available")
+        print(f"   - {skipped_no_draft} skipped (no message draft)")
         
         return leads_data, set(eligible_leads)
         
@@ -289,13 +354,18 @@ def scrape_all_connections_for_followup(driver):
         
         # Check if this lead is eligible for follow-up
         if name in eligible_leads:
+            # Determine which follow-up they need
+            message_text, next_status, followup_num = determine_next_followup_message(lead_db_data)
+            
             # Append to list to maintain order from LinkedIn page
             leads_to_message.append(connection_data)
             print(f"🎯 Follow-up lead identified (position {k}): {name}")
             print(f"   📅 Last contacted: {lead_db_data['last_contacted_at']}")
+            print(f"   📊 Current status: {lead_db_data['status']}")
+            print(f"   📝 Next follow-up: #{followup_num}")
             print(f"   🎯 Match confidence: {validation_result['confidence']:.2f}")
-            if lead_db_data['message_2_draft']:
-                print(f"   📝 Follow-up message: {lead_db_data['message_2_draft'][:50]}...")
+            if message_text:
+                print(f"   💬 Message preview: {message_text[:50]}...")
         else:
             skipped_not_eligible += 1
         
@@ -482,27 +552,29 @@ def is_dialog_open(driver):
 def send_followup_to_lead(driver, lead_data):
     """
     Send follow-up message to a specific lead using the message_relay function.
+    Determines which follow-up message to send based on current status.
     """
     print(f"💬 Preparing to send follow-up message to: {lead_data['name']}")
     print(f"   Position K: {lead_data['position_k']}")
     print(f"   Headline: {lead_data['headline']}")
+    print(f"   Current status: {lead_data['status']}")
     print(f"   Last contacted: {lead_data['last_contacted_at']}")
     
-    # Get the follow-up message draft for this lead
-    message_text = lead_data.get('message_2_draft', '')
+    # Determine which follow-up message to send
+    message_text, next_status, followup_num = determine_next_followup_message(lead_data)
     
     if not message_text:
-        print(f"⚠️ No follow-up message draft found for {lead_data['name']}")
+        print(f"⚠️ No follow-up message available for {lead_data['name']}")
         return False
     
-    print(f"   📝 Follow-up message: {message_text[:100]}...")
+    print(f"   📝 Sending follow-up #{followup_num}: {message_text[:100]}...")
     
     # Call message relay to handle the actual messaging
     success = message_relay(driver, message_text, lead_data['name'])
     
     if success:
         # Update status in Supabase after successful message
-        db_success = update_lead_status_to_followup_sent(lead_data['name'], lead_data['headline'])
+        db_success = update_lead_status_to_followup_sent(lead_data['name'], lead_data['headline'], next_status)
         return db_success
     
     return False

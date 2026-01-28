@@ -235,24 +235,30 @@ def fetch_profile_posts(linkedin_url: str) -> list[dict]:
         return []
 
 
-def generate_ai_messages(profile_data: dict, posts_data: list[dict], template_name: str = "template_1") -> tuple[str, str]:
-    """Generate outreach and followup messages using Gemini with specified template"""
+def generate_ai_messages(profile_data: dict, posts_data: list[dict], template_name: str = "template_1") -> tuple[str, str, str, str, str]:
+    """Generate outreach and 4 followup messages using Gemini with specified template"""
     try:
         print(f"   🤖 Generating AI messages using {template_name}...")
         messager = GeminiLinkedInMessager(template_name=template_name)
         messages = messager.generate_messages(profile_data, posts_data)
-        print("   ✅ Messages generated")
-        return messages.outreach_message, messages.followup_message
+        print("   ✅ All messages generated (1 outreach + 4 follow-ups)")
+        return (
+            messages.outreach_message,
+            messages.followup_message_1,
+            messages.followup_message_2,
+            messages.followup_message_3,
+            messages.followup_message_4
+        )
     except Exception as e:
         print(f"   ⚠️ AI generation failed: {e}")
         first_name = profile_data['full_name'].split(' ')[0]
         fallback = f"Hi {first_name}, I saw your experience in {profile_data['headline']}..."
-        return fallback, fallback
+        return fallback, fallback, fallback, fallback, fallback
 
 
-def save_lead_to_db(url, data, posts_data, outreach_msg, followup_msg, status="SCRAPED", last_contacted=None):
+def save_lead_to_db(url, data, posts_data, outreach_msg, followup_msg_1, followup_msg_2, followup_msg_3, followup_msg_4, status="SCRAPED", last_contacted=None):
                     
-    """Save lead data including posts and AI messages to Supabase"""
+    """Save lead data including posts and AI messages (1 outreach + 4 follow-ups) to Supabase"""
     # Base payload with required columns
     payload = {
         "linkedin_url": url,
@@ -269,21 +275,24 @@ def save_lead_to_db(url, data, posts_data, outreach_msg, followup_msg, status="S
     
     # Try to add new columns, but continue if they don't exist
     try:
-        # First attempt with all columns
+        # First attempt with all columns including 4 follow-up messages
         full_payload = payload.copy()
         full_payload.update({
             "profile_posts": json.dumps(posts_data) if posts_data else None,
-            "message_2_draft": followup_msg,
+            "message_2_draft": followup_msg_1,
+            "message_3_draft": followup_msg_2,
+            "message_4_draft": followup_msg_3,
+            "message_5_draft": followup_msg_4,
         })
         supabase.table("leads").insert(full_payload).execute()
-        print(f"✅ Saved to DB: {data['full_name']} (with posts & followup)")
+        print(f"✅ Saved to DB: {data['full_name']} (with posts & 4 follow-ups)")
     except Exception as e:
-        if "profile_posts" in str(e) or "message_2_draft" in str(e):
+        if "profile_posts" in str(e) or "message_2_draft" in str(e) or "message_3_draft" in str(e):
             # Fallback: save without new columns
             try:
                 supabase.table("leads").insert(payload).execute()
                 print(f"✅ Saved to DB: {data['full_name']} (basic data only)")
-                print(f"⚠️ Note: profile_posts and message_2_draft columns not available")
+                print(f"⚠️ Note: profile_posts and follow-up message columns not available")
             except Exception as e2:
                 print(f"❌ DB Save Error: {e2}")
         else:
@@ -682,7 +691,7 @@ def main():
                     continue
                 
                 posts_data = fetch_profile_posts(url)
-                outreach_msg, followup_msg = generate_ai_messages(profile_data, posts_data, template_name)
+                outreach_msg, followup_msg_1, followup_msg_2, followup_msg_3, followup_msg_4 = generate_ai_messages(profile_data, posts_data, template_name)
                 print("   ✅ Data gathering complete.")
 
                 # --- CRITICAL FIX: RESET VIEWPORT ---
@@ -715,7 +724,7 @@ def main():
 
                 # --- PHASE 3: SAVE TO DB ---
                 save_lead_to_db(
-                    url, profile_data, posts_data, outreach_msg, followup_msg, 
+                    url, profile_data, posts_data, outreach_msg, followup_msg_1, followup_msg_2, followup_msg_3, followup_msg_4,
                     status=db_status_update, 
                     last_contacted=last_contacted
                 )

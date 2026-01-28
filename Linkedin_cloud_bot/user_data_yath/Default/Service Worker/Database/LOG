@@ -1,2 +1,3 @@
-2026/01/28-04:58:11.513 fdc60a Creating DB /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/user_data_yath/Default/Service Worker/Database since it was missing.
-2026/01/28-04:58:11.515 fdc60a Reusing MANIFEST /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/user_data_yath/Default/Service Worker/Database/MANIFEST-000001
+2026/01/28-05:08:42.894 fe28c7 Reusing MANIFEST /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/user_data_yath/Default/Service Worker/Database/MANIFEST-000001
+2026/01/28-05:08:42.899 fe28c7 Recovering log #3
+2026/01/28-05:08:42.899 fe28c7 Reusing old log /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/user_data_yath/Default/Service Worker/Database/000003.log 

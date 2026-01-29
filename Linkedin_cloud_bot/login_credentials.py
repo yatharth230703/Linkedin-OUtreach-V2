@@ -516,8 +516,8 @@ def setup_chrome_driver():
             options.add_extension(proxy_extension_path)
             print("✅ Proxy extension added to Chrome options")
 
-        # Create driver
-        driver = uc.Chrome(options=options)
+        # Create driver (specify version_main to match installed Chrome)
+        driver = uc.Chrome(options=options, version_main=144)
         
         # Clean up the extension file after driver creation
         if proxy_extension_path and os.path.exists(proxy_extension_path):

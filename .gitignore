@@ -1,8 +1,7 @@
 .env
 /__pycache__
-/main_bots/user_data_yatharth
+/Linkedin_cloud_bot/user_data_yath
 /screenshots
 /venv
 *.zip
-/Linkedin_cloud_bot/user_data_yath
 /.claude

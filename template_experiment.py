@@ -594,294 +594,56 @@ def check_all_leads_for_replies(driver, leads_to_check):
 
     return replied_count, no_reply_count, error_count
 
-
-def get_all_linkedin_messages(driver):
-    """
-    Extract all messages from a LinkedIn conversation thread.
-    
-    This function searches broadly across the entire page structure to find all
-    message events, regardless of which div or ul container they're in.
-    
-    Args:
-        driver: Selenium WebDriver instance
-        
-    Returns:
-        list: List of dictionaries containing message information
-    """
-    
-    # JavaScript code to find all message elements directly in the DOM
-    # This ensures we don't miss messages in different containers
-    js_code = """
-    return (function() {
-        const messages = [];
-        
-        // Find all elements that could be message events
-        // LinkedIn uses class 'msg-s-message-list__event' for message items
-        const messageElements = document.querySelectorAll('.msg-s-message-list__event');
-        
-        messageElements.forEach((element, index) => {
-            try {
-                // Extract sender name - look for profile link or name element
-                let sender = '';
-                const nameLinks = element.querySelectorAll('a[data-attribute-name="profile"]');
-                if (nameLinks.length > 0) {
-                    sender = nameLinks[0].innerText.trim();
-                } else {
-                    // Fallback: look for any link that might contain the name
-                    const allLinks = element.querySelectorAll('a');
-                    for (let link of allLinks) {
-                        if (link.innerText && link.innerText.trim() && 
-                            !link.innerText.includes('View') && 
-                            !link.innerText.includes('profile')) {
-                            sender = link.innerText.trim();
-                            break;
-                        }
-                    }
-                }
-                
-                // Extract timestamp
-                let timestamp = '';
-                const timeElements = element.querySelectorAll('time');
-                if (timeElements.length > 0) {
-                    timestamp = timeElements[0].innerText.trim();
-                } else {
-                    // Fallback: look for elements with time-like text
-                    const allText = element.innerText;
-                    const timeMatch = allText.match(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/i);
-                    if (timeMatch) {
-                        timestamp = timeMatch[0];
-                    }
-                }
-                
-                // Extract message content
-                let messageText = '';
-                const messageBody = element.querySelector('.msg-s-event-listitem__body');
-                if (messageBody) {
-                    // Get text but exclude the timestamp and sender
-                    messageText = messageBody.innerText.trim();
-                    // Remove timestamp from message text if present
-                    messageText = messageText.replace(timestamp, '').trim();
-                    messageText = messageText.replace(sender, '').trim();
-                } else {
-                    // Fallback: try to get any text content
-                    const textNodes = [];
-                    const walker = document.createTreeWalker(
-                        element,
-                        NodeFilter.SHOW_TEXT,
-                        null,
-                        false
-                    );
-                    let node;
-                    while (node = walker.nextNode()) {
-                        const text = node.textContent.trim();
-                        if (text && text.length > 0) {
-                            textNodes.push(text);
-                        }
-                    }
-                    messageText = textNodes.join(' ').trim();
-                }
-                
-                // Determine message type (sent/received)
-                let messageType = 'unknown';
-                if (element.innerText.includes('You:') || 
-                    element.querySelector('.msg-s-message-group__profile-link--you')) {
-                    messageType = 'sent';
-                } else if (sender && sender !== 'You') {
-                    messageType = 'received';
-                }
-                
-                // Extract date label if present
-                let dateLabel = '';
-                const dateElement = element.querySelector('.msg-s-message-list-event__time-heading');
-                if (dateElement) {
-                    dateLabel = dateElement.innerText.trim();
-                } else {
-                    // Check previous sibling for date header
-                    let prevElement = element.previousElementSibling;
-                    while (prevElement) {
-                        if (prevElement.classList.contains('msg-s-message-list__time-heading')) {
-                            dateLabel = prevElement.innerText.trim();
-                            break;
-                        }
-                        prevElement = prevElement.previousElementSibling;
-                    }
-                }
-                
-                messages.push({
-                    index: index,
-                    sender: sender,
-                    timestamp: timestamp,
-                    date_label: dateLabel,
-                    message_text: messageText,
-                    message_type: messageType,
-                    full_text: element.innerText.trim()
-                });
-            } catch (e) {
-                console.error('Error parsing message:', e);
-            }
-        });
-        
-        return messages;
-    })();
-    """
-    
-    # Execute JavaScript to get messages
-    try:
-        js_result = driver.execute_script(js_code)
-    except Exception as e:
-        print(f"Error executing JavaScript: {e}")
-        return []
-    
-    # Parse results
-    messages = []
-    
-    # Add messages from JavaScript extraction
-    if isinstance(js_result, list):
-        messages.extend(js_result)
-    
-    # Deduplicate and sort by timestamp
-    seen_texts = set()
-    unique_messages = []
-    
-    for msg in messages:
-        # Create a unique key based on sender, timestamp, and first 50 chars of message
-        msg_key = f"{msg.get('sender', '')}_{msg.get('timestamp', '')}_{msg.get('message_text', '')[:50]}"
-        
-        if msg_key not in seen_texts:
-            seen_texts.add(msg_key)
-            unique_messages.append(msg)
-    
-    return unique_messages
 def get_all_linkedin_messages_shadow(driver):
     """
-    Extract all messages from a LinkedIn conversation thread, including those inside shadow DOM.
+    Extract sender names from LinkedIn conversation thread, including those inside shadow DOM.
     
     Args:
         driver: Selenium WebDriver instance
         
     Returns:
-        list: List of dictionaries containing message information
+        list: List of sender names as strings
     """
     
-    messages = []
+    senders = []
     
     # First, try to access shadow DOM
     try:
         shadow_host = driver.find_element(By.CSS_SELECTOR, '#interop-outlet')
         shadow_root = shadow_host.shadow_root
         
-        # JavaScript code to find all message elements within shadow DOM
+        # JavaScript code to find all message elements within shadow DOM and extract sender names
         js_code = """
         return (function(shadowRoot) {
-            const messages = [];
+            const senderTexts = [];
             
             // Find all elements that could be message events
             const messageElements = shadowRoot.querySelectorAll('.msg-s-message-list__event');
             
-            messageElements.forEach((element, index) => {
+            messageElements.forEach((element) => {
                 try {
-                    // Extract sender name
-                    let sender = '';
-                    const nameLinks = element.querySelectorAll('a[data-attribute-name="profile"]');
-                    if (nameLinks.length > 0) {
-                        sender = nameLinks[0].innerText.trim();
-                    } else {
-                        const allLinks = element.querySelectorAll('a');
-                        for (let link of allLinks) {
-                            if (link.innerText && link.innerText.trim() && 
-                                !link.innerText.includes('View') && 
-                                !link.innerText.includes('profile')) {
-                                sender = link.innerText.trim();
-                                break;
-                            }
+                    // Look for the msg-s-message-group__meta div which contains sender info
+                    const metaDiv = element.querySelector('.msg-s-message-group__meta');
+                    
+                    if (metaDiv) {
+                        // Get all text from the meta div
+                        const metaText = metaDiv.innerText.trim();
+                        if (metaText) {
+                            senderTexts.push(metaText);
                         }
                     }
-                    
-                    // Extract timestamp
-                    let timestamp = '';
-                    const timeElements = element.querySelectorAll('time');
-                    if (timeElements.length > 0) {
-                        timestamp = timeElements[0].innerText.trim();
-                    } else {
-                        const allText = element.innerText;
-                        const timeMatch = allText.match(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/i);
-                        if (timeMatch) {
-                            timestamp = timeMatch[0];
-                        }
-                    }
-                    
-                    // Extract message content
-                    let messageText = '';
-                    const messageBody = element.querySelector('.msg-s-event-listitem__body');
-                    if (messageBody) {
-                        messageText = messageBody.innerText.trim();
-                        messageText = messageText.replace(timestamp, '').trim();
-                        messageText = messageText.replace(sender, '').trim();
-                    } else {
-                        const textNodes = [];
-                        const walker = document.createTreeWalker(
-                            element,
-                            NodeFilter.SHOW_TEXT,
-                            null,
-                            false
-                        );
-                        let node;
-                        while (node = walker.nextNode()) {
-                            const text = node.textContent.trim();
-                            if (text && text.length > 0) {
-                                textNodes.push(text);
-                            }
-                        }
-                        messageText = textNodes.join(' ').trim();
-                    }
-                    
-                    // Determine message type
-                    let messageType = 'unknown';
-                    if (element.innerText.includes('You:') || 
-                        element.querySelector('.msg-s-message-group__profile-link--you')) {
-                        messageType = 'sent';
-                    } else if (sender && sender !== 'You') {
-                        messageType = 'received';
-                    }
-                    
-                    // Extract date label
-                    let dateLabel = '';
-                    const dateElement = element.querySelector('.msg-s-message-list-event__time-heading');
-                    if (dateElement) {
-                        dateLabel = dateElement.innerText.trim();
-                    } else {
-                        let prevElement = element.previousElementSibling;
-                        while (prevElement) {
-                            if (prevElement.classList.contains('msg-s-message-list__time-heading')) {
-                                dateLabel = prevElement.innerText.trim();
-                                break;
-                            }
-                            prevElement = prevElement.previousElementSibling;
-                        }
-                    }
-                    
-                    messages.push({
-                        index: index,
-                        sender: sender,
-                        timestamp: timestamp,
-                        date_label: dateLabel,
-                        message_text: messageText,
-                        message_type: messageType,
-                        full_text: element.innerText.trim(),
-                        source: 'shadow_dom'
-                    });
                 } catch (e) {
-                    console.error('Error parsing message:', e);
+                    console.error('Error parsing sender:', e);
                 }
             });
             
-            return messages;
+            return senderTexts;
         })(arguments[0]);
         """
         
-        shadow_messages = driver.execute_script(js_code, shadow_root)
-        if isinstance(shadow_messages, list):
-            messages.extend(shadow_messages)
+        shadow_senders = driver.execute_script(js_code, shadow_root)
+        if isinstance(shadow_senders, list):
+            senders.extend(shadow_senders)
             
     except Exception as e:
         print(f"Could not access shadow DOM: {e}")
@@ -889,124 +651,39 @@ def get_all_linkedin_messages_shadow(driver):
     # Also check regular DOM for messages
     js_code_regular = """
     return (function() {
-        const messages = [];
+        const senderTexts = [];
         const messageElements = document.querySelectorAll('.msg-s-message-list__event');
         
-        messageElements.forEach((element, index) => {
+        messageElements.forEach((element) => {
             try {
-                let sender = '';
-                const nameLinks = element.querySelectorAll('a[data-attribute-name="profile"]');
-                if (nameLinks.length > 0) {
-                    sender = nameLinks[0].innerText.trim();
-                } else {
-                    const allLinks = element.querySelectorAll('a');
-                    for (let link of allLinks) {
-                        if (link.innerText && link.innerText.trim() && 
-                            !link.innerText.includes('View') && 
-                            !link.innerText.includes('profile')) {
-                            sender = link.innerText.trim();
-                            break;
-                        }
+                // Look for the msg-s-message-group__meta div which contains sender info
+                const metaDiv = element.querySelector('.msg-s-message-group__meta');
+                
+                if (metaDiv) {
+                    // Get all text from the meta div
+                    const metaText = metaDiv.innerText.trim();
+                    if (metaText) {
+                        senderTexts.push(metaText);
                     }
                 }
-                
-                let timestamp = '';
-                const timeElements = element.querySelectorAll('time');
-                if (timeElements.length > 0) {
-                    timestamp = timeElements[0].innerText.trim();
-                } else {
-                    const allText = element.innerText;
-                    const timeMatch = allText.match(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/i);
-                    if (timeMatch) {
-                        timestamp = timeMatch[0];
-                    }
-                }
-                
-                let messageText = '';
-                const messageBody = element.querySelector('.msg-s-event-listitem__body');
-                if (messageBody) {
-                    messageText = messageBody.innerText.trim();
-                    messageText = messageText.replace(timestamp, '').trim();
-                    messageText = messageText.replace(sender, '').trim();
-                } else {
-                    const textNodes = [];
-                    const walker = document.createTreeWalker(
-                        element,
-                        NodeFilter.SHOW_TEXT,
-                        null,
-                        false
-                    );
-                    let node;
-                    while (node = walker.nextNode()) {
-                        const text = node.textContent.trim();
-                        if (text && text.length > 0) {
-                            textNodes.push(text);
-                        }
-                    }
-                    messageText = textNodes.join(' ').trim();
-                }
-                
-                let messageType = 'unknown';
-                if (element.innerText.includes('You:') || 
-                    element.querySelector('.msg-s-message-group__profile-link--you')) {
-                    messageType = 'sent';
-                } else if (sender && sender !== 'You') {
-                    messageType = 'received';
-                }
-                
-                let dateLabel = '';
-                const dateElement = element.querySelector('.msg-s-message-list-event__time-heading');
-                if (dateElement) {
-                    dateLabel = dateElement.innerText.trim();
-                } else {
-                    let prevElement = element.previousElementSibling;
-                    while (prevElement) {
-                        if (prevElement.classList.contains('msg-s-message-list__time-heading')) {
-                            dateLabel = prevElement.innerText.trim();
-                            break;
-                        }
-                        prevElement = prevElement.previousElementSibling;
-                    }
-                }
-                
-                messages.push({
-                    index: index,
-                    sender: sender,
-                    timestamp: timestamp,
-                    date_label: dateLabel,
-                    message_text: messageText,
-                    message_type: messageType,
-                    full_text: element.innerText.trim(),
-                    source: 'regular_dom'
-                });
             } catch (e) {
-                console.error('Error parsing message:', e);
+                console.error('Error parsing sender:', e);
             }
         });
         
-        return messages;
+        return senderTexts;
     })();
     """
     
     try:
-        regular_messages = driver.execute_script(js_code_regular)
-        if isinstance(regular_messages, list):
-            messages.extend(regular_messages)
+        regular_senders = driver.execute_script(js_code_regular)
+        if isinstance(regular_senders, list):
+            senders.extend(regular_senders)
     except Exception as e:
         print(f"Error getting regular DOM messages: {e}")
     
-    # Deduplicate
-    seen_texts = set()
-    unique_messages = []
-    
-    for msg in messages:
-        msg_key = f"{msg.get('sender', '')}_{msg.get('timestamp', '')}_{msg.get('message_text', '')[:50]}"
-        
-        if msg_key not in seen_texts:
-            seen_texts.add(msg_key)
-            unique_messages.append(msg)
-    
-    return unique_messages
+    return senders
+
 
 def main():
     """
@@ -1052,9 +729,9 @@ def main():
         time.sleep(30)
         # results = get_all_conversations_with_identifiers(driver, debug=True)
         # export_identifiers_to_json(results)
-        messages = get_all_linkedin_messages_shadow(driver)
-        for msg in messages:
-            print(f"{msg['sender']} at {msg['timestamp']}: {msg['message_text'][:100]}")
+        senders = get_all_linkedin_messages_shadow(driver)
+        for sender in senders:
+            print(sender)
     
         print("⏳ Waiting 30 seconds...")
         time.sleep(3000)

@@ -387,10 +387,346 @@ def scrape_all_connections_for_followup(driver):
     return connections_dict, leads_to_message
 
 
+def get_all_linkedin_messages_shadow(driver):
+    """
+    Extract all messages from a LinkedIn conversation thread, including those inside shadow DOM.
+    
+    Args:
+        driver: Selenium WebDriver instance
+        
+    Returns:
+        list: List of dictionaries containing message information
+    """
+    
+    messages = []
+    
+    # First, try to access shadow DOM
+    try:
+        shadow_host = driver.find_element(By.CSS_SELECTOR, '#interop-outlet')
+        shadow_root = shadow_host.shadow_root
+        
+        # JavaScript code to find all message elements within shadow DOM
+        js_code = """
+        return (function(shadowRoot) {
+            const messages = [];
+            
+            // Find all elements that could be message events
+            const messageElements = shadowRoot.querySelectorAll('.msg-s-message-list__event');
+            
+            messageElements.forEach((element, index) => {
+                try {
+                    // Extract sender name
+                    let sender = '';
+                    const nameLinks = element.querySelectorAll('a[data-attribute-name="profile"]');
+                    if (nameLinks.length > 0) {
+                        sender = nameLinks[0].innerText.trim();
+                    } else {
+                        const allLinks = element.querySelectorAll('a');
+                        for (let link of allLinks) {
+                            if (link.innerText && link.innerText.trim() && 
+                                !link.innerText.includes('View') && 
+                                !link.innerText.includes('profile')) {
+                                sender = link.innerText.trim();
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Extract timestamp
+                    let timestamp = '';
+                    const timeElements = element.querySelectorAll('time');
+                    if (timeElements.length > 0) {
+                        timestamp = timeElements[0].innerText.trim();
+                    } else {
+                        const allText = element.innerText;
+                        const timeMatch = allText.match(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/i);
+                        if (timeMatch) {
+                            timestamp = timeMatch[0];
+                        }
+                    }
+                    
+                    // Extract message content
+                    let messageText = '';
+                    const messageBody = element.querySelector('.msg-s-event-listitem__body');
+                    if (messageBody) {
+                        messageText = messageBody.innerText.trim();
+                        messageText = messageText.replace(timestamp, '').trim();
+                        messageText = messageText.replace(sender, '').trim();
+                    } else {
+                        const textNodes = [];
+                        const walker = document.createTreeWalker(
+                            element,
+                            NodeFilter.SHOW_TEXT,
+                            null,
+                            false
+                        );
+                        let node;
+                        while (node = walker.nextNode()) {
+                            const text = node.textContent.trim();
+                            if (text && text.length > 0) {
+                                textNodes.push(text);
+                            }
+                        }
+                        messageText = textNodes.join(' ').trim();
+                    }
+                    
+                    // Determine message type
+                    let messageType = 'unknown';
+                    if (element.innerText.includes('You:') || 
+                        element.querySelector('.msg-s-message-group__profile-link--you')) {
+                        messageType = 'sent';
+                    } else if (sender && sender !== 'You') {
+                        messageType = 'received';
+                    }
+                    
+                    // Extract date label
+                    let dateLabel = '';
+                    const dateElement = element.querySelector('.msg-s-message-list-event__time-heading');
+                    if (dateElement) {
+                        dateLabel = dateElement.innerText.trim();
+                    } else {
+                        let prevElement = element.previousElementSibling;
+                        while (prevElement) {
+                            if (prevElement.classList.contains('msg-s-message-list__time-heading')) {
+                                dateLabel = prevElement.innerText.trim();
+                                break;
+                            }
+                            prevElement = prevElement.previousElementSibling;
+                        }
+                    }
+                    
+                    messages.push({
+                        index: index,
+                        sender: sender,
+                        timestamp: timestamp,
+                        date_label: dateLabel,
+                        message_text: messageText,
+                        message_type: messageType,
+                        full_text: element.innerText.trim(),
+                        source: 'shadow_dom'
+                    });
+                } catch (e) {
+                    console.error('Error parsing message:', e);
+                }
+            });
+            
+            return messages;
+        })(arguments[0]);
+        """
+        
+        shadow_messages = driver.execute_script(js_code, shadow_root)
+        if isinstance(shadow_messages, list):
+            messages.extend(shadow_messages)
+            
+    except Exception as e:
+        print(f"Could not access shadow DOM: {e}")
+    
+    # Also check regular DOM for messages
+    js_code_regular = """
+    return (function() {
+        const messages = [];
+        const messageElements = document.querySelectorAll('.msg-s-message-list__event');
+        
+        messageElements.forEach((element, index) => {
+            try {
+                let sender = '';
+                const nameLinks = element.querySelectorAll('a[data-attribute-name="profile"]');
+                if (nameLinks.length > 0) {
+                    sender = nameLinks[0].innerText.trim();
+                } else {
+                    const allLinks = element.querySelectorAll('a');
+                    for (let link of allLinks) {
+                        if (link.innerText && link.innerText.trim() && 
+                            !link.innerText.includes('View') && 
+                            !link.innerText.includes('profile')) {
+                            sender = link.innerText.trim();
+                            break;
+                        }
+                    }
+                }
+                
+                let timestamp = '';
+                const timeElements = element.querySelectorAll('time');
+                if (timeElements.length > 0) {
+                    timestamp = timeElements[0].innerText.trim();
+                } else {
+                    const allText = element.innerText;
+                    const timeMatch = allText.match(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/i);
+                    if (timeMatch) {
+                        timestamp = timeMatch[0];
+                    }
+                }
+                
+                let messageText = '';
+                const messageBody = element.querySelector('.msg-s-event-listitem__body');
+                if (messageBody) {
+                    messageText = messageBody.innerText.trim();
+                    messageText = messageText.replace(timestamp, '').trim();
+                    messageText = messageText.replace(sender, '').trim();
+                } else {
+                    const textNodes = [];
+                    const walker = document.createTreeWalker(
+                        element,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                        false
+                    );
+                    let node;
+                    while (node = walker.nextNode()) {
+                        const text = node.textContent.trim();
+                        if (text && text.length > 0) {
+                            textNodes.push(text);
+                        }
+                    }
+                    messageText = textNodes.join(' ').trim();
+                }
+                
+                let messageType = 'unknown';
+                if (element.innerText.includes('You:') || 
+                    element.querySelector('.msg-s-message-group__profile-link--you')) {
+                    messageType = 'sent';
+                } else if (sender && sender !== 'You') {
+                    messageType = 'received';
+                }
+                
+                let dateLabel = '';
+                const dateElement = element.querySelector('.msg-s-message-list-event__time-heading');
+                if (dateElement) {
+                    dateLabel = dateElement.innerText.trim();
+                } else {
+                    let prevElement = element.previousElementSibling;
+                    while (prevElement) {
+                        if (prevElement.classList.contains('msg-s-message-list__time-heading')) {
+                            dateLabel = prevElement.innerText.trim();
+                            break;
+                        }
+                    }
+                }
+                
+                messages.push({
+                    index: index,
+                    sender: sender,
+                    timestamp: timestamp,
+                    date_label: dateLabel,
+                    message_text: messageText,
+                    message_type: messageType,
+                    full_text: element.innerText.trim(),
+                    source: 'regular_dom'
+                });
+            } catch (e) {
+                console.error('Error parsing message:', e);
+            }
+        });
+        
+        return messages;
+    })();
+    """
+    
+    try:
+        regular_messages = driver.execute_script(js_code_regular)
+        if isinstance(regular_messages, list):
+            messages.extend(regular_messages)
+    except Exception as e:
+        print(f"Error getting regular DOM messages: {e}")
+    
+    # Deduplicate
+    seen_texts = set()
+    unique_messages = []
+    
+    for msg in messages:
+        msg_key = f"{msg.get('sender', '')}_{msg.get('timestamp', '')}_{msg.get('message_text', '')[:50]}"
+        
+        if msg_key not in seen_texts:
+            seen_texts.add(msg_key)
+            unique_messages.append(msg)
+    
+    return unique_messages
+
+
+def check_if_lead_replied(driver, lead_name):
+    """
+    Check if a lead has replied by parsing conversation messages.
+    Returns True if lead's name appears as sender in any message.
+    
+    Args:
+        driver: Selenium WebDriver instance
+        lead_name: Full name of the lead to check
+        
+    Returns:
+        bool: True if lead has replied, False otherwise
+    """
+    try:
+        print(f"   🔍 Checking if {lead_name} has replied...")
+        
+        # Wait for conversation to load
+        human_pause(2, 3)
+        
+        # Get all messages from conversation
+        messages = get_all_linkedin_messages_shadow(driver)
+        
+        if not messages:
+            print(f"   ⚠️ No messages found in conversation")
+            return False
+        
+        print(f"   📊 Found {len(messages)} messages in conversation")
+        
+        # Check if lead's name appears as sender in any message
+        for msg in messages:
+            sender = msg.get('sender', '').strip()
+            message_type = msg.get('message_type', '')
+            
+            # Check for exact match or partial match with lead's name
+            if sender and lead_name.lower() in sender.lower():
+                # Make sure it's not our own message
+                if message_type == 'received' or (message_type != 'sent' and 'you' not in sender.lower()):
+                    print(f"   ✅ REPLY DETECTED! {sender} sent a message")
+                    print(f"   📩 Message preview: {msg.get('message_text', '')[:100]}")
+                    return True
+        
+        print(f"   ❌ No reply detected from {lead_name}")
+        return False
+        
+    except Exception as e:
+        print(f"   ⚠️ Error checking for reply: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def update_lead_status_to_replied(full_name):
+    """
+    Update lead status to 'LEAD REPLIED' when reply is detected.
+    
+    Args:
+        full_name: Lead's full name
+        
+    Returns:
+        bool: True if update successful, False otherwise
+    """
+    try:
+        current_timestamp = datetime.now().isoformat()
+        
+        response = supabase.table('leads').update({
+            'status': 'LEAD REPLIED'
+        }).eq('full_name', full_name).execute()
+        
+        if response.data:
+            print(f"   ✅ Updated {full_name} status to 'LEAD REPLIED'")
+            return True
+        else:
+            print(f"   ⚠️ No matching lead found for {full_name}")
+            return False
+            
+    except Exception as e:
+        print(f"   ❌ Error updating status for {full_name}: {e}")
+        return False
+
+
 def message_relay(driver, message_text, lead_name):
     """
     Handle the actual messaging process after message button is clicked.
-    Types message and sends using Ctrl+Enter, then closes dialog with Escape.
+    First checks if lead has replied - if yes, updates status and skips sending.
+    If no reply, types message and sends using Ctrl+Enter, then closes dialog with Escape.
     """
     from selenium.webdriver.common.keys import Keys
     
@@ -399,6 +735,20 @@ def message_relay(driver, message_text, lead_name):
         
         # Wait for message dialog to load
         human_pause(3, 4)
+        
+        # CRITICAL: Check if lead has already replied
+        has_replied = check_if_lead_replied(driver, lead_name)
+        
+        if has_replied:
+            print(f"   🎉 {lead_name} has already replied! Skipping follow-up message.")
+            # Update status to LEAD REPLIED
+            update_lead_status_to_replied(lead_name)
+            # Close dialog and return
+            close_dialog_safely(driver, lead_name)
+            return "REPLIED"  # Special return value to indicate reply detected
+        
+        # No reply detected - proceed with sending follow-up message
+        print(f"   ✅ No reply detected. Proceeding to send follow-up message...")
         
         # Use ActionChains to type the message directly (dialog should be focused)
         actions = ActionChains(driver)
@@ -553,6 +903,7 @@ def send_followup_to_lead(driver, lead_data):
     """
     Send follow-up message to a specific lead using the message_relay function.
     Determines which follow-up message to send based on current status.
+    First checks if lead has replied - if yes, skips sending and updates status.
     """
     print(f"💬 Preparing to send follow-up message to: {lead_data['name']}")
     print(f"   Position K: {lead_data['position_k']}")
@@ -569,10 +920,15 @@ def send_followup_to_lead(driver, lead_data):
     
     print(f"   📝 Sending follow-up #{followup_num}: {message_text[:100]}...")
     
-    # Call message relay to handle the actual messaging
-    success = message_relay(driver, message_text, lead_data['name'])
+    # Call message relay to handle the actual messaging (includes reply check)
+    result = message_relay(driver, message_text, lead_data['name'])
     
-    if success:
+    # Check if lead has replied (special return value)
+    if result == "REPLIED":
+        print(f"   🎉 Lead has replied! Status updated to 'LEAD REPLIED'")
+        return "REPLIED"  # Return special value to track replied leads
+    
+    if result:
         # Update status in Supabase after successful message
         db_success = update_lead_status_to_followup_sent(lead_data['name'], lead_data['headline'], next_status)
         return db_success
@@ -584,6 +940,7 @@ def message_all_followup_leads(driver, leads_to_message):
     """
     Iterate through all identified leads and send follow-up messages using their position values.
     Processes leads in order from top to bottom as they appear on LinkedIn page.
+    Checks for replies before sending - if lead has replied, updates status and skips.
     """
     # Set daily limit randomly between 10-15 messages
     daily_limit = random.randint(10, 15)
@@ -600,6 +957,7 @@ def message_all_followup_leads(driver, leads_to_message):
     
     successful_messages = 0
     failed_messages = 0
+    replied_leads = 0  # Track leads who have already replied
     
     # leads_to_process is now a list, maintaining order from LinkedIn page
     for idx, lead_data in enumerate(leads_to_process):
@@ -627,10 +985,13 @@ def message_all_followup_leads(driver, leads_to_message):
                 human_move_click(driver, message_button)
                 human_pause(3, 4)
                 
-                # Call the follow-up message sending function
-                success = send_followup_to_lead(driver, lead_data)
+                # Call the follow-up message sending function (includes reply check)
+                result = send_followup_to_lead(driver, lead_data)
                 
-                if success:
+                if result == "REPLIED":
+                    replied_leads += 1
+                    print(f"🎉 {name} has already replied! Skipped follow-up.")
+                elif result:
                     successful_messages += 1
                     print(f"✅ Successfully processed follow-up message for {name}")
                 else:
@@ -651,11 +1012,12 @@ def message_all_followup_leads(driver, leads_to_message):
             continue
     
     print(f"\n📊 Follow-up Messaging Summary:")
-    print(f"   Successful: {successful_messages}")
-    print(f"   Failed: {failed_messages}")
-    print(f"   Total processed: {successful_messages + failed_messages}")
+    print(f"   ✅ Successful follow-ups sent: {successful_messages}")
+    print(f"   🎉 Leads who already replied: {replied_leads}")
+    print(f"   ❌ Failed: {failed_messages}")
+    print(f"   📋 Total processed: {successful_messages + replied_leads + failed_messages}")
     
-    return successful_messages, failed_messages
+    return successful_messages, failed_messages, replied_leads
 
 
 def main():
@@ -698,10 +1060,11 @@ def main():
             print(f"\n🎯 Found {len(leads_to_message)} leads needing follow-up messages!")
             
             # Start follow-up messaging process
-            successful, failed = message_all_followup_leads(driver, leads_to_message)
+            successful, failed, replied = message_all_followup_leads(driver, leads_to_message)
             
             print(f"\n🏁 Follow-up messaging campaign completed!")
             print(f"   ✅ Successful follow-ups: {successful}")
+            print(f"   🎉 Leads who already replied: {replied}")
             print(f"   ❌ Failed follow-ups: {failed}")
         else:
             print("\n📭 No leads need follow-up messages at this time.")

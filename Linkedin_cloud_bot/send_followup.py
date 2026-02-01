@@ -768,7 +768,7 @@ def message_relay(driver, message_text, lead_name):
         # Send message using Ctrl+Enter
         print(f"   📤 Sending message via Ctrl+Enter...")
         actions = ActionChains(driver)
-        actions.send_keys(Keys.RETURN).perform()
+        actions.key_down(Keys.CONTROL).send_keys(Keys.RETURN).key_up(Keys.CONTROL).perform()
         
         print(f"   ✅ Message sent to {lead_name}")
         human_pause(2, 3)

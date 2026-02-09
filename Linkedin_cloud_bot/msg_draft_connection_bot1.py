@@ -476,79 +476,96 @@ def test_proxy_connection():
         print(f"❌ Proxy test failed: {e}")
         return False
 
-def is_profile_accessible(driver, url):
+def is_profile_accessible(driver, url, max_retries=2):
     """
     Check if the LinkedIn profile URL is accessible (not 404 or deleted).
+    Uses URL redirect detection as primary method (more reliable than page content).
     Returns True if accessible, False if 404/not found.
+    
+    Args:
+        driver: Selenium WebDriver instance
+        url: LinkedIn profile URL to check
+        max_retries: Number of retry attempts if page doesn't load properly
     """
-    try:
-        # Navigate to the URL
-        driver.get(url)
-        human_pause(4, 7)
-        
-        # Get current page info
-        current_url = driver.current_url.lower()
-        page_title = driver.title.lower()
-        
-        # Check for 404 indicators
-        error_indicators = [
-            'page not found',
-            'profile not found', 
-            'this profile doesn\'t exist',
-            'user not found',
-            '404',
-            'not available',
-            'profile unavailable',
-            'member not found',
-            'this linkedin member doesn\'t exist'
-        ]
-        
-        # Check page title for error indicators
-        for indicator in error_indicators:
-            if indicator in page_title:
-                print(f"   🚫 404 detected in page title: {page_title}")
-                return False
-        
-        # Check if redirected away from LinkedIn profile
-        if 'linkedin.com' not in current_url or '/in/' not in current_url:
-            print(f"   🚫 Redirected away from profile: {current_url}")
-            return False
-        
-        # Check page source for error messages
+    
+    for attempt in range(max_retries):
         try:
-            page_source = driver.page_source.lower()
-            error_messages = [
-                'this profile doesn\'t exist',
-                'profile not found',
-                'member not found',
-                'page not found',
-                'user not found'
-            ]
+            print(f"   🔍 Checking profile accessibility (attempt {attempt + 1}/{max_retries})...")
             
-            for error_msg in error_messages:
-                if error_msg in page_source:
-                    print(f"   🚫 404 detected in page content: {error_msg}")
+            # Navigate to the URL
+            driver.get(url)
+            human_pause(5, 8)  # Longer wait to ensure page fully loads
+            
+            # PRIMARY CHECK: URL redirect detection (most reliable)
+            current_url = driver.current_url.lower()
+            original_url = url.lower()
+            
+            # Extract profile identifier from original URL
+            # e.g., from "linkedin.com/in/john-doe-123" extract "john-doe-123"
+            try:
+                original_profile_id = original_url.split('/in/')[-1].rstrip('/')
+            except:
+                original_profile_id = None
+            
+            # Check if redirected to 404 page
+            if '/404' in current_url or 'page-not-found' in current_url:
+                print(f"   🚫 Redirected to 404 page: {current_url}")
+                return False
+            
+            # Check if redirected away from the specific profile
+            if '/in/' not in current_url:
+                print(f"   🚫 Redirected away from profile page: {current_url}")
+                return False
+            
+            # Check if profile ID changed (redirect to different profile = original doesn't exist)
+            if original_profile_id:
+                try:
+                    current_profile_id = current_url.split('/in/')[-1].rstrip('/').split('?')[0]
+                    if current_profile_id != original_profile_id:
+                        print(f"   🚫 Profile ID mismatch - redirected from '{original_profile_id}' to '{current_profile_id}'")
+                        return False
+                except:
+                    pass
+            
+            # SECONDARY CHECK: Verify profile loaded by finding name element
+            try:
+                # Wait a bit more for dynamic content to load
+                human_pause(2, 3)
+                
+                name_elem = driver.find_element(By.TAG_NAME, "h1")
+                if name_elem and name_elem.text.strip():
+                    profile_name = name_elem.text.strip()
+                    print(f"   ✅ Profile accessible - found name: {profile_name}")
+                    return True
+                else:
+                    # Name element exists but empty - might be loading issue
+                    if attempt < max_retries - 1:
+                        print(f"   ⚠️ Name element empty, retrying...")
+                        continue
+                    else:
+                        print(f"   🚫 Name element empty after {max_retries} attempts")
+                        return False
+                        
+            except Exception as elem_error:
+                # Could not find name element
+                if attempt < max_retries - 1:
+                    print(f"   ⚠️ Could not find profile name element, retrying...")
+                    continue
+                else:
+                    print(f"   🚫 No profile name found after {max_retries} attempts - likely 404 or restricted")
                     return False
-                    
-        except Exception:
-            pass  # If we can't check page source, continue with other checks
-        
-        # Check if we can find basic profile elements (name)
-        try:
-            name_elem = driver.find_element(By.TAG_NAME, "h1")
-            if name_elem and name_elem.text.strip():
-                print(f"   ✅ Profile accessible - found name: {name_elem.text.strip()}")
-                return True
-        except Exception:
-            pass
-        
-        # If we can't find a name element, it might be a 404 or restricted profile
-        print(f"   🚫 No profile name found - likely 404 or restricted")
-        return False
-        
-    except Exception as e:
-        print(f"   ❌ Error checking profile accessibility: {e}")
-        return False
+            
+        except Exception as e:
+            if attempt < max_retries - 1:
+                print(f"   ⚠️ Error on attempt {attempt + 1}: {e}, retrying...")
+                human_pause(2, 3)
+                continue
+            else:
+                print(f"   ❌ Error checking profile accessibility after {max_retries} attempts: {e}")
+                return False
+    
+    # If we get here, all retries failed
+    return False
 
 
 def handle_faulty_url(url):
@@ -667,6 +684,12 @@ def main():
                 print(f"   🚫 Profile not accessible (404 or deleted): {url}")
                 handle_faulty_url(url)
                 count += 1  # Still count towards daily limit
+                
+                # Human-like pause after faulty link to avoid spam-like behavior
+                faulty_pause = random.randint(25, 35)  # 25-35 seconds
+                print(f"   ⏸️  Pausing for {faulty_pause}s after faulty link (anti-spam measure)...")
+                time.sleep(faulty_pause)
+                
                 continue
 
             try:
@@ -688,6 +711,12 @@ def main():
                     print(f"   🚫 Could not extract valid profile data. Treating as faulty URL.")
                     handle_faulty_url(url)
                     count += 1
+                    
+                    # Human-like pause after faulty link to avoid spam-like behavior
+                    faulty_pause = random.randint(25, 35)  # 25-35 seconds
+                    print(f"   ⏸️  Pausing for {faulty_pause}s after faulty link (anti-spam measure)...")
+                    time.sleep(faulty_pause)
+                    
                     continue
                 
                 posts_data = fetch_profile_posts(url)
@@ -745,6 +774,12 @@ def main():
                 # Handle as faulty URL to ensure continuity
                 handle_faulty_url(url)
                 count += 1
+                
+                # Human-like pause after faulty link to avoid spam-like behavior
+                faulty_pause = random.randint(25, 35)  # 25-35 seconds
+                print(f"   ⏸️  Pausing for {faulty_pause}s after faulty link (anti-spam measure)...")
+                time.sleep(faulty_pause)
+                
                 continue
 
             sleep_time = random.randint(60, 180) 

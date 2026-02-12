@@ -1,9 +1,6 @@
-"""
-Proxy-enabled requests session for API calls
-Uses iProyal proxy with IP whitelisting for all HTTP requests
-"""
 import os
 import requests
+from urllib.parse import quote
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,14 +21,23 @@ class ProxySession:
         if not use_proxy:
             return
         
-        host = os.getenv("PROXY_HOST")
-        port = os.getenv("PROXY_PORT")
+        host = os.getenv("PROXY_HOST", "").strip()
+        port = os.getenv("PROXY_PORT", "").strip()
+        username = os.getenv("PROXY_USERNAME", "").strip()
+        password = os.getenv("PROXY_PASSWORD", "").strip()
         
         if not all([host, port]):
             return
         
-        # Configure proxy for requests (IP whitelisted, no auth needed)
-        proxy_url = f"http://{host}:{port}"
+        # Configure proxy for requests with authentication if provided
+        if username and password:
+            # URL encode username and password to handle special characters
+            encoded_user = quote(username, safe='')
+            encoded_pass = quote(password, safe='')
+            proxy_url = f"http://{encoded_user}:{encoded_pass}@{host}:{port}"
+        else:
+            # Fallback to IP whitelisting if no auth provided
+            proxy_url = f"http://{host}:{port}"
         
         self.session.proxies = {
             'http': proxy_url,

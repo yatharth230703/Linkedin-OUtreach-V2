@@ -6,7 +6,7 @@ import zipfile
 import string
 import math
 from datetime import datetime
-import undetected_chromedriver as uc
+import seleniumwire.undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from dotenv import load_dotenv
@@ -405,25 +405,52 @@ def create_proxy_auth_extension(proxy_host, proxy_port, proxy_user, proxy_pass):
     
     return pluginfile
 
-def test_proxy_connection():
-    """Test proxy connection and show IP information"""
-    proxy_session = get_proxy_session()
-    
+def validate_proxy_with_driver(driver):
+    """Test proxy connection using the browser driver"""
     try:
-        print("🔍 Testing proxy connection...")
-        response = proxy_session.get("https://httpbin.org/ip", timeout=10)
+        print("🔍 Testing proxy connection via browser...")
         
-        if response.status_code == 200:
-            ip_data = response.json()
+        # 1. Get Local IP (Direct connection)
+        import requests
+        try:
+            local_response = requests.get("https://api.ipify.org?format=json", proxies={"http": None, "https": None}, timeout=5)
+            local_ip = local_response.json().get("ip")
+            print(f"🏠 Local IP: {local_ip}")
+        except Exception as e:
+            print(f"⚠️ Could not fetch local IP: {e}")
+            local_ip = None
+
+        # 2. Get Browser IP (Should be Proxy)
+        driver.get("https://httpbin.org/ip")
+        human_pause(2, 3)
+        
+        # Check if we got a valid JSON response
+        try:
+            # Extract text from pre tag if present, or body
+            content = driver.find_element(By.TAG_NAME, "body").text
+            import json
+            ip_data = json.loads(content)
             proxy_ip = ip_data.get("origin", "Unknown")
-            print(f"✅ Proxy working! IP: {proxy_ip}")
-            return True
-        else:
-            print(f"⚠️ Proxy test failed with status: {response.status_code}")
+            
+            # Compare IPs
+            if local_ip and proxy_ip:
+                if local_ip in proxy_ip:
+                    print(f"❌ PROXY LEAK DETECTED! Browser IP ({proxy_ip}) matches Local IP ({local_ip})")
+                    print("⚠️ The proxy extension may not be loading correctly or authentication failed.")
+                    return False
+                else:
+                    print(f"✅ Proxy working! Browser IP: {proxy_ip} (Different from Local: {local_ip})")
+                    return True
+            else:
+                 print(f"✅ Proxy check complete. Browser IP: {proxy_ip}")
+                 return True
+                 
+        except:
+            print(f"⚠️ Could not parse IP response. Body text: {driver.find_element(By.TAG_NAME, 'body').text[:100]}...")
             return False
             
     except Exception as e:
-        print(f"❌ Proxy test failed: {e}")
+        print(f"❌ Proxy browser test failed: {e}")
         return False
 
 def setup_chrome_driver():
@@ -431,8 +458,7 @@ def setup_chrome_driver():
     try:
         print("🚀 Setting up Chrome driver with Stealth Config...")
         
-        # Test proxy connection first
-        test_proxy_connection()
+        # NOTE: Removed pre-flight requests-based proxy check as it can be blocked while browser works
         
         options = uc.ChromeOptions()
         
@@ -471,9 +497,9 @@ def setup_chrome_driver():
         }
         options.add_experimental_option("prefs", prefs)
         
-        # Proxy configuration with authentication via extension
+        # Proxy configuration with selenium-wire
         use_proxy = os.getenv("USE_PROXY", "false").lower() == "true"
-        proxy_extension_path = None
+        seleniumwire_config = {}
         
         if use_proxy:
             proxy_host = os.getenv("PROXY_HOST")
@@ -482,17 +508,18 @@ def setup_chrome_driver():
             proxy_password = os.getenv("PROXY_PASSWORD")
             
             if all([proxy_host, proxy_port, proxy_username, proxy_password]):
-                print(f"🌐 Configuring proxy: {proxy_host}:{proxy_port}")
+                print(f"🌐 Configuring proxy via selenium-wire: {proxy_host}:{proxy_port}")
                 
-                # Create proxy authentication extension
-                try:
-                    proxy_extension_path = create_proxy_auth_extension(
-                        proxy_host, proxy_port, proxy_username, proxy_password
-                    )
-                    print("✅ Proxy authentication extension created")
-                except Exception as e:
-                    print(f"⚠️ Could not create proxy extension: {e}")
-                    proxy_extension_path = None
+                # Construct authenticated proxy URL
+                # NOTE: selenium connection uses this internally, avoiding browser auth prompts
+                proxy_url = f"http://{proxy_username}:{proxy_password}@{proxy_host}:{proxy_port}"
+                seleniumwire_config = {
+                    'proxy': {
+                        'http': proxy_url,
+                        'https': proxy_url,
+                        'no_proxy': 'localhost,127.0.0.1' 
+                    }
+                }
             else:
                 print("⚠️ Proxy credentials incomplete, proceeding without proxy")
         else:
@@ -511,25 +538,13 @@ def setup_chrome_driver():
         ]
         options.add_argument(f'--user-agent={user_agents[0]}')
         
-        # Add proxy extension if created
-        if proxy_extension_path and os.path.exists(proxy_extension_path):
-            options.add_extension(proxy_extension_path)
-            print("✅ Proxy extension added to Chrome options")
+        # Create selenium-wire driver 
+        # (seleniumwire intercepts traffic to handle auth automatically)
+        if seleniumwire_config:
+            driver = uc.Chrome(options=options, seleniumwire_options=seleniumwire_config, version_main=144)
+        else:
+            driver = uc.Chrome(options=options, version_main=144)
 
-        # Create driver (specify version_main to match installed Chrome)
-        driver = uc.Chrome(options=options, version_main=144)
-        
-        # Clean up the extension file after driver creation
-        if proxy_extension_path and os.path.exists(proxy_extension_path):
-            import atexit
-            def cleanup():
-                try:
-                    if os.path.exists(proxy_extension_path):
-                        os.remove(proxy_extension_path)
-                        print("🧹 Cleaned up proxy extension file")
-                except:
-                    pass
-            atexit.register(cleanup)
 
         # --- 4. DEEP STEALTH INJECTION via CDP ---
         # This is the most important part for VM evasion.
@@ -600,6 +615,11 @@ def setup_chrome_driver():
         })
         
         print("✅ Chrome driver setup complete with advanced VM evasion")
+        
+        # Validate proxy connection using the driver
+        if use_proxy:
+            validate_proxy_with_driver(driver)
+            
         return driver
         
     except Exception as e:

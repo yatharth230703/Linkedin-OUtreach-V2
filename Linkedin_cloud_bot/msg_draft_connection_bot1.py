@@ -455,26 +455,7 @@ class LinkedInInteractionManager:
 
 
 
-def test_proxy_connection():
-    """Test proxy connection and show IP information"""
-    proxy_session = get_proxy_session()
-    
-    try:
-        print("🔍 Testing proxy connection...")
-        response = proxy_session.get("https://httpbin.org/ip", timeout=10)
-        
-        if response.status_code == 200:
-            ip_data = response.json()
-            proxy_ip = ip_data.get("origin", "Unknown")
-            print(f"✅ Proxy working! IP: {proxy_ip}")
-            return True
-        else:
-            print(f"⚠️ Proxy test failed with status: {response.status_code}")
-            return False
-            
-    except Exception as e:
-        print(f"❌ Proxy test failed: {e}")
-        return False
+
 
 def is_profile_accessible(driver, url, max_retries=2):
     """
@@ -631,9 +612,6 @@ def main():
     # Default to template_1 if no template specified
     template_name = args.template or 'template_1'
     print(f"🎯 Using prompt template: {template_name}")
-    
-    # Test proxy connection first
-    test_proxy_connection()
     
     # Ensure LinkedIn login before starting bot operations
     print("🔐 Ensuring LinkedIn login...")

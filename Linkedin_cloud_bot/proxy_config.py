@@ -16,18 +16,29 @@ def get_proxy_options():
     if not use_proxy:
         return None
     
-    host = os.getenv("PROXY_HOST")
-    port = os.getenv("PROXY_PORT")
+    host = os.getenv("PROXY_HOST", "").strip()
+    port = os.getenv("PROXY_PORT", "").strip()
+    username = os.getenv("PROXY_USERNAME", "").strip()
+    password = os.getenv("PROXY_PASSWORD", "").strip()
     
     if not all([host, port]):
         return None
     
-    # Use IP whitelisting - no authentication required
-    # Try different format for selenium-wire
+    # Configure proxy string
+    if username and password:
+        from urllib.parse import quote
+        encoded_user = quote(username, safe='')
+        encoded_pass = quote(password, safe='')
+        proxy_string = f'http://{encoded_user}:{encoded_pass}@{host}:{port}'
+        https_proxy_string = f'https://{encoded_user}:{encoded_pass}@{host}:{port}'
+    else:
+        proxy_string = f'http://{host}:{port}'
+        https_proxy_string = f'https://{host}:{port}'
+
     proxy_options = {
         'proxy': {
-            'http': f'http://{host}:{port}',
-            'https': f'https://{host}:{port}',
+            'http': proxy_string,
+            'https': https_proxy_string,
         }
     }
     

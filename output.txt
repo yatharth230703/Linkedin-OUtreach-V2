@@ -1,0 +1,96 @@
+Traceback (most recent call last):
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/test.py", line 51, in save_dom_to_file
+    driver.get(url)
+    ~~~~~~~~~~^^^^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/undetected_chromedriver/__init__.py", line 665, in get
+    return super().get(url)
+           ~~~~~~~~~~~^^^^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/selenium/webdriver/remote/webdriver.py", line 452, in get
+    self.execute(Command.GET, {"url": url})
+    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/selenium/webdriver/remote/webdriver.py", line 432, in execute
+    self.error_handler.check_response(response)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/selenium/webdriver/remote/errorhandler.py", line 232, in check_response
+    raise exception_class(message, screen, stacktrace)
+selenium.common.exceptions.NoSuchWindowException: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   undetected_chromedriver             0x0000000101318328 undetected_chromedriver + 6722344
+1   undetected_chromedriver             0x000000010130fb8a undetected_chromedriver + 6687626
+2   undetected_chromedriver             0x0000000100d1dec5 undetected_chromedriver + 454341
+3   undetected_chromedriver             0x0000000100cf1348 undetected_chromedriver + 271176
+4   undetected_chromedriver             0x0000000100da2058 undetected_chromedriver + 995416
+5   undetected_chromedriver             0x0000000100dbbd68 undetected_chromedriver + 1101160
+6   undetected_chromedriver             0x0000000100d649e1 undetected_chromedriver + 743905
+7   undetected_chromedriver             0x0000000100d657e1 undetected_chromedriver + 747489
+8   undetected_chromedriver             0x00000001012d0be1 undetected_chromedriver + 6429665
+9   undetected_chromedriver             0x00000001012d4f8e undetected_chromedriver + 6446990
+10  undetected_chromedriver             0x00000001012b0369 undetected_chromedriver + 6296425
+11  undetected_chromedriver             0x00000001012d59f8 undetected_chromedriver + 6449656
+12  undetected_chromedriver             0x000000010129ea50 undetected_chromedriver + 6224464
+13  undetected_chromedriver             0x00000001012fbf88 undetected_chromedriver + 6606728
+14  undetected_chromedriver             0x00000001012fc142 undetected_chromedriver + 6607170
+15  undetected_chromedriver             0x000000010130f791 undetected_chromedriver + 6686609
+16  libsystem_pthread.dylib             0x00007ff814c9ee4d _pthread_start + 115
+17  libsystem_pthread.dylib             0x00007ff814c9a857 thread_start + 15
+
+✅ Successfully imported advanced driver setup from project
+🚀 Initializing Browser...
+🚀 Setting up Chrome driver with Stealth Config...
+🌐 Configuring proxy: geo.iproyal.com:12321
+✅ Proxy authentication extension created
+✅ Proxy extension added to Chrome options
+✅ Chrome driver setup complete with advanced VM evasion
+🔍 Testing proxy connection via browser...
+🏠 Local IP: 103.212.156.54
+❌ Proxy browser test failed: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   undetected_chromedriver             0x0000000101318328 undetected_chromedriver + 6722344
+1   undetected_chromedriver             0x000000010130fb8a undetected_chromedriver + 6687626
+2   undetected_chromedriver             0x0000000100d1dec5 undetected_chromedriver + 454341
+3   undetected_chromedriver             0x0000000100cf1348 undetected_chromedriver + 271176
+4   undetected_chromedriver             0x0000000100da2058 undetected_chromedriver + 995416
+5   undetected_chromedriver             0x0000000100dbbd68 undetected_chromedriver + 1101160
+6   undetected_chromedriver             0x0000000100d649e1 undetected_chromedriver + 743905
+7   undetected_chromedriver             0x0000000100d657e1 undetected_chromedriver + 747489
+8   undetected_chromedriver             0x00000001012d0be1 undetected_chromedriver + 6429665
+9   undetected_chromedriver             0x00000001012d4f8e undetected_chromedriver + 6446990
+10  undetected_chromedriver             0x00000001012b0369 undetected_chromedriver + 6296425
+11  undetected_chromedriver             0x00000001012d59f8 undetected_chromedriver + 6449656
+12  undetected_chromedriver             0x000000010129ea50 undetected_chromedriver + 6224464
+13  undetected_chromedriver             0x00000001012fbf88 undetected_chromedriver + 6606728
+14  undetected_chromedriver             0x00000001012fc142 undetected_chromedriver + 6607170
+15  undetected_chromedriver             0x000000010130f791 undetected_chromedriver + 6686609
+16  libsystem_pthread.dylib             0x00007ff814c9ee4d _pthread_start + 115
+17  libsystem_pthread.dylib             0x00007ff814c9a857 thread_start + 15
+
+🔗 Navigating to https://example.com...
+❌ Error occurred: Message: no such window: target window already closed
+from unknown error: web view not found
+  (Session info: chrome=144.0.7559.133)
+Stacktrace:
+0   undetected_chromedriver             0x0000000101318328 undetected_chromedriver + 6722344
+1   undetected_chromedriver             0x000000010130fb8a undetected_chromedriver + 6687626
+2   undetected_chromedriver             0x0000000100d1dec5 undetected_chromedriver + 454341
+3   undetected_chromedriver             0x0000000100cf1348 undetected_chromedriver + 271176
+4   undetected_chromedriver             0x0000000100da2058 undetected_chromedriver + 995416
+5   undetected_chromedriver             0x0000000100dbbd68 undetected_chromedriver + 1101160
+6   undetected_chromedriver             0x0000000100d649e1 undetected_chromedriver + 743905
+7   undetected_chromedriver             0x0000000100d657e1 undetected_chromedriver + 747489
+8   undetected_chromedriver             0x00000001012d0be1 undetected_chromedriver + 6429665
+9   undetected_chromedriver             0x00000001012d4f8e undetected_chromedriver + 6446990
+10  undetected_chromedriver             0x00000001012b0369 undetected_chromedriver + 6296425
+11  undetected_chromedriver             0x00000001012d59f8 undetected_chromedriver + 6449656
+12  undetected_chromedriver             0x000000010129ea50 undetected_chromedriver + 6224464
+13  undetected_chromedriver             0x00000001012fbf88 undetected_chromedriver + 6606728
+14  undetected_chromedriver             0x00000001012fc142 undetected_chromedriver + 6607170
+15  undetected_chromedriver             0x000000010130f791 undetected_chromedriver + 6686609
+16  libsystem_pthread.dylib             0x00007ff814c9ee4d _pthread_start + 115
+17  libsystem_pthread.dylib             0x00007ff814c9a857 thread_start + 15
+
+🔒 Closing browser...
+🧹 Cleaned up proxy extension file

@@ -1,0 +1,193 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  width: 320px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  color: #1a1a1a;
+  background: #f9fafb;
+}
+
+.screen {
+  padding: 20px;
+}
+
+.hidden {
+  display: none !important;
+}
+
+h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #0a66c2;
+}
+
+h3 {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: #444;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: #666;
+  margin: 4px 0 16px;
+}
+
+/* Login */
+#login-screen {
+  text-align: center;
+}
+
+#login-screen input {
+  width: 100%;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+#login-screen input:focus {
+  outline: none;
+  border-color: #0a66c2;
+}
+
+/* Buttons */
+.btn {
+  padding: 10px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-primary {
+  background: #0a66c2;
+  color: white;
+}
+
+.btn-primary:hover {
+  background: #004182;
+}
+
+.btn-primary:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #e8e8e8;
+  color: #333;
+}
+
+.btn-secondary:hover {
+  background: #d4d4d4;
+}
+
+.btn-danger {
+  background: #dc2626;
+  color: white;
+}
+
+.btn-danger:hover {
+  background: #b91c1c;
+}
+
+.btn-full {
+  width: 100%;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* Header */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* Status bar */
+.status-bar {
+  padding: 8px 12px;
+  border-radius: 6px;
+  text-align: center;
+  font-weight: 500;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+
+.status-stopped {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.status-running {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+/* Sections */
+.section {
+  margin-bottom: 14px;
+}
+
+/* Config */
+.config-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.config-row label {
+  font-size: 13px;
+  color: #555;
+}
+
+.config-row input {
+  width: 70px;
+  padding: 6px 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.config-row input:disabled {
+  background: #f3f3f3;
+  color: #999;
+}
+
+/* Hints & Errors */
+.hint {
+  font-size: 11px;
+  color: #888;
+  margin-top: 6px;
+}
+
+.error {
+  color: #dc2626;
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.success {
+  color: #16a34a;
+  font-size: 12px;
+}

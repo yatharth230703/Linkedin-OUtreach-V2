@@ -1,0 +1,10 @@
+selenium-wire
+undetected-chromedriver
+supabase
+google-genai
+apify-client
+requests
+python-dotenv
+psutil
+flask
+flask-cors

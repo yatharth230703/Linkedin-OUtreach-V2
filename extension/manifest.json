@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "LinkedIn Outreach Bot",
+  "version": "1.0.0",
+  "description": "Control LinkedIn automation bot from your browser",
+  "permissions": ["cookies", "storage", "scripting", "activeTab", "tabs"],
+  "host_permissions": ["https://www.linkedin.com/*"],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}

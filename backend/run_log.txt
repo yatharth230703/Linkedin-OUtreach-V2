@@ -1,0 +1,618 @@
+
+--- Bot started at 2026-02-12T11:59:34.257060+00:00 ---
+2026-02-12 17:29:34,340 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 17:29:34,340 - 🎯 Using prompt template: template_1
+2026-02-12 17:29:34,340 - ================================================================================
+2026-02-12 17:29:34,340 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 17:29:34,340 - ================================================================================
+2026-02-12 17:29:34,340 - ⏰ Wake time: 2026-02-12 17:29:34
+2026-02-12 17:29:34,340 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 17:29:34,340 - 📅 Estimated completion: 2026-02-12 19:45:34
+2026-02-12 17:29:34,340 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:29:34,340 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 17:29:34,340 - 🚀 Starting bot sequence at: 2026-02-12 17:29:34
+2026-02-12 17:29:34,340 - ================================================================================
+2026-02-12 17:29:34,340 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:29:34,340 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 17:29:34,340 -    🎯 Using template: template_1
+2026-02-12 17:29:35,171 - ❌ Connection Bot failed: Exit code 1
+2026-02-12 17:29:35,171 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/options.py", line 5, in <module>
+2026-02-12 17:29:35,171 -    🔥 from seleniumwire.thirdparty.mitmproxy import optmanager
+2026-02-12 17:29:35,171 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/optmanager.py", line 9, in <module>
+2026-02-12 17:29:35,171 -    🔥 import blinker._saferef
+2026-02-12 17:29:35,171 -    🔥 ModuleNotFoundError: No module named 'blinker._saferef'
+2026-02-12 17:29:35,171 - ☕ Taking human break: 0.4 minutes (24s)
+2026-02-12 17:29:59,172 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:29:59,172 - ✅ Break completed - ready for next bot
+2026-02-12 17:29:59,173 - ================================================================================
+2026-02-12 17:29:59,173 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:29:59,173 - 🚀 Starting Message Bot: Sends queued messages
+2026-02-12 17:29:59,983 - ❌ Message Bot failed: Exit code 1
+2026-02-12 17:29:59,984 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/options.py", line 5, in <module>
+2026-02-12 17:29:59,984 -    🔥 from seleniumwire.thirdparty.mitmproxy import optmanager
+2026-02-12 17:29:59,984 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/optmanager.py", line 9, in <module>
+2026-02-12 17:29:59,984 -    🔥 import blinker._saferef
+2026-02-12 17:29:59,984 -    🔥 ModuleNotFoundError: No module named 'blinker._saferef'
+2026-02-12 17:29:59,984 - ☕ Taking human break: 0.5 minutes (29s)
+2026-02-12 17:30:28,989 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:30:28,991 - ✅ Break completed - ready for next bot
+2026-02-12 17:30:28,991 - ================================================================================
+2026-02-12 17:30:28,991 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:30:28,991 - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-02-12 17:30:29,815 - ❌ Follow-up Bot failed: Exit code 1
+2026-02-12 17:30:29,815 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/options.py", line 5, in <module>
+2026-02-12 17:30:29,815 -    🔥 from seleniumwire.thirdparty.mitmproxy import optmanager
+2026-02-12 17:30:29,815 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/optmanager.py", line 9, in <module>
+2026-02-12 17:30:29,815 -    🔥 import blinker._saferef
+2026-02-12 17:30:29,815 -    🔥 ModuleNotFoundError: No module named 'blinker._saferef'
+2026-02-12 17:30:29,815 - ================================================================================
+2026-02-12 17:30:29,815 - 📊 EXECUTION SUMMARY
+2026-02-12 17:30:29,815 - ================================================================================
+2026-02-12 17:30:29,815 - ✅ Successful bots: 0/3
+2026-02-12 17:30:29,815 - ⏱️ Total execution time: 0.9 minutes
+2026-02-12 17:30:29,815 - 🛑 Safety aborts: 0
+2026-02-12 17:30:29,815 - ❌ Errors: 3
+2026-02-12 17:30:29,815 - 🔥 Error details:
+2026-02-12 17:30:29,815 -    - Connection Bot: Exit code 1
+2026-02-12 17:30:29,815 -    - Message Bot: Exit code 1
+2026-02-12 17:30:29,815 -    - Follow-up Bot: Exit code 1
+2026-02-12 17:30:29,815 - 📄 Detailed stats saved to: execution_stats_20260212_173029.json
+2026-02-12 17:30:29,815 - ================================================================================
+2026-02-12 17:30:29,815 - 🎬 LinkedIn Bot Orchestrator Complete
+2026-02-12 17:30:29,815 - ================================================================================
+
+--- Bot started at 2026-02-12T12:01:02.469910+00:00 ---
+2026-02-12 17:31:02,538 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 17:31:02,539 - 🎯 Using prompt template: template_1
+2026-02-12 17:31:02,539 - ================================================================================
+2026-02-12 17:31:02,539 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 17:31:02,539 - ================================================================================
+2026-02-12 17:31:02,539 - ⏰ Wake time: 2026-02-12 17:31:02
+2026-02-12 17:31:02,539 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 17:31:02,539 - 📅 Estimated completion: 2026-02-12 19:47:02
+2026-02-12 17:31:02,539 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:31:02,539 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 17:31:02,539 - 🚀 Starting bot sequence at: 2026-02-12 17:31:02
+2026-02-12 17:31:02,539 - ================================================================================
+2026-02-12 17:31:02,539 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:31:02,539 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 17:31:02,539 -    🎯 Using template: template_1
+2026-02-12 17:31:03,365 - ❌ Connection Bot failed: Exit code 1
+2026-02-12 17:31:03,365 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/options.py", line 5, in <module>
+2026-02-12 17:31:03,366 -    🔥 from seleniumwire.thirdparty.mitmproxy import optmanager
+2026-02-12 17:31:03,366 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/optmanager.py", line 9, in <module>
+2026-02-12 17:31:03,366 -    🔥 import blinker._saferef
+2026-02-12 17:31:03,366 -    🔥 ModuleNotFoundError: No module named 'blinker._saferef'
+2026-02-12 17:31:03,366 - ☕ Taking human break: 0.2 minutes (15s)
+2026-02-12 17:31:18,371 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:31:18,371 - ✅ Break completed - ready for next bot
+2026-02-12 17:31:18,372 - ================================================================================
+2026-02-12 17:31:18,372 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:31:18,372 - 🚀 Starting Message Bot: Sends queued messages
+2026-02-12 17:31:19,205 - ❌ Message Bot failed: Exit code 1
+2026-02-12 17:31:19,205 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/options.py", line 5, in <module>
+2026-02-12 17:31:19,205 -    🔥 from seleniumwire.thirdparty.mitmproxy import optmanager
+2026-02-12 17:31:19,205 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/optmanager.py", line 9, in <module>
+2026-02-12 17:31:19,205 -    🔥 import blinker._saferef
+2026-02-12 17:31:19,205 -    🔥 ModuleNotFoundError: No module named 'blinker._saferef'
+2026-02-12 17:31:19,205 - ☕ Taking human break: 0.3 minutes (21s)
+2026-02-12 17:31:40,210 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:31:40,211 - ✅ Break completed - ready for next bot
+2026-02-12 17:31:40,211 - ================================================================================
+2026-02-12 17:31:40,211 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:31:40,211 - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-02-12 17:31:41,010 - ❌ Follow-up Bot failed: Exit code 1
+2026-02-12 17:31:41,010 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/options.py", line 5, in <module>
+2026-02-12 17:31:41,010 -    🔥 from seleniumwire.thirdparty.mitmproxy import optmanager
+2026-02-12 17:31:41,010 -    🔥 File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/optmanager.py", line 9, in <module>
+2026-02-12 17:31:41,010 -    🔥 import blinker._saferef
+2026-02-12 17:31:41,010 -    🔥 ModuleNotFoundError: No module named 'blinker._saferef'
+2026-02-12 17:31:41,010 - ================================================================================
+2026-02-12 17:31:41,010 - 📊 EXECUTION SUMMARY
+2026-02-12 17:31:41,010 - ================================================================================
+2026-02-12 17:31:41,010 - ✅ Successful bots: 0/3
+2026-02-12 17:31:41,010 - ⏱️ Total execution time: 0.6 minutes
+2026-02-12 17:31:41,010 - 🛑 Safety aborts: 0
+2026-02-12 17:31:41,010 - ❌ Errors: 3
+2026-02-12 17:31:41,010 - 🔥 Error details:
+2026-02-12 17:31:41,010 -    - Connection Bot: Exit code 1
+2026-02-12 17:31:41,010 -    - Message Bot: Exit code 1
+2026-02-12 17:31:41,010 -    - Follow-up Bot: Exit code 1
+2026-02-12 17:31:41,010 - 📄 Detailed stats saved to: execution_stats_20260212_173141.json
+2026-02-12 17:31:41,010 - ================================================================================
+2026-02-12 17:31:41,010 - 🎬 LinkedIn Bot Orchestrator Complete
+2026-02-12 17:31:41,010 - ================================================================================
+
+--- Bot started at 2026-02-12T12:02:56.962156+00:00 ---
+2026-02-12 17:32:57,030 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 17:32:57,030 - 🎯 Using prompt template: template_1
+2026-02-12 17:32:57,031 - ================================================================================
+2026-02-12 17:32:57,031 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 17:32:57,031 - ================================================================================
+2026-02-12 17:32:57,031 - ⏰ Wake time: 2026-02-12 17:32:57
+2026-02-12 17:32:57,031 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 17:32:57,031 - 📅 Estimated completion: 2026-02-12 19:48:57
+2026-02-12 17:32:57,031 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:32:57,031 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 17:32:57,031 - 🚀 Starting bot sequence at: 2026-02-12 17:32:57
+2026-02-12 17:32:57,031 - ================================================================================
+2026-02-12 17:32:57,031 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:32:57,031 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 17:32:57,031 -    🎯 Using template: template_1
+2026-02-12 17:36:45,357 - ✅ Connection Bot completed successfully in 3.8 minutes
+2026-02-12 17:36:45,358 -    📝 🎉 Batch job complete!
+2026-02-12 17:36:45,358 -    📝 🔒 Closing browser session...
+2026-02-12 17:36:45,358 - ☕ Taking human break: 0.2 minutes (12s)
+2026-02-12 17:36:57,362 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:36:57,363 - ✅ Break completed - ready for next bot
+2026-02-12 17:36:57,363 - ================================================================================
+2026-02-12 17:36:57,363 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:36:57,363 - 🚀 Starting Message Bot: Sends queued messages
+2026-02-12 17:41:11,497 - ✅ Message Bot completed successfully in 4.2 minutes
+2026-02-12 17:41:11,499 -    📝 ✅ Successful messages: 5
+2026-02-12 17:41:11,499 -    📝 ❌ Failed messages: 0
+2026-02-12 17:41:11,499 -    📝 🔒 Closing browser session...
+2026-02-12 17:41:11,500 - ☕ Taking human break: 0.3 minutes (17s)
+2026-02-12 17:41:28,503 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:41:28,503 - ✅ Break completed - ready for next bot
+2026-02-12 17:41:28,503 - ================================================================================
+2026-02-12 17:41:28,503 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:41:28,503 - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-02-12 17:43:04,305 - ✅ Follow-up Bot completed successfully in 1.6 minutes
+2026-02-12 17:43:04,306 -    📝 📭 No leads need follow-up messages at this time.
+2026-02-12 17:43:04,306 -    📝 Either all leads have been followed up, or it hasn't been 3 days yet.
+2026-02-12 17:43:04,306 -    📝 🔒 Closing browser session...
+2026-02-12 17:43:04,306 - ================================================================================
+2026-02-12 17:43:04,306 - 📊 EXECUTION SUMMARY
+2026-02-12 17:43:04,306 - ================================================================================
+2026-02-12 17:43:04,306 - ✅ Successful bots: 3/3
+2026-02-12 17:43:04,306 - ⏱️ Total execution time: 10.1 minutes
+2026-02-12 17:43:04,306 - 🛑 Safety aborts: 0
+2026-02-12 17:43:04,306 - ❌ Errors: 0
+2026-02-12 17:43:04,306 - 📄 Detailed stats saved to: execution_stats_20260212_174304.json
+2026-02-12 17:43:04,306 - ================================================================================
+2026-02-12 17:43:04,306 - 🎬 LinkedIn Bot Orchestrator Complete
+2026-02-12 17:43:04,306 - ================================================================================
+
+--- Bot started at 2026-02-12T12:19:39.228560+00:00 ---
+2026-02-12 17:49:39,302 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 17:49:39,302 - 🎯 Using prompt template: template_1
+2026-02-12 17:49:39,303 - ================================================================================
+2026-02-12 17:49:39,303 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 17:49:39,303 - ================================================================================
+2026-02-12 17:49:39,303 - ⏰ Wake time: 2026-02-12 17:49:39
+2026-02-12 17:49:39,303 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 17:49:39,303 - 📅 Estimated completion: 2026-02-12 20:05:39
+2026-02-12 17:49:39,303 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:49:39,303 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 17:49:39,303 - 🚀 Starting bot sequence at: 2026-02-12 17:49:39
+2026-02-12 17:49:39,303 - ================================================================================
+2026-02-12 17:49:39,303 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:49:39,303 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 17:49:39,303 -    🎯 Using template: template_1
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-12T12:25:55.797461+00:00 ---
+--- Running cookie injection ---
+/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/seleniumwire/thirdparty/mitmproxy/contrib/kaitaistruct/tls_client_hello.py:10: UserWarning: pkg_resources is deprecated as an API. See https://setuptools.pypa.io/en/latest/pkg_resources.html. The pkg_resources package is slated for removal as early as 2025-11-30. Refrain from using this package or pin to Setuptools<81.
+  from pkg_resources import parse_version
+[inject] Found li_at cookie (length: 152)
+[inject] Wiping old profile at /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/user_data_yath...
+[inject] Old profile deleted.
+[inject] Created fresh profile directory.
+[inject] Injecting 8 cookies into Chrome profile...
+[inject] Launching Chrome...
+[inject] Navigating to linkedin.com...
+[inject] Injected 8/8 cookies (0 skipped).
+[inject] Verifying session...
+[inject] Current URL after reload: https://www.linkedin.com/
+[inject] FAILED: Found login page heading: 'Build your professional brand & network to get ahead in your career'
+[inject] Cookies may be expired or invalid.
+[inject] Chrome closed.
+
+[inject] Final result: FAILED
+--- Cookie injection succeeded, launching orchestrator ---
+2026-02-12 17:57:32,699 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 17:57:32,699 - 🎯 Using prompt template: template_1
+2026-02-12 17:57:32,699 - ================================================================================
+2026-02-12 17:57:32,699 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 17:57:32,699 - ================================================================================
+2026-02-12 17:57:32,700 - ⏰ Wake time: 2026-02-12 17:57:32
+2026-02-12 17:57:32,700 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 17:57:32,700 - 📅 Estimated completion: 2026-02-12 20:13:32
+2026-02-12 17:57:32,700 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:57:32,700 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 17:57:32,700 - 🚀 Starting bot sequence at: 2026-02-12 17:57:32
+2026-02-12 17:57:32,700 - ================================================================================
+2026-02-12 17:57:32,700 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:57:32,700 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 17:57:32,700 -    🎯 Using template: template_1
+2026-02-12 17:58:07,573 - ✅ Connection Bot completed successfully in 0.6 minutes
+2026-02-12 17:58:07,574 -    📝 📸 Screenshot saved: screenshots/20260212_175807_email_field_not_found.png
+2026-02-12 17:58:07,574 -    📝 📄 Page source saved: screenshots/20260212_175807_email_field_not_found_page_source.html
+2026-02-12 17:58:07,574 -    📝 ❌ Could not establish LinkedIn session. Exiting.
+2026-02-12 17:58:07,574 - ☕ Taking human break: 0.4 minutes (26s)
+2026-02-12 17:58:33,579 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:58:33,580 - ✅ Break completed - ready for next bot
+2026-02-12 17:58:33,580 - ================================================================================
+2026-02-12 17:58:33,580 - 🧪 Test mode - skipping user presence checks
+2026-02-12 17:58:33,580 - 🚀 Starting Message Bot: Sends queued messages
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-12T12:36:10.508416+00:00 ---
+--- Running cookie injection ---
+[inject] Found li_at cookie (length: 152)
+[inject] Wiping old profile at /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/user_data_yath...
+[inject] Old profile deleted.
+[inject] Created fresh profile directory.
+[inject] Writing 7 cookies to Chrome SQLite database...
+[inject] Wrote 7/7 cookies to SQLite (0 skipped).
+[inject] Cookie DB location: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/user_data_yath/Default/Cookies
+[inject] Verification: 7 cookies in DB
+[inject] Verification: li_at cookie present (length: 152)
+[inject] SUCCESS: Cookies written to Chrome profile.
+
+[inject] Final result: SUCCESS
+--- Cookie injection succeeded, launching orchestrator ---
+2026-02-12 18:06:10,634 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 18:06:10,634 - 🎯 Using prompt template: template_1
+2026-02-12 18:06:10,635 - ================================================================================
+2026-02-12 18:06:10,635 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 18:06:10,635 - ================================================================================
+2026-02-12 18:06:10,635 - ⏰ Wake time: 2026-02-12 18:06:10
+2026-02-12 18:06:10,635 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 18:06:10,635 - 📅 Estimated completion: 2026-02-12 20:22:10
+2026-02-12 18:06:10,635 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:06:10,635 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 18:06:10,635 - 🚀 Starting bot sequence at: 2026-02-12 18:06:10
+2026-02-12 18:06:10,635 - ================================================================================
+2026-02-12 18:06:10,635 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:06:10,635 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 18:06:10,635 -    🎯 Using template: template_1
+2026-02-12 18:06:57,571 - ✅ Connection Bot completed successfully in 0.8 minutes
+2026-02-12 18:06:57,571 -    📝 17  libsystem_pthread.dylib             0x00007ff80ddfa857 thread_start + 15
+2026-02-12 18:06:57,571 -    📝 🔒 Closing browser session...
+2026-02-12 18:06:57,571 - ☕ Taking human break: 0.5 minutes (30s)
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-12T12:37:37.453751+00:00 ---
+--- Running cookie injection ---
+[inject] Found li_at cookie (length: 152)
+[inject] Created fresh profile directory.
+[inject] Writing 7 cookies to Chrome SQLite database...
+[inject] Wrote 7/7 cookies to SQLite (0 skipped).
+[inject] Cookie DB location: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/user_data_yath/Default/Cookies
+[inject] Verification: 7 cookies in DB
+[inject] Verification: li_at cookie present (length: 152)
+[inject] SUCCESS: Cookies written to Chrome profile.
+
+[inject] Final result: SUCCESS
+--- Cookie injection succeeded, launching orchestrator ---
+2026-02-12 18:07:37,527 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 18:07:37,527 - 🎯 Using prompt template: template_1
+2026-02-12 18:07:37,528 - ================================================================================
+2026-02-12 18:07:37,528 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 18:07:37,528 - ================================================================================
+2026-02-12 18:07:37,528 - ⏰ Wake time: 2026-02-12 18:07:37
+2026-02-12 18:07:37,528 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 18:07:37,528 - 📅 Estimated completion: 2026-02-12 20:23:37
+2026-02-12 18:07:37,528 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:07:37,528 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 18:07:37,528 - 🚀 Starting bot sequence at: 2026-02-12 18:07:37
+2026-02-12 18:07:37,528 - ================================================================================
+2026-02-12 18:07:37,528 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:07:37,528 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 18:07:37,528 -    🎯 Using template: template_1
+2026-02-12 18:07:42,677 - ✅ Connection Bot completed successfully in 0.1 minutes
+2026-02-12 18:07:42,677 -    📝 17  libsystem_pthread.dylib             0x00007ff80ddfa857 thread_start + 15
+2026-02-12 18:07:42,677 -    📝 ❌ Could not establish LinkedIn session. Exiting.
+2026-02-12 18:07:42,678 - ☕ Taking human break: 0.2 minutes (11s)
+2026-02-12 18:07:53,683 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:07:53,683 - ✅ Break completed - ready for next bot
+2026-02-12 18:07:53,683 - ================================================================================
+2026-02-12 18:07:53,683 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:07:53,683 - 🚀 Starting Message Bot: Sends queued messages
+2026-02-12 18:09:17,133 - ✅ Message Bot completed successfully in 1.4 minutes
+2026-02-12 18:09:17,133 -    📝 17  libsystem_pthread.dylib             0x00007ff80ddfa857 thread_start + 15
+2026-02-12 18:09:17,133 -    📝 🔒 Closing browser session...
+2026-02-12 18:09:17,134 - ☕ Taking human break: 0.3 minutes (21s)
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-12T12:39:47.134080+00:00 ---
+--- Running cookie injection ---
+[inject] Found li_at cookie (length: 152)
+[inject] Created fresh profile directory.
+[inject] Writing 7 cookies to Chrome SQLite database...
+[inject] Wrote 7/7 cookies to SQLite (0 skipped).
+[inject] Cookie DB location: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/user_data_yath/Default/Cookies
+[inject] Verification: 7 cookies in DB
+[inject] Verification: li_at cookie present (length: 152)
+[inject] SUCCESS: Cookies written to Chrome profile.
+
+[inject] Final result: SUCCESS
+--- Cookie injection succeeded, launching orchestrator ---
+2026-02-12 18:09:47,230 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 18:09:47,230 - 🎯 Using prompt template: template_1
+2026-02-12 18:09:47,231 - ================================================================================
+2026-02-12 18:09:47,231 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 18:09:47,231 - ================================================================================
+2026-02-12 18:09:47,231 - ⏰ Wake time: 2026-02-12 18:09:47
+2026-02-12 18:09:47,231 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 18:09:47,231 - 📅 Estimated completion: 2026-02-12 20:25:47
+2026-02-12 18:09:47,231 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:09:47,231 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 18:09:47,231 - 🚀 Starting bot sequence at: 2026-02-12 18:09:47
+2026-02-12 18:09:47,231 - ================================================================================
+2026-02-12 18:09:47,231 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:09:47,231 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 18:09:47,231 -    🎯 Using template: template_1
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-12T12:41:14.238401+00:00 ---
+--- Running cookie injection ---
+[inject] Found li_at cookie (length: 152)
+[inject] Created fresh profile directory.
+[inject] Writing 8 cookies to Chrome SQLite database...
+[inject] Wrote 8/8 cookies to SQLite (0 skipped).
+[inject] Cookie DB location: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/user_data_yath/Default/Cookies
+[inject] Verification: 8 cookies in DB
+[inject] Verification: li_at cookie present (length: 152)
+[inject] SUCCESS: Cookies written to Chrome profile.
+
+[inject] Final result: SUCCESS
+--- Cookie injection succeeded, launching orchestrator ---
+2026-02-12 18:11:14,359 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 18:11:14,359 - 🎯 Using prompt template: template_1
+2026-02-12 18:11:14,359 - ================================================================================
+2026-02-12 18:11:14,359 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 18:11:14,359 - ================================================================================
+2026-02-12 18:11:14,359 - ⏰ Wake time: 2026-02-12 18:11:14
+2026-02-12 18:11:14,359 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 18:11:14,359 - 📅 Estimated completion: 2026-02-12 20:27:14
+2026-02-12 18:11:14,359 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:11:14,359 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 18:11:14,359 - 🚀 Starting bot sequence at: 2026-02-12 18:11:14
+2026-02-12 18:11:14,359 - ================================================================================
+2026-02-12 18:11:14,359 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:11:14,359 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 18:11:14,359 -    🎯 Using template: template_1
+2026-02-12 18:12:47,713 - ✅ Connection Bot completed successfully in 1.6 minutes
+2026-02-12 18:12:47,714 -    📝 📸 Screenshot saved: screenshots/20260212_181247_email_field_not_found.png
+2026-02-12 18:12:47,714 -    📝 📄 Page source saved: screenshots/20260212_181247_email_field_not_found_page_source.html
+2026-02-12 18:12:47,714 -    📝 ❌ Could not establish LinkedIn session. Exiting.
+2026-02-12 18:12:47,714 - ☕ Taking human break: 0.2 minutes (13s)
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-12T12:56:46.394814+00:00 ---
+--- Running cookie injection ---
+[inject] Found 7 cookies in cookies.json
+[inject] ERROR: No 'li_at' cookie found - this is the critical session token.
+
+[inject] Final result: FAILED
+--- Cookie injection failed (exit code 1) ---
+
+--- Bot started at 2026-02-12T13:00:59.886344+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-12 18:30:59,958 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 18:30:59,958 - 🎯 Using prompt template: template_1
+2026-02-12 18:30:59,958 - ================================================================================
+2026-02-12 18:30:59,958 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 18:30:59,958 - ================================================================================
+2026-02-12 18:30:59,958 - ⏰ Wake time: 2026-02-12 18:30:59
+2026-02-12 18:30:59,958 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 18:30:59,958 - 📅 Estimated completion: 2026-02-12 20:46:59
+2026-02-12 18:30:59,959 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:30:59,959 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 18:30:59,959 - 🚀 Starting bot sequence at: 2026-02-12 18:30:59
+2026-02-12 18:30:59,959 - ================================================================================
+2026-02-12 18:30:59,959 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:30:59,959 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 18:30:59,959 -    🎯 Using template: template_1
+2026-02-12 18:33:23,292 - ✅ Connection Bot completed successfully in 2.4 minutes
+2026-02-12 18:33:23,292 -    📝 📸 Screenshot saved: screenshots/20260212_183322_email_field_not_found.png
+2026-02-12 18:33:23,292 -    📝 📄 Page source saved: screenshots/20260212_183322_email_field_not_found_page_source.html
+2026-02-12 18:33:23,292 -    📝 ❌ Could not establish LinkedIn session. Exiting.
+2026-02-12 18:33:23,293 - ☕ Taking human break: 0.3 minutes (21s)
+2026-02-12 18:33:44,298 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:33:44,298 - ✅ Break completed - ready for next bot
+2026-02-12 18:33:44,298 - ================================================================================
+2026-02-12 18:33:44,298 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:33:44,299 - 🚀 Starting Message Bot: Sends queued messages
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-12T13:25:54.651988+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-12 18:55:54,722 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 18:55:54,723 - 🎯 Using prompt template: template_1
+2026-02-12 18:55:54,723 - ================================================================================
+2026-02-12 18:55:54,723 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 18:55:54,723 - ================================================================================
+2026-02-12 18:55:54,723 - ⏰ Wake time: 2026-02-12 18:55:54
+2026-02-12 18:55:54,723 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 18:55:54,723 - 📅 Estimated completion: 2026-02-12 21:11:54
+2026-02-12 18:55:54,723 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:55:54,723 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 18:55:54,723 - 🚀 Starting bot sequence at: 2026-02-12 18:55:54
+2026-02-12 18:55:54,723 - ================================================================================
+2026-02-12 18:55:54,723 - 🧪 Test mode - skipping user presence checks
+2026-02-12 18:55:54,723 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 18:55:54,723 -    🎯 Using template: template_1
+2026-02-12 19:00:09,590 - ✅ Connection Bot completed successfully in 4.2 minutes
+2026-02-12 19:00:09,591 -    📝 🎉 Batch job complete!
+2026-02-12 19:00:09,591 -    📝 🔒 Closing browser session...
+2026-02-12 19:00:09,591 - ☕ Taking human break: 0.2 minutes (10s)
+2026-02-12 19:00:19,596 - 🧪 Test mode - skipping user presence checks
+2026-02-12 19:00:19,596 - ✅ Break completed - ready for next bot
+2026-02-12 19:00:19,596 - ================================================================================
+2026-02-12 19:00:19,596 - 🧪 Test mode - skipping user presence checks
+2026-02-12 19:00:19,596 - 🚀 Starting Message Bot: Sends queued messages
+2026-02-12 19:00:26,981 - ✅ Message Bot completed successfully in 0.1 minutes
+2026-02-12 19:00:26,982 -    📝 17  libsystem_pthread.dylib             0x00007ff81b9a6857 thread_start + 15
+2026-02-12 19:00:26,982 -    📝 ❌ Could not establish LinkedIn session. Exiting.
+2026-02-12 19:00:26,982 - ☕ Taking human break: 0.4 minutes (26s)
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-12T13:36:55.815760+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-12 19:06:55,886 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 19:06:55,886 - 🎯 Using prompt template: template_1
+2026-02-12 19:06:55,886 - ================================================================================
+2026-02-12 19:06:55,886 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 19:06:55,886 - ================================================================================
+2026-02-12 19:06:55,887 - ⏰ Wake time: 2026-02-12 19:06:55
+2026-02-12 19:06:55,887 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 19:06:55,887 - 📅 Estimated completion: 2026-02-12 21:22:55
+2026-02-12 19:06:55,887 - 🧪 Test mode - skipping user presence checks
+2026-02-12 19:06:55,887 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 19:06:55,887 - 🚀 Starting bot sequence at: 2026-02-12 19:06:55
+2026-02-12 19:06:55,887 - ================================================================================
+2026-02-12 19:06:55,887 - 🧪 Test mode - skipping user presence checks
+2026-02-12 19:06:55,887 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 19:06:55,887 -    🎯 Using template: template_1
+2026-02-12 19:07:23,362 - ✅ Connection Bot completed successfully in 0.5 minutes
+2026-02-12 19:07:23,362 -    📝 ✅ Session Active. Ready to start automation.
+2026-02-12 19:07:23,362 -    📝 ⚠️ No leads found in leads.json. Exiting.
+2026-02-12 19:07:23,362 -    📝 🔒 Closing browser session...
+2026-02-12 19:07:23,362 - ☕ Taking human break: 0.3 minutes (18s)
+2026-02-12 19:07:41,367 - 🧪 Test mode - skipping user presence checks
+2026-02-12 19:07:41,368 - ✅ Break completed - ready for next bot
+2026-02-12 19:07:41,368 - ================================================================================
+2026-02-12 19:07:41,368 - 🧪 Test mode - skipping user presence checks
+2026-02-12 19:07:41,368 - 🚀 Starting Message Bot: Sends queued messages
+2026-02-12 19:09:03,663 - ✅ Message Bot completed successfully in 1.4 minutes
+2026-02-12 19:09:03,664 -    📝 ✅ Successful messages: 1
+2026-02-12 19:09:03,664 -    📝 ❌ Failed messages: 0
+2026-02-12 19:09:03,664 -    📝 🔒 Closing browser session...
+2026-02-12 19:09:03,664 - ☕ Taking human break: 0.2 minutes (14s)
+2026-02-12 19:09:17,669 - 🧪 Test mode - skipping user presence checks
+2026-02-12 19:09:17,670 - ✅ Break completed - ready for next bot
+2026-02-12 19:09:17,670 - ================================================================================
+2026-02-12 19:09:17,670 - 🧪 Test mode - skipping user presence checks
+2026-02-12 19:09:17,670 - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-02-12 19:10:02,487 - ✅ Follow-up Bot completed successfully in 0.7 minutes
+2026-02-12 19:10:02,488 -    📝 📭 No leads need follow-up messages at this time.
+2026-02-12 19:10:02,488 -    📝 Either all leads have been followed up, or it hasn't been 3 days yet.
+2026-02-12 19:10:02,488 -    📝 🔒 Closing browser session...
+2026-02-12 19:10:02,488 - ================================================================================
+2026-02-12 19:10:02,488 - 📊 EXECUTION SUMMARY
+2026-02-12 19:10:02,488 - ================================================================================
+2026-02-12 19:10:02,488 - ✅ Successful bots: 3/3
+2026-02-12 19:10:02,488 - ⏱️ Total execution time: 3.1 minutes
+2026-02-12 19:10:02,488 - 🛑 Safety aborts: 0
+2026-02-12 19:10:02,488 - ❌ Errors: 0
+2026-02-12 19:10:02,489 - 📄 Detailed stats saved to: execution_stats_20260212_191002.json
+2026-02-12 19:10:02,489 - ================================================================================
+2026-02-12 19:10:02,489 - 🎬 LinkedIn Bot Orchestrator Complete
+2026-02-12 19:10:02,489 - ================================================================================
+
+--- Bot started at 2026-02-12T17:36:35.684304+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-12 23:06:35,772 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 23:06:35,772 - 🎯 Using prompt template: template_1
+2026-02-12 23:06:35,772 - ================================================================================
+2026-02-12 23:06:35,772 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 23:06:35,773 - ================================================================================
+2026-02-12 23:06:35,773 - ⏰ Wake time: 2026-02-12 23:06:35
+2026-02-12 23:06:35,773 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 23:06:35,773 - 📅 Estimated completion: 2026-02-13 01:22:35
+2026-02-12 23:06:35,773 - 🧪 Test mode - skipping user presence checks
+2026-02-12 23:06:35,773 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 23:06:35,773 - 🚀 Starting bot sequence at: 2026-02-12 23:06:35
+2026-02-12 23:06:35,773 - ================================================================================
+2026-02-12 23:06:35,773 - 🧪 Test mode - skipping user presence checks
+2026-02-12 23:06:35,773 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 23:06:35,773 -    🎯 Using template: template_1
+2026-02-12 23:07:12,139 - ✅ Connection Bot completed successfully in 0.6 minutes
+2026-02-12 23:07:12,140 -    📝 🎉 Batch job complete!
+2026-02-12 23:07:12,140 -    📝 🔒 Closing browser session...
+2026-02-12 23:07:12,140 - ☕ Taking human break: 0.5 minutes (27s)
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-12T17:39:20.151868+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-12 23:09:20,245 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 23:09:20,245 - 🎯 Using prompt template: template_1
+2026-02-12 23:09:20,246 - ================================================================================
+2026-02-12 23:09:20,246 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 23:09:20,246 - ================================================================================
+2026-02-12 23:09:20,246 - ⏰ Wake time: 2026-02-12 23:09:20
+2026-02-12 23:09:20,246 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 23:09:20,246 - 📅 Estimated completion: 2026-02-13 01:25:20
+2026-02-12 23:09:20,246 - 🧪 Test mode - skipping user presence checks
+2026-02-12 23:09:20,246 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 23:09:20,246 - 🚀 Starting bot sequence at: 2026-02-12 23:09:20
+2026-02-12 23:09:20,246 - ================================================================================
+2026-02-12 23:09:20,246 - 🧪 Test mode - skipping user presence checks
+2026-02-12 23:09:20,246 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 23:09:20,246 -    🎯 Using template: template_1
+2026-02-12 23:09:56,867 - ✅ Connection Bot completed successfully in 0.6 minutes
+2026-02-12 23:09:56,867 -    📝 🎉 Batch job complete!
+2026-02-12 23:09:56,867 -    📝 🔒 Closing browser session...
+2026-02-12 23:09:56,867 - ☕ Taking human break: 0.5 minutes (29s)
+2026-02-12 23:10:25,873 - 🧪 Test mode - skipping user presence checks
+2026-02-12 23:10:25,873 - ✅ Break completed - ready for next bot
+2026-02-12 23:10:25,873 - ================================================================================
+2026-02-12 23:10:25,873 - 🧪 Test mode - skipping user presence checks
+2026-02-12 23:10:25,874 - 🚀 Starting Message Bot: Sends queued messages
+2026-02-12 23:12:57,488 - ✅ Message Bot completed successfully in 2.5 minutes
+2026-02-12 23:12:57,489 -    📝 ✅ Successful messages: 3
+2026-02-12 23:12:57,489 -    📝 ❌ Failed messages: 0
+2026-02-12 23:12:57,489 -    📝 🔒 Closing browser session...
+2026-02-12 23:12:57,489 - ☕ Taking human break: 0.3 minutes (21s)
+2026-02-12 23:13:18,494 - 🧪 Test mode - skipping user presence checks
+2026-02-12 23:13:18,494 - ✅ Break completed - ready for next bot
+2026-02-12 23:13:18,495 - ================================================================================
+2026-02-12 23:13:18,495 - 🧪 Test mode - skipping user presence checks
+2026-02-12 23:13:18,495 - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-02-12 23:14:11,077 - ✅ Follow-up Bot completed successfully in 0.9 minutes
+2026-02-12 23:14:11,078 -    📝 📭 No leads need follow-up messages at this time.
+2026-02-12 23:14:11,078 -    📝 Either all leads have been followed up, or it hasn't been 3 days yet.
+2026-02-12 23:14:11,078 -    📝 🔒 Closing browser session...
+2026-02-12 23:14:11,079 - ================================================================================
+2026-02-12 23:14:11,079 - 📊 EXECUTION SUMMARY
+2026-02-12 23:14:11,079 - ================================================================================
+2026-02-12 23:14:11,079 - ✅ Successful bots: 3/3
+2026-02-12 23:14:11,079 - ⏱️ Total execution time: 4.8 minutes
+2026-02-12 23:14:11,079 - 🛑 Safety aborts: 0
+2026-02-12 23:14:11,079 - ❌ Errors: 0
+2026-02-12 23:14:11,080 - 📄 Detailed stats saved to: execution_stats_20260212_231411.json
+2026-02-12 23:14:11,080 - ================================================================================
+2026-02-12 23:14:11,080 - 🎬 LinkedIn Bot Orchestrator Complete
+2026-02-12 23:14:11,080 - ================================================================================
+
+--- Bot started at 2026-02-12T17:52:55.701464+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-12 23:22:55,804 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-12 23:22:55,804 - 🎯 Using prompt template: template_1
+2026-02-12 23:22:55,804 - ================================================================================
+2026-02-12 23:22:55,804 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-12 23:22:55,805 - ================================================================================
+2026-02-12 23:22:55,805 - ⏰ Wake time: 2026-02-12 23:22:55
+2026-02-12 23:22:55,805 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-12 23:22:55,805 - 📅 Estimated completion: 2026-02-13 01:38:55
+2026-02-12 23:22:55,805 - 🧪 Test mode - skipping user presence checks
+2026-02-12 23:22:55,805 - 💤 Starting initial delay: 0.0 minutes
+2026-02-12 23:22:55,805 - 🚀 Starting bot sequence at: 2026-02-12 23:22:55
+2026-02-12 23:22:55,805 - ================================================================================
+2026-02-12 23:22:55,805 - 🧪 Test mode - skipping user presence checks
+2026-02-12 23:22:55,805 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-12 23:22:55,805 -    🎯 Using template: template_1
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-12T18:00:07.290796+00:00 ---
+
+--- Bot started at 2026-02-12T18:03:48.416207+00:00 ---
+
+--- Bot started at 2026-02-12T18:06:13.860534+00:00 ---
+
+--- Bot started at 2026-02-12T18:07:34.622819+00:00 ---

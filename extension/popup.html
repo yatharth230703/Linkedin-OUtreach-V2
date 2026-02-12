@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinkedIn Outreach Bot</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div id="login-screen" class="screen">
+    <h2>LinkedIn Outreach</h2>
+    <p class="subtitle">Beta Access</p>
+    <input type="text" id="username" placeholder="Username" autocomplete="off">
+    <input type="password" id="password" placeholder="Password" autocomplete="off">
+    <button id="login-btn" class="btn btn-primary">Login</button>
+    <p id="login-error" class="error hidden">Invalid credentials</p>
+  </div>
+
+  <!-- Main Screen -->
+  <div id="main-screen" class="screen hidden">
+    <div class="header">
+      <h2>LinkedIn Outreach</h2>
+      <button id="logout-btn" class="btn-link">Logout</button>
+    </div>
+
+    <!-- Status -->
+    <div id="status-bar" class="status-bar status-stopped">
+      <span id="status-text">Stopped</span>
+    </div>
+
+    <!-- Cookie Sync -->
+    <div class="section">
+      <button id="sync-cookies-btn" class="btn btn-secondary btn-full">Sync LinkedIn Cookies</button>
+      <p id="cookie-status" class="hint">Open this on a tab where you're logged into LinkedIn</p>
+    </div>
+
+    <!-- Config -->
+    <div class="section" id="config-section">
+      <h3>Daily Limits</h3>
+      <div class="config-row">
+        <label for="daily-connect">Connections</label>
+        <input type="number" id="daily-connect" min="1" max="100" value="20">
+      </div>
+      <div class="config-row">
+        <label for="daily-message">Messages</label>
+        <input type="number" id="daily-message" min="1" max="100" value="15">
+      </div>
+      <div class="config-row">
+        <label for="daily-followup">Follow-ups</label>
+        <input type="number" id="daily-followup" min="1" max="100" value="10">
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="section">
+      <button id="run-btn" class="btn btn-primary btn-full">Run Bot</button>
+      <button id="stop-btn" class="btn btn-danger btn-full hidden">Stop Bot</button>
+    </div>
+
+    <!-- Last Run Info -->
+    <div id="last-run-info" class="section hint hidden">
+      <p>Last run: <span id="last-run-time">-</span></p>
+      <p>Result: <span id="last-run-result">-</span></p>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

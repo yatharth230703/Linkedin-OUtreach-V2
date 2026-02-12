@@ -6,7 +6,7 @@ import zipfile
 import string
 import math
 from datetime import datetime
-import seleniumwire.undetected_chromedriver as uc
+import undetected_chromedriver as uc
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.action_chains import ActionChains
 from dotenv import load_dotenv
@@ -396,8 +396,9 @@ def create_proxy_auth_extension(proxy_host, proxy_port, proxy_user, proxy_pass):
     );
     """ % (proxy_host, proxy_port, proxy_user, proxy_pass)
 
-    # Create extension directory
-    pluginfile = 'proxy_auth_plugin.zip'
+    # Create extension in script directory
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    pluginfile = os.path.join(script_dir, 'proxy_auth_plugin.zip')
     
     with zipfile.ZipFile(pluginfile, 'w') as zp:
         zp.writestr("manifest.json", manifest_json)
@@ -497,29 +498,21 @@ def setup_chrome_driver():
         }
         options.add_experimental_option("prefs", prefs)
         
-        # Proxy configuration with selenium-wire
+        # Proxy configuration via Chrome extension (preserves native TLS fingerprint)
         use_proxy = os.getenv("USE_PROXY", "false").lower() == "true"
-        seleniumwire_config = {}
-        
+
         if use_proxy:
             proxy_host = os.getenv("PROXY_HOST")
             proxy_port = os.getenv("PROXY_PORT")
             proxy_username = os.getenv("PROXY_USERNAME")
             proxy_password = os.getenv("PROXY_PASSWORD")
-            
+
             if all([proxy_host, proxy_port, proxy_username, proxy_password]):
-                print(f"🌐 Configuring proxy via selenium-wire: {proxy_host}:{proxy_port}")
-                
-                # Construct authenticated proxy URL
-                # NOTE: selenium connection uses this internally, avoiding browser auth prompts
-                proxy_url = f"http://{proxy_username}:{proxy_password}@{proxy_host}:{proxy_port}"
-                seleniumwire_config = {
-                    'proxy': {
-                        'http': proxy_url,
-                        'https': proxy_url,
-                        'no_proxy': 'localhost,127.0.0.1' 
-                    }
-                }
+                print(f"🌐 Configuring proxy via Chrome extension: {proxy_host}:{proxy_port}")
+                proxy_extension = create_proxy_auth_extension(
+                    proxy_host, proxy_port, proxy_username, proxy_password
+                )
+                options.add_extension(proxy_extension)
             else:
                 print("⚠️ Proxy credentials incomplete, proceeding without proxy")
         else:
@@ -538,12 +531,8 @@ def setup_chrome_driver():
         ]
         options.add_argument(f'--user-agent={user_agents[0]}')
         
-        # Create selenium-wire driver 
-        # (seleniumwire intercepts traffic to handle auth automatically)
-        if seleniumwire_config:
-            driver = uc.Chrome(options=options, seleniumwire_options=seleniumwire_config, version_main=144)
-        else:
-            driver = uc.Chrome(options=options, version_main=144)
+        # Create undetected-chromedriver (native Chrome TLS fingerprint preserved)
+        driver = uc.Chrome(options=options, version_main=144)
 
 
         # --- 4. DEEP STEALTH INJECTION via CDP ---
@@ -626,22 +615,152 @@ def setup_chrome_driver():
         print(f"❌ Failed to setup Chrome driver: {e}")
         return None
 
+
+def _get_extension_cookies():
+    """Load cookies from backend/cookies.json if it exists. Returns list or None."""
+    import json as _json
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    cookies_file = os.path.join(os.path.dirname(script_dir), "backend", "cookies.json")
+    if not os.path.exists(cookies_file):
+        return None
+    try:
+        with open(cookies_file, "r") as f:
+            cookies = _json.load(f)
+        if cookies and any(c.get("name") == "li_at" for c in cookies):
+            return cookies
+    except Exception:
+        pass
+    return None
+
+
+def _wipe_profile():
+    """Always wipe user_data_yath for a clean start with extension cookies."""
+    import shutil
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    user_data_path = os.path.join(script_dir, "user_data_yath")
+    if os.path.exists(user_data_path):
+        print("🗑️ Wiping user_data_yath for clean cookie injection...")
+        shutil.rmtree(user_data_path)
+    os.makedirs(user_data_path, exist_ok=True)
+    print("✅ Fresh profile directory ready.")
+
+
+def inject_extension_cookies(driver):
+    """
+    If backend/cookies.json exists, inject those cookies into the running driver.
+    Minimal approach: navigate to linkedin.com ONCE, inject cookies, done.
+    The bot's own check_if_logged_in will verify the session afterward.
+    Returns True if cookies were injected (not whether session is valid - that's check_if_logged_in's job).
+    """
+    cookies = _get_extension_cookies()
+    if not cookies:
+        return False
+
+    try:
+        print(f"🍪 Injecting {len(cookies)} extension cookies into browser...")
+
+        # Single navigation to set the domain context for cookies
+        driver.get("https://www.linkedin.com")
+        human_pause(2, 3)
+
+        # Clear all existing cookies
+        driver.delete_all_cookies()
+        human_pause(0.5, 1.0)
+
+        # Inject each cookie
+        injected = 0
+        for cookie in cookies:
+            try:
+                c = {
+                    "name": cookie["name"],
+                    "value": cookie["value"],
+                    "domain": cookie.get("domain", ".linkedin.com"),
+                    "path": cookie.get("path", "/"),
+                }
+                if cookie.get("expirationDate"):
+                    c["expiry"] = int(cookie["expirationDate"])
+                if cookie.get("secure"):
+                    c["secure"] = True
+                driver.add_cookie(c)
+                injected += 1
+            except Exception as e:
+                print(f"  ⚠️ Skipped cookie '{cookie.get('name', '?')}': {e}")
+
+        print(f"🍪 Injected {injected}/{len(cookies)} cookies.")
+
+        # Inject localStorage and sessionStorage if available
+        import json as _json
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        storage_file = os.path.join(os.path.dirname(script_dir), "backend", "browser_storage.json")
+        if os.path.exists(storage_file):
+            try:
+                with open(storage_file, "r") as f:
+                    storage_data = _json.load(f)
+
+                ls_count = 0
+                if storage_data.get("localStorage"):
+                    for key, value in storage_data["localStorage"].items():
+                        try:
+                            # Escape quotes in key and value for JS
+                            escaped_key = key.replace("\\", "\\\\").replace("'", "\\'")
+                            escaped_val = value.replace("\\", "\\\\").replace("'", "\\'") if value else ""
+                            driver.execute_script(f"localStorage.setItem('{escaped_key}', '{escaped_val}');")
+                            ls_count += 1
+                        except Exception:
+                            pass
+                print(f"🍪 Injected {ls_count} localStorage keys.")
+
+                ss_count = 0
+                if storage_data.get("sessionStorage"):
+                    for key, value in storage_data["sessionStorage"].items():
+                        try:
+                            escaped_key = key.replace("\\", "\\\\").replace("'", "\\'")
+                            escaped_val = value.replace("\\", "\\\\").replace("'", "\\'") if value else ""
+                            driver.execute_script(f"sessionStorage.setItem('{escaped_key}', '{escaped_val}');")
+                            ss_count += 1
+                        except Exception:
+                            pass
+                print(f"🍪 Injected {ss_count} sessionStorage keys.")
+            except Exception as e:
+                print(f"🍪 ⚠️ Could not inject browser storage: {e}")
+        else:
+            print("🍪 No browser_storage.json found (localStorage/sessionStorage not synced).")
+
+        print("🍪 Done. Returning to check_if_logged_in...")
+        return True
+
+    except Exception as e:
+        print(f"🍪 ❌ Error injecting extension cookies: {e}")
+        return False
+
+
 def linkedin_login():
     """
     Simple LinkedIn login function with CLI input prompts
     First checks if already logged in, then proceeds with login if needed
     """
+    # If extension cookies exist, always start fresh
+    ext_cookies = _get_extension_cookies()
+    if ext_cookies:
+        _wipe_profile()
+
     driver = setup_chrome_driver()
     if not driver:
         return None
-    
+
     try:
-        # First, check if we're already logged in
+        # If extension cookies exist, inject them into the running driver
+        if ext_cookies:
+            inject_extension_cookies(driver)
+            # Now let check_if_logged_in verify the session
+            # (don't return early - let the standard flow handle it)
+
+        # Check if logged in (works for both extension cookies and saved profile)
         if check_if_logged_in(driver):
             print("✅ User is already logged in! Skipping login process.")
             log_action(driver, "already_logged_in")
             return driver
-        
+
         # If not logged in, proceed with login process
         print("🔐 User is not logged in. Starting login process...")
         

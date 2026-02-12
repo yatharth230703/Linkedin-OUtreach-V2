@@ -6,6 +6,7 @@
 import os
 import time
 import random
+import json
 from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 import undetected_chromedriver as uc
@@ -942,8 +943,16 @@ def message_all_followup_leads(driver, leads_to_message):
     Processes leads in order from top to bottom as they appear on LinkedIn page.
     Checks for replies before sending - if lead has replied, updates status and skips.
     """
-    # Set daily limit randomly between 10-15 messages
+    # Read daily limit from config.json if available, otherwise random default
     daily_limit = random.randint(10, 15)
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "config.json")
+    try:
+        with open(config_path, "r") as f:
+            config = json.load(f)
+            daily_limit = config.get("daily_followup", daily_limit)
+            print(f"📋 Loaded follow-up limit from config: {daily_limit}")
+    except (FileNotFoundError, json.JSONDecodeError):
+        print(f"📋 Using default follow-up limit: {daily_limit}")
     print(f"🚀 Starting to send follow-up messages (Daily limit: {daily_limit})...")
     print(f"📋 Found {len(leads_to_message)} leads available for follow-up")
     

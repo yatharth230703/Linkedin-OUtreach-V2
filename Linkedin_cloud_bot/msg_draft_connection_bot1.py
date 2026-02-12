@@ -637,7 +637,16 @@ def main():
             print("⚠️ No leads found in leads.json. Exiting.")
             return
 
+        # Read daily limit from config.json if available, otherwise default
         daily_limit = 18
+        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "config.json")
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+                daily_limit = config.get("daily_connect", 18)
+                print(f"📋 Loaded connection limit from config: {daily_limit}")
+        except (FileNotFoundError, json.JSONDecodeError):
+            print(f"📋 Using default connection limit: {daily_limit}")
         count = 0
         
         print(f"📋 Found {len(target_urls)} leads. Processing max {daily_limit} today.")

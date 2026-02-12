@@ -362,44 +362,50 @@ class LinkedInBotOrchestrator:
         
         try:
             # Build command with template argument for connection bot
-            cmd = [sys.executable, str(script_path)]
+            cmd = [sys.executable, "-u", str(script_path)]
             if bot_config["script"] == "msg_draft_connection_bot1.py":
                 cmd.append(f"--{self.template_name}")
                 self.logger.info(f"   🎯 Using template: {self.template_name}")
-            
-            # Execute bot script
-            result = subprocess.run(
-                cmd,
-                cwd=str(self.main_bots_dir),  # Set working directory
-                capture_output=True,
-                text=True,
-                timeout=3600  # 1 hour timeout per bot
-            )
-            
+
+            # Execute bot script with real-time log streaming
+            # Output goes to both the log file and is captured for summary
+            log_file_path = Path(self.LOG_FILE)
+            with open(log_file_path, "a", encoding="utf-8") as log_f:
+                log_f.write(f"\n{'='*60}\n")
+                log_f.write(f"[{bot_name}] REAL-TIME OUTPUT START\n")
+                log_f.write(f"{'='*60}\n")
+                log_f.flush()
+
+                process = subprocess.Popen(
+                    cmd,
+                    cwd=str(self.main_bots_dir),
+                    stdout=log_f,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1,
+                )
+
+                # Wait for process to complete (with timeout)
+                try:
+                    returncode = process.wait(timeout=3600)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.wait()
+                    raise
+
+                log_f.write(f"\n{'='*60}\n")
+                log_f.write(f"[{bot_name}] REAL-TIME OUTPUT END\n")
+                log_f.write(f"{'='*60}\n")
+                log_f.flush()
+
             execution_time = (datetime.now() - start_time).total_seconds()
-            
-            if result.returncode == 0:
+
+            if returncode == 0:
                 self.logger.info(f"✅ {bot_name} completed successfully in {execution_time/60:.1f} minutes")
-                
-                # Log last few lines of output for verification
-                if result.stdout:
-                    output_lines = result.stdout.strip().split('\n')[-3:]
-                    for line in output_lines:
-                        if line.strip():
-                            self.logger.info(f"   📝 {line.strip()}")
-                
                 return True, execution_time, None
             else:
-                error_msg = f"Exit code {result.returncode}"
+                error_msg = f"Exit code {returncode}"
                 self.logger.error(f"❌ {bot_name} failed: {error_msg}")
-                
-                # Log error output
-                if result.stderr:
-                    error_lines = result.stderr.strip().split('\n')[-5:]
-                    for line in error_lines:
-                        if line.strip():
-                            self.logger.error(f"   🔥 {line.strip()}")
-                
                 return False, execution_time, error_msg
                 
         except subprocess.TimeoutExpired:

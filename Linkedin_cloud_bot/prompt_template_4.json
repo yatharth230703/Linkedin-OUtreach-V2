@@ -11,3 +11,15 @@
   
   "description": "Generate a funny story about a horse with progressive follow-up stories"
 }
+
+
+
+
+
+#### leads are loaded by uploading a csv file --> one column has link , one column has prompt template that is to be used for that lead 
+
+
+
+
+
+

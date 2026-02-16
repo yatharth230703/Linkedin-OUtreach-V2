@@ -1,0 +1,980 @@
+## Follow-up message automation for LinkedIn connections - Playwright version
+## Sends follow-up messages to leads based on status progression
+
+import os
+import time
+import random
+import json
+import sys
+from datetime import datetime, timedelta
+from difflib import SequenceMatcher
+from dotenv import load_dotenv
+
+# Add parent directory to path for imports
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from proxy_requests import get_proxy_session
+from playwright_bots.login_credentials import (
+    ensure_linkedin_login,
+    human_pause,
+    human_move_click,
+    log_action,
+)
+from playwright_bots.msg_draft_connection_bot1 import (
+    human_scroll,
+    human_sleep_with_activity,
+    SUPABASE_URL,
+    SUPABASE_KEY,
+    supabase,
+)
+
+load_dotenv()
+
+
+def validate_lead_match(scraped_name, scraped_headline, db_lead_data, similarity_threshold=0.7):
+    """
+    Validate that scraped LinkedIn data matches Supabase database entry.
+    """
+    db_name = db_lead_data.get('full_name', '').strip()
+    db_headline = db_lead_data.get('headline', '').strip()
+
+    name_similarity = SequenceMatcher(None, scraped_name.lower(), db_name.lower()).ratio()
+    headline_similarity = SequenceMatcher(None, scraped_headline.lower(), db_headline.lower()).ratio()
+
+    confidence = (name_similarity * 0.7) + (headline_similarity * 0.3)
+
+    is_match = name_similarity > 0.9 and headline_similarity > similarity_threshold
+    should_proceed = is_match or (name_similarity > 0.95 and headline_similarity > 0.5)
+
+    if is_match:
+        reason = f"Strong match (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+    elif should_proceed:
+        reason = f"Acceptable match with manual review (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+    else:
+        reason = f"Poor match - potential mismatch (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+
+    return {
+        'is_match': is_match,
+        'confidence': confidence,
+        'reason': reason,
+        'should_proceed': should_proceed,
+        'name_similarity': name_similarity,
+        'headline_similarity': headline_similarity
+    }
+
+
+def determine_next_followup_message(lead_data):
+    """
+    Determine which follow-up message to send next based on status.
+
+    Status progression:
+    - "first message sent" -> send message_2_draft (follow-up 1)
+    - "follow-up 1 sent" -> send message_3_draft (follow-up 2)
+    - "follow-up 2 sent" -> send message_4_draft (follow-up 3)
+    - "follow-up 3 sent" -> send message_5_draft (follow-up 4)
+    - "follow-up 4 sent" -> no more follow-ups
+    """
+    status = lead_data.get('status', '').strip()
+
+    if status == "first message sent":
+        message = lead_data.get('message_2_draft', '').strip()
+        return (message, "follow-up 1 sent", 1) if message else (None, None, None)
+
+    elif status == "follow-up 1 sent":
+        message = lead_data.get('message_3_draft', '').strip()
+        return (message, "follow-up 2 sent", 2) if message else (None, None, None)
+
+    elif status == "follow-up 2 sent":
+        message = lead_data.get('message_4_draft', '').strip()
+        return (message, "follow-up 3 sent", 3) if message else (None, None, None)
+
+    elif status == "follow-up 3 sent":
+        message = lead_data.get('message_5_draft', '').strip()
+        return (message, "follow-up 4 sent", 4) if message else (None, None, None)
+
+    else:
+        return (None, None, None)
+
+
+def update_lead_status_to_followup_sent(full_name, headline, next_status):
+    """Update the status of a lead to the next follow-up status and set last_contacted_at."""
+    try:
+        current_timestamp = datetime.now().isoformat()
+
+        response = supabase.table('leads').update({
+            'status': next_status,
+            'last_contacted_at': current_timestamp
+        }).eq('full_name', full_name).execute()
+
+        if response.data:
+            print(f"   Updated status for {full_name} to '{next_status}' with timestamp {current_timestamp}")
+            return True
+        else:
+            print(f"   No matching lead found in database for {full_name}")
+            return False
+
+    except Exception as e:
+        print(f"   Error updating status for {full_name}: {e}")
+        return False
+
+
+def get_supabase_followup_leads_data():
+    """
+    Fetch leads from Supabase that need follow-up messages.
+    """
+    try:
+        print("   Fetching follow-up leads data from Supabase...")
+
+        three_days_ago = (datetime.now() - timedelta(days=3)).isoformat()
+
+        eligible_statuses = ["first message sent", "follow-up 1 sent", "follow-up 2 sent", "follow-up 3 sent"]
+
+        response = supabase.table('leads').select(
+            'full_name, headline, status, message_2_draft, message_3_draft, message_4_draft, message_5_draft, last_contacted_at'
+        ).in_('status', eligible_statuses).lt('last_contacted_at', three_days_ago).execute()
+
+        leads_data = {}
+        eligible_leads = []
+        total_leads = 0
+        skipped_no_draft = 0
+        status_breakdown = {
+            "first message sent": 0,
+            "follow-up 1 sent": 0,
+            "follow-up 2 sent": 0,
+            "follow-up 3 sent": 0
+        }
+
+        for lead in response.data:
+            total_leads += 1
+            full_name = lead.get('full_name', '').strip()
+            headline = lead.get('headline', '').strip()
+            status = lead.get('status', '').strip()
+            last_contacted_at = lead.get('last_contacted_at', '')
+
+            if status in status_breakdown:
+                status_breakdown[status] += 1
+
+            if full_name:
+                lead_info = {
+                    'full_name': full_name,
+                    'headline': headline,
+                    'status': status,
+                    'message_2_draft': lead.get('message_2_draft', '').strip() if lead.get('message_2_draft') else '',
+                    'message_3_draft': lead.get('message_3_draft', '').strip() if lead.get('message_3_draft') else '',
+                    'message_4_draft': lead.get('message_4_draft', '').strip() if lead.get('message_4_draft') else '',
+                    'message_5_draft': lead.get('message_5_draft', '').strip() if lead.get('message_5_draft') else '',
+                    'last_contacted_at': last_contacted_at
+                }
+
+                message_text, next_status, followup_num = determine_next_followup_message(lead_info)
+
+                if message_text:
+                    leads_data[full_name] = lead_info
+                    eligible_leads.append(full_name)
+                    print(f"      {full_name} - needs follow-up #{followup_num}")
+                else:
+                    skipped_no_draft += 1
+                    print(f"      Skipping {full_name} - no message draft available for next follow-up")
+
+        print(f"\n   Found {total_leads} leads with eligible status (>3 days ago)")
+        print(f"   Status breakdown:")
+        for status, count in status_breakdown.items():
+            print(f"      - {status}: {count}")
+        print(f"   - {len(eligible_leads)} have next message draft available")
+        print(f"   - {skipped_no_draft} skipped (no message draft)")
+
+        return leads_data, set(eligible_leads)
+
+    except Exception as e:
+        print(f"   Error fetching Supabase data: {e}")
+        import traceback
+        traceback.print_exc()
+        return {}, set()
+
+
+def scroll_to_top(page):
+    """Scroll back to the top of the connections page"""
+    print("   Scrolling back to top of page...")
+    page.evaluate("window.scrollTo(0, 0)")
+    human_pause(2, 4)
+
+
+def scrape_all_connections_for_followup(page):
+    """
+    Multi-level framework to scrape connections and identify leads needing follow-up.
+    Only processes connections that exist in Supabase database and need follow-up.
+    Returns dictionary with connection data and their positions for messaging.
+
+    IMPORTANT: The order of leads_to_message follows the order scraped from LinkedIn
+    (top to bottom), NOT the order in Supabase.
+    """
+    print("   Starting connection scraping and follow-up lead identification...")
+
+    supabase_leads_data, eligible_leads = get_supabase_followup_leads_data()
+
+    ## Scrape names
+    names_list = []
+    i = 1
+    while i < 90:
+        try:
+            names_xp = f"xpath=/html/body/div/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div[{i}]/div/div[1]/div/a/div/p/a"
+            name_elem = page.locator(names_xp)
+            if name_elem.count() > 0:
+                names_list.append(name_elem.first.inner_text().strip())
+            else:
+                print(f"   Reached end of names at position {i}")
+                break
+            i += 2
+        except:
+            print(f"   Reached end of names at position {i}")
+            break
+
+    print(f"   Found {len(names_list)} names")
+    print("*" * 80)
+    human_pause(3, 5)
+
+    ## Scrape headlines
+    headline_list = []
+    j = 1
+    while j < 90:
+        try:
+            headlines_xp = f"xpath=/html/body/div/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div[{j}]/div/div[1]/div/a/div/div/p"
+            headline_elem = page.locator(headlines_xp)
+            if headline_elem.count() > 0:
+                headline_list.append(headline_elem.first.inner_text().strip())
+            else:
+                print(f"   Reached end of headlines at position {j}")
+                break
+            j += 2
+        except:
+            print(f"   Reached end of headlines at position {j}")
+            break
+
+    print(f"   Found {len(headline_list)} headlines")
+    print("*" * 80)
+    human_pause(3, 5)
+
+    # Create combined dictionary and identify leads to message
+    connections_dict = {}
+    leads_to_message = []
+    skipped_not_in_db = 0
+    skipped_not_eligible = 0
+    skipped_poor_match = 0
+
+    min_length = min(len(names_list), len(headline_list))
+
+    for idx in range(min_length):
+        name = names_list[idx]
+        headline = headline_list[idx]
+
+        k = 2 * idx + 1
+
+        if name not in supabase_leads_data:
+            skipped_not_in_db += 1
+            continue
+
+        lead_db_data = supabase_leads_data[name]
+
+        validation_result = validate_lead_match(name, headline, lead_db_data)
+
+        if not validation_result['should_proceed']:
+            print(f"   Skipping {name} - {validation_result['reason']}")
+            print(f"      Scraped headline: {headline}")
+            print(f"      Database headline: {lead_db_data['headline']}")
+            skipped_poor_match += 1
+            continue
+
+        if not validation_result['is_match']:
+            print(f"   Proceeding with caution for {name} - {validation_result['reason']}")
+            print(f"      Scraped headline: {headline}")
+            print(f"      Database headline: {lead_db_data['headline']}")
+
+        connection_data = {
+            'name': name,
+            'headline': headline,
+            'headline_db': lead_db_data['headline'],
+            'position_k': k,
+            'message_2_draft': lead_db_data['message_2_draft'],
+            'status': lead_db_data['status'],
+            'last_contacted_at': lead_db_data['last_contacted_at'],
+            'validation_result': validation_result
+        }
+
+        if name in eligible_leads:
+            message_text, next_status, followup_num = determine_next_followup_message(lead_db_data)
+
+            leads_to_message.append(connection_data)
+            print(f"   Follow-up lead identified (position {k}): {name}")
+            print(f"      Last contacted: {lead_db_data['last_contacted_at']}")
+            print(f"      Current status: {lead_db_data['status']}")
+            print(f"      Next follow-up: #{followup_num}")
+            print(f"      Match confidence: {validation_result['confidence']:.2f}")
+            if message_text:
+                print(f"      Message preview: {message_text[:50]}...")
+        else:
+            skipped_not_eligible += 1
+
+        connections_dict[name] = connection_data
+
+    print(f"\n   Summary:")
+    print(f"   Total connections scraped: {min_length}")
+    print(f"   Skipped (not in database): {skipped_not_in_db}")
+    print(f"   Skipped (poor match): {skipped_poor_match}")
+    print(f"   Found in database: {len(connections_dict)}")
+    print(f"   Not eligible for follow-up: {skipped_not_eligible}")
+    print(f"   Leads needing follow-up: {len(leads_to_message)}")
+
+    if leads_to_message:
+        print(f"\n   Follow-up message order (top to bottom):")
+        for i, lead in enumerate(leads_to_message, 1):
+            print(f"   {i}. {lead['name']} (position k={lead['position_k']})")
+
+    return connections_dict, leads_to_message
+
+
+def get_all_linkedin_messages_shadow(page):
+    """
+    Extract all messages from a LinkedIn conversation thread, including those inside shadow DOM.
+    Playwright handles shadow DOM piercing natively, so we use page.evaluate() for the JS extraction.
+    """
+    messages = []
+
+    # Try shadow DOM first
+    try:
+        shadow_host = page.locator('#interop-outlet')
+        if shadow_host.count() > 0:
+            js_code = """
+            () => {
+                const shadowHost = document.querySelector('#interop-outlet');
+                if (!shadowHost || !shadowHost.shadowRoot) return [];
+                const shadowRoot = shadowHost.shadowRoot;
+                const messages = [];
+
+                const messageElements = shadowRoot.querySelectorAll('.msg-s-message-list__event');
+
+                messageElements.forEach((element, index) => {
+                    try {
+                        let sender = '';
+                        const nameLinks = element.querySelectorAll('a[data-attribute-name="profile"]');
+                        if (nameLinks.length > 0) {
+                            sender = nameLinks[0].innerText.trim();
+                        } else {
+                            const allLinks = element.querySelectorAll('a');
+                            for (let link of allLinks) {
+                                if (link.innerText && link.innerText.trim() &&
+                                    !link.innerText.includes('View') &&
+                                    !link.innerText.includes('profile')) {
+                                    sender = link.innerText.trim();
+                                    break;
+                                }
+                            }
+                        }
+
+                        let timestamp = '';
+                        const timeElements = element.querySelectorAll('time');
+                        if (timeElements.length > 0) {
+                            timestamp = timeElements[0].innerText.trim();
+                        } else {
+                            const allText = element.innerText;
+                            const timeMatch = allText.match(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/i);
+                            if (timeMatch) {
+                                timestamp = timeMatch[0];
+                            }
+                        }
+
+                        let messageText = '';
+                        const messageBody = element.querySelector('.msg-s-event-listitem__body');
+                        if (messageBody) {
+                            messageText = messageBody.innerText.trim();
+                            messageText = messageText.replace(timestamp, '').trim();
+                            messageText = messageText.replace(sender, '').trim();
+                        } else {
+                            const textNodes = [];
+                            const walker = document.createTreeWalker(
+                                element,
+                                NodeFilter.SHOW_TEXT,
+                                null,
+                                false
+                            );
+                            let node;
+                            while (node = walker.nextNode()) {
+                                const text = node.textContent.trim();
+                                if (text && text.length > 0) {
+                                    textNodes.push(text);
+                                }
+                            }
+                            messageText = textNodes.join(' ').trim();
+                        }
+
+                        let messageType = 'unknown';
+                        if (element.innerText.includes('You:') ||
+                            element.querySelector('.msg-s-message-group__profile-link--you')) {
+                            messageType = 'sent';
+                        } else if (sender && sender !== 'You') {
+                            messageType = 'received';
+                        }
+
+                        let dateLabel = '';
+                        const dateElement = element.querySelector('.msg-s-message-list-event__time-heading');
+                        if (dateElement) {
+                            dateLabel = dateElement.innerText.trim();
+                        } else {
+                            let prevElement = element.previousElementSibling;
+                            while (prevElement) {
+                                if (prevElement.classList.contains('msg-s-message-list__time-heading')) {
+                                    dateLabel = prevElement.innerText.trim();
+                                    break;
+                                }
+                                prevElement = prevElement.previousElementSibling;
+                            }
+                        }
+
+                        messages.push({
+                            index: index,
+                            sender: sender,
+                            timestamp: timestamp,
+                            date_label: dateLabel,
+                            message_text: messageText,
+                            message_type: messageType,
+                            full_text: element.innerText.trim(),
+                            source: 'shadow_dom'
+                        });
+                    } catch (e) {
+                        console.error('Error parsing message:', e);
+                    }
+                });
+
+                return messages;
+            }
+            """
+
+            shadow_messages = page.evaluate(js_code)
+            if isinstance(shadow_messages, list):
+                messages.extend(shadow_messages)
+
+    except Exception as e:
+        print(f"Could not access shadow DOM: {e}")
+
+    # Also check regular DOM for messages
+    js_code_regular = """
+    () => {
+        const messages = [];
+        const messageElements = document.querySelectorAll('.msg-s-message-list__event');
+
+        messageElements.forEach((element, index) => {
+            try {
+                let sender = '';
+                const nameLinks = element.querySelectorAll('a[data-attribute-name="profile"]');
+                if (nameLinks.length > 0) {
+                    sender = nameLinks[0].innerText.trim();
+                } else {
+                    const allLinks = element.querySelectorAll('a');
+                    for (let link of allLinks) {
+                        if (link.innerText && link.innerText.trim() &&
+                            !link.innerText.includes('View') &&
+                            !link.innerText.includes('profile')) {
+                            sender = link.innerText.trim();
+                            break;
+                        }
+                    }
+                }
+
+                let timestamp = '';
+                const timeElements = element.querySelectorAll('time');
+                if (timeElements.length > 0) {
+                    timestamp = timeElements[0].innerText.trim();
+                } else {
+                    const allText = element.innerText;
+                    const timeMatch = allText.match(/\\d{1,2}:\\d{2}\\s*(?:AM|PM)/i);
+                    if (timeMatch) {
+                        timestamp = timeMatch[0];
+                    }
+                }
+
+                let messageText = '';
+                const messageBody = element.querySelector('.msg-s-event-listitem__body');
+                if (messageBody) {
+                    messageText = messageBody.innerText.trim();
+                    messageText = messageText.replace(timestamp, '').trim();
+                    messageText = messageText.replace(sender, '').trim();
+                } else {
+                    const textNodes = [];
+                    const walker = document.createTreeWalker(
+                        element,
+                        NodeFilter.SHOW_TEXT,
+                        null,
+                        false
+                    );
+                    let node;
+                    while (node = walker.nextNode()) {
+                        const text = node.textContent.trim();
+                        if (text && text.length > 0) {
+                            textNodes.push(text);
+                        }
+                    }
+                    messageText = textNodes.join(' ').trim();
+                }
+
+                let messageType = 'unknown';
+                if (element.innerText.includes('You:') ||
+                    element.querySelector('.msg-s-message-group__profile-link--you')) {
+                    messageType = 'sent';
+                } else if (sender && sender !== 'You') {
+                    messageType = 'received';
+                }
+
+                let dateLabel = '';
+                const dateElement = element.querySelector('.msg-s-message-list-event__time-heading');
+                if (dateElement) {
+                    dateLabel = dateElement.innerText.trim();
+                } else {
+                    let prevElement = element.previousElementSibling;
+                    while (prevElement) {
+                        if (prevElement.classList.contains('msg-s-message-list__time-heading')) {
+                            dateLabel = prevElement.innerText.trim();
+                            break;
+                        }
+                        prevElement = prevElement.previousElementSibling;
+                    }
+                }
+
+                messages.push({
+                    index: index,
+                    sender: sender,
+                    timestamp: timestamp,
+                    date_label: dateLabel,
+                    message_text: messageText,
+                    message_type: messageType,
+                    full_text: element.innerText.trim(),
+                    source: 'regular_dom'
+                });
+            } catch (e) {
+                console.error('Error parsing message:', e);
+            }
+        });
+
+        return messages;
+    }
+    """
+
+    try:
+        regular_messages = page.evaluate(js_code_regular)
+        if isinstance(regular_messages, list):
+            messages.extend(regular_messages)
+    except Exception as e:
+        print(f"Error getting regular DOM messages: {e}")
+
+    # Deduplicate
+    seen_texts = set()
+    unique_messages = []
+
+    for msg in messages:
+        msg_key = f"{msg.get('sender', '')}_{msg.get('timestamp', '')}_{msg.get('message_text', '')[:50]}"
+
+        if msg_key not in seen_texts:
+            seen_texts.add(msg_key)
+            unique_messages.append(msg)
+
+    return unique_messages
+
+
+def check_if_lead_replied(page, lead_name):
+    """
+    Check if a lead has replied by parsing conversation messages.
+    Returns True if lead's name appears as sender in any message.
+    """
+    try:
+        print(f"      Checking if {lead_name} has replied...")
+
+        human_pause(2, 3)
+
+        messages = get_all_linkedin_messages_shadow(page)
+
+        if not messages:
+            print(f"      No messages found in conversation")
+            return False
+
+        print(f"      Found {len(messages)} messages in conversation")
+
+        for msg in messages:
+            sender = msg.get('sender', '').strip()
+            message_type = msg.get('message_type', '')
+
+            if sender and lead_name.lower() in sender.lower():
+                if message_type == 'received' or (message_type != 'sent' and 'you' not in sender.lower()):
+                    print(f"      REPLY DETECTED! {sender} sent a message")
+                    print(f"      Message preview: {msg.get('message_text', '')[:100]}")
+                    return True
+
+        print(f"      No reply detected from {lead_name}")
+        return False
+
+    except Exception as e:
+        print(f"      Error checking for reply: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
+def update_lead_status_to_replied(full_name):
+    """Update lead status to 'LEAD REPLIED' when reply is detected."""
+    try:
+        current_timestamp = datetime.now().isoformat()
+
+        response = supabase.table('leads').update({
+            'status': 'LEAD REPLIED'
+        }).eq('full_name', full_name).execute()
+
+        if response.data:
+            print(f"      Updated {full_name} status to 'LEAD REPLIED'")
+            return True
+        else:
+            print(f"      No matching lead found for {full_name}")
+            return False
+
+    except Exception as e:
+        print(f"      Error updating status for {full_name}: {e}")
+        return False
+
+
+def message_relay(page, message_text, lead_name):
+    """
+    Handle the actual messaging process after message button is clicked.
+    First checks if lead has replied - if yes, updates status and skips sending.
+    If no reply, types message and sends using Ctrl+Enter, then closes dialog with Escape.
+    """
+    try:
+        print(f"   Starting message relay for {lead_name}")
+
+        human_pause(3, 4)
+
+        # CRITICAL: Check if lead has already replied
+        has_replied = check_if_lead_replied(page, lead_name)
+
+        if has_replied:
+            print(f"      {lead_name} has already replied! Skipping follow-up message.")
+            update_lead_status_to_replied(lead_name)
+            close_dialog_safely(page, lead_name)
+            return "REPLIED"
+
+        # No reply detected - proceed with sending follow-up message
+        print(f"      No reply detected. Proceeding to send follow-up message...")
+
+        print(f"      Typing message via keyboard...")
+
+        # Type the message with human-like character delays
+        for char in message_text:
+            page.keyboard.type(char, delay=0)
+            if random.random() < 0.1:
+                time.sleep(random.uniform(0.05, 0.15))
+
+        print(f"      Message typed for {lead_name}")
+        human_pause(2, 3)
+
+        # Send message using Ctrl+Enter
+        print(f"      Sending message via Ctrl+Enter...")
+        page.keyboard.press("Control+Enter")
+
+        print(f"      Message sent to {lead_name}")
+        human_pause(2, 3)
+
+        close_dialog_safely(page, lead_name)
+
+        return True
+
+    except Exception as e:
+        print(f"   Error in message relay for {lead_name}: {e}")
+        import traceback
+        traceback.print_exc()
+
+        close_dialog_safely(page, lead_name)
+        return False
+
+
+def close_dialog_safely(page, lead_name):
+    """
+    Safely close the message dialog and verify it's closed.
+    Uses multiple methods to ensure the dialog doesn't block subsequent interactions.
+    """
+    print(f"      Closing message dialog for {lead_name}...")
+
+    # Method 1: Press Escape key
+    try:
+        page.keyboard.press("Escape")
+        human_pause(1, 2)
+        print(f"      Pressed Escape to close dialog")
+    except Exception as e:
+        print(f"      Escape key failed: {e}")
+
+    dialog_still_open = is_dialog_open(page)
+
+    if dialog_still_open:
+        print(f"      Dialog still open, trying additional close methods...")
+
+        # Method 2: Try clicking the close button (English and German labels)
+        close_selectors = [
+            ".msg-overlay-bubble-header__control--close-btn",
+            "button[aria-label='Close your conversation']",
+            "button[aria-label='Schließen Sie Ihr Gespräch']",
+            "button[aria-label*='Close']",
+            "button[aria-label*='Schließen']",
+            ".artdeco-modal__dismiss"
+        ]
+
+        for selector in close_selectors:
+            try:
+                close_button = page.locator(selector)
+                if close_button.count() > 0 and close_button.first.is_visible():
+                    close_button.first.evaluate("el => el.click()")
+                    human_pause(1, 2)
+                    print(f"      Closed via button: {selector}")
+                    break
+            except:
+                continue
+
+        dialog_still_open = is_dialog_open(page)
+
+    if dialog_still_open:
+        print(f"      Dialog still open, trying to click outside...")
+
+        # Method 3: Click outside the dialog
+        try:
+            page.locator("body").first.evaluate("el => el.click()")
+            human_pause(1, 2)
+        except:
+            pass
+
+        dialog_still_open = is_dialog_open(page)
+
+    if dialog_still_open:
+        print(f"      Dialog still open, pressing Escape again...")
+
+        # Method 4: Press Escape multiple times
+        try:
+            for _ in range(3):
+                page.keyboard.press("Escape")
+                human_pause(0.5, 1)
+        except:
+            pass
+
+        dialog_still_open = is_dialog_open(page)
+
+    if dialog_still_open:
+        print(f"      Could not close dialog for {lead_name}, may affect next lead")
+    else:
+        print(f"      Dialog closed successfully for {lead_name}")
+
+    human_pause(1, 2)
+    return not dialog_still_open
+
+
+def is_dialog_open(page):
+    """Check if a message dialog is currently open."""
+    dialog_indicators = [
+        ".msg-overlay-conversation-bubble",
+        ".msg-overlay-bubble-header",
+        "div[data-control-name='overlay.close_conversation_window']",
+        ".msg-form"
+    ]
+
+    for selector in dialog_indicators:
+        try:
+            elements = page.locator(selector)
+            if elements.count() > 0:
+                for i in range(elements.count()):
+                    if elements.nth(i).is_visible():
+                        return True
+        except:
+            continue
+
+    return False
+
+
+def send_followup_to_lead(page, lead_data):
+    """
+    Send follow-up message to a specific lead.
+    Determines which follow-up message to send based on current status.
+    """
+    print(f"   Preparing to send follow-up message to: {lead_data['name']}")
+    print(f"      Position K: {lead_data['position_k']}")
+    print(f"      Headline: {lead_data['headline']}")
+    print(f"      Current status: {lead_data['status']}")
+    print(f"      Last contacted: {lead_data['last_contacted_at']}")
+
+    message_text, next_status, followup_num = determine_next_followup_message(lead_data)
+
+    if not message_text:
+        print(f"   No follow-up message available for {lead_data['name']}")
+        return False
+
+    print(f"      Sending follow-up #{followup_num}: {message_text[:100]}...")
+
+    result = message_relay(page, message_text, lead_data['name'])
+
+    if result == "REPLIED":
+        print(f"      Lead has replied! Status updated to 'LEAD REPLIED'")
+        return "REPLIED"
+
+    if result:
+        db_success = update_lead_status_to_followup_sent(lead_data['name'], lead_data['headline'], next_status)
+        return db_success
+
+    return False
+
+
+def message_all_followup_leads(page, leads_to_message):
+    """
+    Iterate through all identified leads and send follow-up messages.
+    Processes leads in order from top to bottom as they appear on LinkedIn page.
+    """
+    # Read daily limit from config.json
+    daily_limit = random.randint(10, 15)
+    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "backend", "config.json")
+    try:
+        with open(config_path, "r") as f:
+            config = json.load(f)
+            daily_limit = config.get("daily_followup", daily_limit)
+            print(f"   Loaded follow-up limit from config: {daily_limit}")
+    except (FileNotFoundError, json.JSONDecodeError):
+        print(f"   Using default follow-up limit: {daily_limit}")
+    print(f"   Starting to send follow-up messages (Daily limit: {daily_limit})...")
+    print(f"   Found {len(leads_to_message)} leads available for follow-up")
+
+    leads_to_process = leads_to_message[:daily_limit]
+
+    if len(leads_to_message) > daily_limit:
+        print(f"   Limiting to {daily_limit} follow-ups today (out of {len(leads_to_message)} available)")
+
+    scroll_to_top(page)
+
+    successful_messages = 0
+    failed_messages = 0
+    replied_leads = 0
+
+    for idx, lead_data in enumerate(leads_to_process):
+        try:
+            name = lead_data['name']
+            print(f"\n   Processing follow-up lead {idx + 1}/{len(leads_to_process)}: {name}")
+
+            k = lead_data['position_k']
+
+            message_button_xpath = f"xpath=/html/body/div/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div[{k}]/div/div[2]/div/div/a"
+
+            try:
+                message_button = page.locator(message_button_xpath)
+                if message_button.count() == 0:
+                    print(f"   Message button not found for {name}")
+                    failed_messages += 1
+                    continue
+
+                # Verify it's a message button (English or German)
+                button_text = message_button.first.get_attribute("aria-label") or message_button.first.inner_text()
+                if not any(keyword in button_text.lower() for keyword in ["message", "nachricht"]):
+                    print(f"   Button found but not a message button: {button_text}")
+                    failed_messages += 1
+                    continue
+
+                human_move_click(page, message_button.first)
+                human_pause(3, 4)
+
+                result = send_followup_to_lead(page, lead_data)
+
+                if result == "REPLIED":
+                    replied_leads += 1
+                    print(f"   {name} has already replied! Skipped follow-up.")
+                elif result:
+                    successful_messages += 1
+                    print(f"   Successfully processed follow-up message for {name}")
+                else:
+                    failed_messages += 1
+                    print(f"   Failed to send follow-up message to {name}")
+
+            except Exception as e:
+                print(f"   Error clicking message button for {name}: {e}")
+                failed_messages += 1
+                continue
+
+            human_pause(5, 7)
+
+        except Exception as e:
+            print(f"   Error processing lead {lead_data.get('name', 'unknown')}: {e}")
+            failed_messages += 1
+            continue
+
+    print(f"\n   Follow-up Messaging Summary:")
+    print(f"      Successful follow-ups sent: {successful_messages}")
+    print(f"      Leads who already replied: {replied_leads}")
+    print(f"      Failed: {failed_messages}")
+    print(f"      Total processed: {successful_messages + replied_leads + failed_messages}")
+
+    return successful_messages, failed_messages, replied_leads
+
+
+def main():
+    """Navigate to LinkedIn connections page and send follow-up messages"""
+    import argparse
+    parser = argparse.ArgumentParser(description='LinkedIn Follow-up Bot (Playwright)')
+    parser.add_argument('--suspicious_otp', type=str, default=None,
+                       help='OTP code for suspicious login challenge (proxy-triggered)')
+    args = parser.parse_args()
+
+    print("   Ensuring LinkedIn login...")
+    driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp)
+
+    if not driver:
+        print("   Could not establish LinkedIn session. Exiting.")
+        return
+
+    print("   LinkedIn session established. Starting follow-up bot...")
+    page = driver.page
+
+    try:
+        print("   Opening LinkedIn for follow-up messages...")
+        page.goto("https://www.linkedin.com/", wait_until="domcontentloaded")
+
+        log_action(page, "linkedin_homepage")
+        human_pause(3, 5)
+
+        print("   Session Active. Ready to navigate to connections.")
+        human_scroll(page)
+
+        connections_url = "https://www.linkedin.com/mynetwork/invite-connect/connections/"
+        print(f"   Navigating to: {connections_url}")
+
+        page.goto(connections_url, wait_until="domcontentloaded")
+        human_pause(4, 7)
+
+        log_action(page, "connections_page")
+        print("   Successfully reached connections page!")
+
+        connections_dict, leads_to_message = scrape_all_connections_for_followup(page)
+
+        if leads_to_message:
+            print(f"\n   Found {len(leads_to_message)} leads needing follow-up messages!")
+
+            successful, failed, replied = message_all_followup_leads(page, leads_to_message)
+
+            print(f"\n   Follow-up messaging campaign completed!")
+            print(f"      Successful follow-ups: {successful}")
+            print(f"      Leads who already replied: {replied}")
+            print(f"      Failed follow-ups: {failed}")
+        else:
+            print("\n   No leads need follow-up messages at this time.")
+            print("   Either all leads have been followed up, or it hasn't been 3 days yet.")
+
+    except Exception as e:
+        print(f"   Critical Script Error: {e}")
+        import traceback
+        traceback.print_exc()
+        log_action(page, "critical_failure")
+
+    finally:
+        print("   Closing browser session...")
+        try:
+            driver.quit()
+        except:
+            pass
+
+
+if __name__ == "__main__":
+    main()

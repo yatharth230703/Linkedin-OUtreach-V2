@@ -8,3 +8,6 @@ python-dotenv
 psutil
 flask
 flask-cors
+# Playwright-based bots (alternative to selenium-wire + undetected-chromedriver)
+playwright
+playwright-stealth

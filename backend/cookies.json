@@ -1,0 +1,65 @@
+[
+  {
+    "name": "bscookie",
+    "value": "\"v=1&20250929060808ac715a49-1105-40e1-8183-c0a6f0a47d4eAQHpbj_nJ86PbTxwIBsdA8hA7gf2VZge\"",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "secure": true,
+    "httpOnly": true,
+    "expirationDate": 1802771010.277886
+  },
+  {
+    "name": "li_rm",
+    "value": "AQGrZ_-C2f62CAAAAZm2pfjG-LEiR1h9JtdXlyEw-HBSoDL19wmSv_S29Y4d2CU4ajkM82AAt-vor_lkl61aSWE1LK0P2tFirjaP7_XMFs-F3WlqjP2bWEB2",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "secure": true,
+    "httpOnly": true,
+    "expirationDate": 1802439314.95522
+  },
+  {
+    "name": "li_theme",
+    "value": "light",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "secure": true,
+    "httpOnly": false,
+    "expirationDate": 1786786981
+  },
+  {
+    "name": "li_theme_set",
+    "value": "app",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "secure": true,
+    "httpOnly": false,
+    "expirationDate": 1786786981
+  },
+  {
+    "name": "JSESSIONID",
+    "value": "\"ajax:7921313764066931701\"",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "secure": true,
+    "httpOnly": false,
+    "expirationDate": 1778679314.955762
+  },
+  {
+    "name": "timezone",
+    "value": "Asia/Calcutta",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "secure": true,
+    "httpOnly": false,
+    "expirationDate": 1772444581
+  },
+  {
+    "name": "li_at",
+    "value": "AQEDAV-FKfYFI93SAAABnFIQIVsAAAGcdhylW1YAoE4XLRgW20wxtXEexx9YYeEY4mcT2cJPEMi6YYLrTj8Ri5g77v4g4rc6U2RE2bW6iLqR5hmILpm3db7rOp5SZuUXCZzJ7BUjoxChLlvzrTvC7tKQ",
+    "domain": ".www.linkedin.com",
+    "path": "/",
+    "secure": true,
+    "httpOnly": true,
+    "expirationDate": 1802439314.95568
+  }
+]

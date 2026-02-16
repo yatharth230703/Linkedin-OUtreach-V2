@@ -416,16 +416,36 @@ def handle_suspicious_login_challenge(page, suspicious_otp=None):
         return False
 
 
-def check_if_logged_in(page):
+def _safe_goto(page, url, timeout=60000, retries=2):
+    """Navigate with proxy-friendly timeout and retry on transient failures."""
+    for attempt in range(retries):
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=timeout)
+            return True
+        except Exception as e:
+            err = str(e).lower()
+            is_transient = any(k in err for k in ("timeout", "err_timed_out", "err_tunnel_connection_failed"))
+            if is_transient and attempt < retries - 1:
+                wait = 3 + attempt * 2
+                print(f"   Navigation to {url} failed (attempt {attempt+1}): {e}")
+                print(f"   Retrying in {wait}s...")
+                time.sleep(wait)
+                continue
+            raise
+    return False
+
+
+def check_if_logged_in(page, _redirect_recovery=False):
     """
     Sanity check function to determine if user is logged in.
     Goes to linkedin.com and checks for login page heading element.
     If heading exists -> NOT logged in. If no heading -> logged in.
+    Handles ERR_TOO_MANY_REDIRECTS by falling back to essential-only cookies.
     """
     try:
         print("   Checking if already logged in...")
-        page.goto("https://www.linkedin.com/", wait_until="domcontentloaded")
-        human_pause(3, 4)
+        _safe_goto(page, "https://www.linkedin.com/", timeout=60000)
+        human_pause(4, 6)
 
         try:
             heading_element = page.locator("xpath=/html/body/main/section[1]/div/h1")
@@ -441,7 +461,49 @@ def check_if_logged_in(page):
         return True
 
     except Exception as e:
+        err_str = str(e).lower()
         print(f"   Error checking login status: {e}")
+
+        # Redirect loop recovery: clear cookies and re-inject only essentials
+        if "err_too_many_redirects" in err_str and not _redirect_recovery:
+            print("   REDIRECT LOOP detected — attempting recovery with essential cookies only...")
+            try:
+                # Access driver via page's context
+                context = page.context
+                context.clear_cookies()
+
+                # Re-inject only essential auth cookies
+                cookies = _get_extension_cookies()
+                if cookies:
+                    essential = [c for c in cookies if c["name"] in _AUTH_COOKIES]
+                    pw_cookies = [_convert_cookie_for_playwright(c) for c in essential]
+                    if pw_cookies:
+                        context.add_cookies(pw_cookies)
+                        print(f"   Re-injected {len(pw_cookies)} essential cookies only")
+
+                    human_pause(2, 3)
+                    return check_if_logged_in(page, _redirect_recovery=True)
+            except Exception as recovery_err:
+                print(f"   Redirect recovery failed: {recovery_err}")
+
+        return False
+
+
+def _check_linkedin_reachability(page):
+    """Quick health check — confirm proxy can reach LinkedIn via a lightweight request."""
+    try:
+        print("   Checking LinkedIn reachability through proxy...")
+        response = page.goto("https://www.linkedin.com/robots.txt", wait_until="domcontentloaded", timeout=30000)
+        if response and response.ok:
+            print(f"   LinkedIn reachable (status {response.status})")
+            return True
+        else:
+            status = response.status if response else "no response"
+            print(f"   LinkedIn responded with status {status}")
+            return False
+    except Exception as e:
+        print(f"   LinkedIn NOT reachable through proxy: {e}")
+        print("   Bot will attempt to continue but may encounter issues")
         return False
 
 
@@ -461,8 +523,8 @@ def validate_proxy_with_driver(page):
             print(f"   Could not fetch local IP: {e}")
 
         # 2. Get Browser IP (Should be Proxy)
-        page.goto("https://httpbin.org/ip", wait_until="domcontentloaded")
-        human_pause(2, 3)
+        page.goto("https://httpbin.org/ip", wait_until="domcontentloaded", timeout=60000)
+        human_pause(3, 5)
 
         try:
             import json
@@ -661,6 +723,8 @@ def setup_playwright_browser():
         # Validate proxy connection
         if use_proxy and proxy_config:
             validate_proxy_with_driver(page)
+            # Verify proxy can actually reach LinkedIn
+            _check_linkedin_reachability(page)
 
         return driver
 
@@ -683,7 +747,19 @@ def _get_extension_cookies():
         with open(cookies_file, "r") as f:
             cookies = _json.load(f)
         if cookies and any(c.get("name") == "li_at" for c in cookies):
-            return cookies
+            # Filter out expired cookies
+            now = time.time()
+            valid = []
+            expired_count = 0
+            for c in cookies:
+                exp = c.get("expirationDate")
+                if exp and float(exp) < now:
+                    expired_count += 1
+                    continue
+                valid.append(c)
+            if expired_count:
+                print(f"   Filtered out {expired_count} expired cookies")
+            return valid
     except Exception:
         pass
     return None
@@ -701,6 +777,38 @@ def _wipe_profile():
     print("   Fresh profile directory ready.")
 
 
+# Auth-critical cookies that need domain broadened to .linkedin.com
+_AUTH_COOKIES = {"li_at", "li_rm", "JSESSIONID", "liap", "li_mc"}
+
+
+def _convert_cookie_for_playwright(cookie):
+    """Convert a single Chrome extension cookie to Playwright format with smart domain handling."""
+    domain = cookie.get("domain", ".linkedin.com")
+
+    # Only normalize domain for auth-critical cookies
+    if cookie["name"] in _AUTH_COOKIES:
+        if domain in (".www.linkedin.com", "www.linkedin.com"):
+            domain = ".linkedin.com"
+    # Leave non-auth cookies with original domain (prevents redirect loops)
+
+    c = {
+        "name": cookie["name"],
+        "value": cookie["value"],
+        "domain": domain,
+        "path": cookie.get("path", "/"),
+    }
+    if cookie.get("expirationDate"):
+        c["expires"] = int(cookie["expirationDate"])
+    if cookie.get("secure"):
+        c["secure"] = True
+    if cookie.get("sameSite"):
+        # Playwright expects "Strict", "Lax", or "None"
+        same_site = cookie["sameSite"].capitalize()
+        if same_site in ("Strict", "Lax", "None"):
+            c["sameSite"] = same_site
+    return c
+
+
 def inject_extension_cookies(driver):
     """
     If backend/cookies.json exists, inject those cookies into the running browser.
@@ -711,40 +819,19 @@ def inject_extension_cookies(driver):
         return False
 
     try:
-        page = driver.page
         context = driver.context
 
         print(f"   Injecting {len(cookies)} extension cookies into browser...")
 
-        # Navigate to LinkedIn to set domain context
-        page.goto("https://www.linkedin.com", wait_until="domcontentloaded")
-        human_pause(2, 3)
-
-        # Clear all existing cookies
+        # Clear all existing cookies first
         context.clear_cookies()
-        human_pause(0.5, 1.0)
 
-        # Convert cookies to Playwright format and inject
+        # Convert and inject
         playwright_cookies = []
         injected = 0
         for cookie in cookies:
             try:
-                c = {
-                    "name": cookie["name"],
-                    "value": cookie["value"],
-                    "domain": cookie.get("domain", ".linkedin.com"),
-                    "path": cookie.get("path", "/"),
-                }
-                if cookie.get("expirationDate"):
-                    c["expires"] = int(cookie["expirationDate"])
-                if cookie.get("secure"):
-                    c["secure"] = True
-                if cookie.get("sameSite"):
-                    # Playwright expects "Strict", "Lax", or "None"
-                    same_site = cookie["sameSite"].capitalize()
-                    if same_site in ["Strict", "Lax", "None"]:
-                        c["sameSite"] = same_site
-                playwright_cookies.append(c)
+                playwright_cookies.append(_convert_cookie_for_playwright(cookie))
                 injected += 1
             except Exception as e:
                 print(f"     Skipped cookie '{cookie.get('name', '?')}': {e}")
@@ -754,51 +841,85 @@ def inject_extension_cookies(driver):
 
         print(f"   Injected {injected}/{len(cookies)} cookies.")
 
-        # Inject localStorage and sessionStorage if available
-        import json as _json
-        script_dir = os.path.dirname(os.path.abspath(__file__))
-        storage_file = os.path.join(os.path.dirname(os.path.dirname(script_dir)), "backend", "browser_storage.json")
-        if os.path.exists(storage_file):
-            try:
-                with open(storage_file, "r") as f:
-                    storage_data = _json.load(f)
+        # Readback verification
+        stored = context.cookies()
+        auth_stored = [c["name"] for c in stored if c["name"] in _AUTH_COOKIES]
+        print(f"   Readback: {len(stored)} cookies in context, auth cookies present: {auth_stored}")
 
-                ls_count = 0
-                if storage_data.get("localStorage"):
-                    for key, value in storage_data["localStorage"].items():
-                        try:
-                            page.evaluate(
-                                "(args) => localStorage.setItem(args.key, args.value)",
-                                {"key": key, "value": value or ""}
-                            )
-                            ls_count += 1
-                        except Exception:
-                            pass
-                print(f"   Injected {ls_count} localStorage keys.")
+        if "li_at" not in auth_stored:
+            print("   WARNING: li_at not found in readback! Login will likely fail.")
 
-                ss_count = 0
-                if storage_data.get("sessionStorage"):
-                    for key, value in storage_data["sessionStorage"].items():
-                        try:
-                            page.evaluate(
-                                "(args) => sessionStorage.setItem(args.key, args.value)",
-                                {"key": key, "value": value or ""}
-                            )
-                            ss_count += 1
-                        except Exception:
-                            pass
-                print(f"   Injected {ss_count} sessionStorage keys.")
-            except Exception as e:
-                print(f"   Could not inject browser storage: {e}")
-        else:
-            print("   No browser_storage.json found (localStorage/sessionStorage not synced).")
-
-        print("   Done. Returning to check_if_logged_in...")
         return True
 
     except Exception as e:
         print(f"   Error injecting extension cookies: {e}")
         return False
+
+
+def _inject_essential_cookies_only(driver):
+    """Fallback: clear everything and inject only essential auth cookies."""
+    cookies = _get_extension_cookies()
+    if not cookies:
+        return False
+    try:
+        context = driver.context
+        context.clear_cookies()
+
+        essential = [c for c in cookies if c["name"] in _AUTH_COOKIES]
+        playwright_cookies = []
+        for cookie in essential:
+            try:
+                playwright_cookies.append(_convert_cookie_for_playwright(cookie))
+            except Exception:
+                pass
+
+        if playwright_cookies:
+            context.add_cookies(playwright_cookies)
+            print(f"   Essential-only injection: {len(playwright_cookies)} auth cookies injected")
+        return bool(playwright_cookies)
+    except Exception as e:
+        print(f"   Essential cookie injection failed: {e}")
+        return False
+
+
+def _inject_browser_storage(page):
+    """Inject localStorage and sessionStorage from backend/browser_storage.json into a loaded page."""
+    import json as _json
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    storage_file = os.path.join(os.path.dirname(os.path.dirname(script_dir)), "backend", "browser_storage.json")
+    if not os.path.exists(storage_file):
+        return
+    try:
+        with open(storage_file, "r") as f:
+            storage_data = _json.load(f)
+
+        ls_count = 0
+        if storage_data.get("localStorage"):
+            for key, value in storage_data["localStorage"].items():
+                try:
+                    page.evaluate(
+                        "(args) => localStorage.setItem(args.key, args.value)",
+                        {"key": key, "value": value or ""}
+                    )
+                    ls_count += 1
+                except Exception:
+                    pass
+        print(f"   Injected {ls_count} localStorage keys.")
+
+        ss_count = 0
+        if storage_data.get("sessionStorage"):
+            for key, value in storage_data["sessionStorage"].items():
+                try:
+                    page.evaluate(
+                        "(args) => sessionStorage.setItem(args.key, args.value)",
+                        {"key": key, "value": value or ""}
+                    )
+                    ss_count += 1
+                except Exception:
+                    pass
+        print(f"   Injected {ss_count} sessionStorage keys.")
+    except Exception as e:
+        print(f"   Could not inject browser storage: {e}")
 
 
 def linkedin_login(suspicious_otp=None):
@@ -820,12 +941,15 @@ def linkedin_login(suspicious_otp=None):
     page = driver.page
 
     try:
-        # If extension cookies exist, inject them
+        # If extension cookies exist, inject them into context (no navigation needed)
         if ext_cookies:
             inject_extension_cookies(driver)
 
-        # Check if logged in
+        # Check if logged in (this navigates to linkedin.com)
         if check_if_logged_in(page):
+            # Now that we're on LinkedIn, inject browser storage
+            if ext_cookies:
+                _inject_browser_storage(page)
             print("   User is already logged in! Skipping login process.")
             log_action(page, "already_logged_in")
             return driver
@@ -834,8 +958,8 @@ def linkedin_login(suspicious_otp=None):
         print("   User is not logged in. Starting login process...")
 
         print("   Going to LinkedIn login page...")
-        page.goto("https://www.linkedin.com/login", wait_until="domcontentloaded")
-        human_pause(3, 5)
+        _safe_goto(page, "https://www.linkedin.com/login", timeout=60000)
+        human_pause(4, 7)
         log_action(page, "login_page_loaded")
 
         print("   Starting login process...")
@@ -893,7 +1017,7 @@ def linkedin_login(suspicious_otp=None):
         print("   Clicking sign in button...")
         human_move_click(page, signin_button)
 
-        human_pause(5, 8)
+        human_pause(6, 10)
         log_action(page, "login_attempted")
 
         # Check for suspicious login challenge (proxy-triggered OTP)

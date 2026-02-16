@@ -19,6 +19,7 @@ from playwright_bots.login_credentials import (
     human_pause,
     human_move_click,
     log_action,
+    _safe_goto,
 )
 from playwright_bots.msg_draft_connection_bot1 import (
     human_scroll,
@@ -930,10 +931,10 @@ def main():
 
     try:
         print("   Opening LinkedIn for follow-up messages...")
-        page.goto("https://www.linkedin.com/", wait_until="domcontentloaded")
+        _safe_goto(page, "https://www.linkedin.com/", timeout=60000)
 
         log_action(page, "linkedin_homepage")
-        human_pause(3, 5)
+        human_pause(4, 7)
 
         print("   Session Active. Ready to navigate to connections.")
         human_scroll(page)
@@ -941,8 +942,8 @@ def main():
         connections_url = "https://www.linkedin.com/mynetwork/invite-connect/connections/"
         print(f"   Navigating to: {connections_url}")
 
-        page.goto(connections_url, wait_until="domcontentloaded")
-        human_pause(4, 7)
+        _safe_goto(page, connections_url, timeout=60000)
+        human_pause(5, 8)
 
         log_action(page, "connections_page")
         print("   Successfully reached connections page!")

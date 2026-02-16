@@ -1,0 +1,11 @@
+{
+  "localStorage": {
+    "_gcl_ls": "{\"schema\":\"gcl\",\"version\":1,\"gcl_ctr\":{\"value\":{\"value\":17,\"timeouts\":0,\"errors\":0,\"creationTimeMs\":1771234986944},\"expires\":1779010986944}}",
+    "_grecaptcha": "09AKhCRwjUuS457PMmLJYhRWuJ74GmqHd4M2dpbXBOb6RNDWB4DhsQXU3ieDxag_Lt_uZuphsAtL3WPin7zKBl73c3gVZgIgHuc0jPFOtcPK-541cpZ4gkVugalcaEG3oJ",
+    "voyager-web:badges": "[{\"_id\":\"ACoAAF-FKfYBY_ttl5zxCS2I7h9Ou1pCItcIneQ\",\"tab\":\"mynetwork\",\"count\":0}]",
+    "voyager-web:enterSend": "false",
+    "voyager-web:msg-overlay-state": "[{\"_id\":\"urn:li:fs_miniProfile:ACoAAF-FKfYBY_ttl5zxCS2I7h9Ou1pCItcIneQ\",\"_conversationWindows\":[],\"_timeLastUpdatedState\":1771199834941,\"_listBubble\":{\"isMinimized\":false}}]",
+    "voyager-web:new-tab-beacon": "[]"
+  },
+  "sessionStorage": {}
+}

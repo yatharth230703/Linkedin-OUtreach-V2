@@ -21,6 +21,7 @@ from playwright_bots.login_credentials import (
     smooth_scroll_to_element,
     log_action,
     PlaywrightDriver,
+    _safe_goto,
 )
 
 load_dotenv()
@@ -387,8 +388,8 @@ def is_profile_accessible(page, url, max_retries=2):
         try:
             print(f"      Checking profile accessibility (attempt {attempt + 1}/{max_retries})...")
 
-            page.goto(url, wait_until="domcontentloaded")
-            human_pause(5, 8)
+            _safe_goto(page, url, timeout=60000)
+            human_pause(6, 10)
 
             current_url = page.url.lower()
             original_url = url.lower()
@@ -527,9 +528,9 @@ def main():
 
     try:
         print("   Opening LinkedIn...")
-        page.goto("https://www.linkedin.com/", wait_until="domcontentloaded")
+        _safe_goto(page, "https://www.linkedin.com/", timeout=60000)
         log_action(page, "linkedin_homepage")
-        human_pause(3, 5)
+        human_pause(4, 7)
 
         print("   Session Active. Ready to start automation.")
         human_scroll(page)

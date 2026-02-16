@@ -63,7 +63,7 @@ class LinkedInBotOrchestrator:
         
         # Bot execution order and paths
         self.script_dir = Path(__file__).parent
-        self.main_bots_dir = self.script_dir / "Linkedin_cloud_bot"
+        self.main_bots_dir = self.script_dir / "Linkedin_cloud_bot" / "playwright_bots"
         
         self.bot_sequence = [
             {
@@ -97,7 +97,7 @@ class LinkedInBotOrchestrator:
         
         # Bot execution order and paths
         self.script_dir = Path(__file__).parent
-        self.main_bots_dir = self.script_dir / "Linkedin_cloud_bot"
+        self.main_bots_dir = self.script_dir / "Linkedin_cloud_bot" / "playwright_bots"
         
         self.bot_sequence = [
             {

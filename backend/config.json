@@ -1,5 +1,5 @@
 {
-  "daily_connect": 1,
-  "daily_message": 1,
-  "daily_followup": 1
+  "daily_connect": 20,
+  "daily_message": 15,
+  "daily_followup": 10
 }

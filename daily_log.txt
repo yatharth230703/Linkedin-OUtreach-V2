@@ -1771,3 +1771,529 @@ Traceback (most recent call last):
 KeyboardInterrupt
 
 🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-16T09:12:04.793531+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-16 14:42:05,074 - INFO - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-16 14:42:05,074 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-16 14:42:05,075 - INFO - 🎯 Using prompt template: template_1
+2026-02-16 14:42:05,075 - 🎯 Using prompt template: template_1
+2026-02-16 14:42:05,075 - INFO - ================================================================================
+2026-02-16 14:42:05,075 - ================================================================================
+2026-02-16 14:42:05,075 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-16 14:42:05,075 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-16 14:42:05,075 - INFO - ================================================================================
+2026-02-16 14:42:05,075 - ================================================================================
+2026-02-16 14:42:05,075 - INFO - ⏰ Wake time: 2026-02-16 14:42:05
+2026-02-16 14:42:05,075 - ⏰ Wake time: 2026-02-16 14:42:05
+2026-02-16 14:42:05,076 - INFO - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-16 14:42:05,076 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-16 14:42:05,076 - INFO - 📅 Estimated completion: 2026-02-16 16:58:05
+2026-02-16 14:42:05,076 - 📅 Estimated completion: 2026-02-16 16:58:05
+2026-02-16 14:42:05,076 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:42:05,076 - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:42:05,076 - INFO - 💤 Starting initial delay: 0.0 minutes
+2026-02-16 14:42:05,076 - 💤 Starting initial delay: 0.0 minutes
+2026-02-16 14:42:05,076 - INFO - 🚀 Starting bot sequence at: 2026-02-16 14:42:05
+2026-02-16 14:42:05,076 - 🚀 Starting bot sequence at: 2026-02-16 14:42:05
+2026-02-16 14:42:05,076 - INFO - ================================================================================
+2026-02-16 14:42:05,076 - ================================================================================
+2026-02-16 14:42:05,076 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:42:05,076 - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:42:05,076 - INFO - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-16 14:42:05,076 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-16 14:42:05,076 - INFO -    🎯 Using template: template_1
+2026-02-16 14:42:05,076 -    🎯 Using template: template_1
+
+============================================================
+[Connection Bot] REAL-TIME OUTPUT START
+============================================================
+   Using prompt template: template_1
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 157.49.120.53
+   Proxy working! Browser IP: 144.16.223.68 (Different from Local: 157.49.120.53)
+   Injecting 8 extension cookies into browser...
+   Error injecting extension cookies: Page.goto: net::ERR_TUNNEL_CONNECTION_FAILED at https://www.linkedin.com/
+Call log:
+  - navigating to "https://www.linkedin.com/", waiting until "domcontentloaded"
+
+   Checking if already logged in...
+   Found login page heading: 'Grow your professional network and discover jobs and career tips'
+   Not logged in - login page heading element exists
+   User is not logged in. Starting login process...
+   Going to LinkedIn login page...
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_144239_login_page_loaded.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_144239_login_page_loaded_page_source.html
+   Starting login process...
+
+   STEP 1: Email Input
+   Found email input field using XPath
+Enter your LinkedIn email: Traceback (most recent call last):
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/msg_draft_connection_bot1.py", line 681, in <module>
+    main()
+    ~~~~^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/msg_draft_connection_bot1.py", line 519, in main
+    driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp)
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/login_credentials.py", line 1085, in ensure_linkedin_login
+    return linkedin_login(suspicious_otp=suspicious_otp)
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/login_credentials.py", line 857, in linkedin_login
+    email = input("Enter your LinkedIn email: ").strip()
+            ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-16T09:16:19.242090+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-16 14:46:19,401 - INFO - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-16 14:46:19,401 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-16 14:46:19,401 - INFO - 🎯 Using prompt template: template_1
+2026-02-16 14:46:19,401 - 🎯 Using prompt template: template_1
+2026-02-16 14:46:19,402 - INFO - ================================================================================
+2026-02-16 14:46:19,402 - ================================================================================
+2026-02-16 14:46:19,402 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-16 14:46:19,402 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-16 14:46:19,402 - INFO - ================================================================================
+2026-02-16 14:46:19,402 - ================================================================================
+2026-02-16 14:46:19,402 - INFO - ⏰ Wake time: 2026-02-16 14:46:19
+2026-02-16 14:46:19,402 - ⏰ Wake time: 2026-02-16 14:46:19
+2026-02-16 14:46:19,402 - INFO - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-16 14:46:19,402 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-16 14:46:19,402 - INFO - 📅 Estimated completion: 2026-02-16 17:02:19
+2026-02-16 14:46:19,402 - 📅 Estimated completion: 2026-02-16 17:02:19
+2026-02-16 14:46:19,402 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:46:19,402 - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:46:19,402 - INFO - 💤 Starting initial delay: 0.0 minutes
+2026-02-16 14:46:19,402 - 💤 Starting initial delay: 0.0 minutes
+2026-02-16 14:46:19,402 - INFO - 🚀 Starting bot sequence at: 2026-02-16 14:46:19
+2026-02-16 14:46:19,402 - 🚀 Starting bot sequence at: 2026-02-16 14:46:19
+2026-02-16 14:46:19,402 - INFO - ================================================================================
+2026-02-16 14:46:19,402 - ================================================================================
+2026-02-16 14:46:19,402 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:46:19,402 - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:46:19,402 - INFO - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-16 14:46:19,402 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-16 14:46:19,402 - INFO -    🎯 Using template: template_1
+2026-02-16 14:46:19,402 -    🎯 Using template: template_1
+
+============================================================
+[Connection Bot] REAL-TIME OUTPUT START
+============================================================
+   Using prompt template: template_1
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 157.49.120.53
+   Proxy working! Browser IP: 157.49.127.126 (Different from Local: 157.49.120.53)
+   Injecting 8 extension cookies into browser...
+   Injected 8/8 cookies.
+   Cookies added to context. Will inject browser storage after navigation.
+   Checking if already logged in...
+   Could not find login page heading element - user is logged in
+   Injected 6 localStorage keys.
+   Injected 2 sessionStorage keys.
+   User is already logged in! Skipping login process.
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_144655_already_logged_in.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_144655_already_logged_in_page_source.html
+   LinkedIn session established. Starting bot operations...
+   Opening LinkedIn...
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_144714_linkedin_homepage.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_144714_linkedin_homepage_page_source.html
+   Session Active. Ready to start automation.
+   Loaded connection limit from config: 20
+   Found 1 leads. Processing max 20 today.
+
+[1/20]    Checking: https://www.linkedin.com/in/jinkyeonglee/?locale=en_US
+      Checking profile accessibility (attempt 1/2)...
+      Profile ID mismatch - redirected from 'jinkyeonglee/?locale=en_us' to 'jinkyeonglee/'
+      Profile not accessible (404 or deleted): https://www.linkedin.com/in/jinkyeonglee/?locale=en_US
+      Faulty URL detected: https://www.linkedin.com/in/jinkyeonglee/?locale=en_US
+      Faulty URL saved to DB: https://www.linkedin.com/in/jinkyeonglee/?locale=en_US
+      Removed https://www.linkedin.com/in/jinkyeonglee/?locale=en_US from leads.json
+      Pausing for 33s after faulty link...
+
+   Batch job complete!
+   Closing browser session...
+
+============================================================
+[Connection Bot] REAL-TIME OUTPUT END
+============================================================
+2026-02-16 14:48:24,152 - INFO - ✅ Connection Bot completed successfully in 2.1 minutes
+2026-02-16 14:48:24,152 - ✅ Connection Bot completed successfully in 2.1 minutes
+2026-02-16 14:48:24,153 - INFO - ☕ Taking human break: 0.5 minutes (29s)
+2026-02-16 14:48:24,153 - ☕ Taking human break: 0.5 minutes (29s)
+2026-02-16 14:48:53,161 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:48:53,161 - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:48:53,166 - INFO - ✅ Break completed - ready for next bot
+2026-02-16 14:48:53,166 - ✅ Break completed - ready for next bot
+2026-02-16 14:48:53,166 - INFO - ================================================================================
+2026-02-16 14:48:53,166 - ================================================================================
+2026-02-16 14:48:53,166 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:48:53,166 - 🧪 Test mode - skipping user presence checks
+2026-02-16 14:48:53,167 - INFO - 🚀 Starting Message Bot: Sends queued messages
+2026-02-16 14:48:53,167 - 🚀 Starting Message Bot: Sends queued messages
+
+============================================================
+[Message Bot] REAL-TIME OUTPUT START
+============================================================
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 157.49.120.53
+Traceback (most recent call last):
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/send_message.py", line 573, in <module>
+    main()
+    ~~~~^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/send_message.py", line 519, in main
+    driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp)
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/login_credentials.py", line 1090, in ensure_linkedin_login
+    return linkedin_login(suspicious_otp=suspicious_otp)
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/login_credentials.py", line 818, in linkedin_login
+    driver = setup_playwright_browser()
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/login_credentials.py", line 663, in setup_playwright_browser
+    validate_proxy_with_driver(page)
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/login_credentials.py", line 465, in validate_proxy_with_driver
+    human_pause(2, 3)
+    ~~~~~~~~~~~^^^^^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/login_credentials.py", line 44, in human_pause
+    time.sleep(random.uniform(min_s, max_s))
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-16T09:39:06.823251+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-16 15:09:07,167 - INFO - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-16 15:09:07,167 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-16 15:09:07,167 - INFO - 🎯 Using prompt template: template_1
+2026-02-16 15:09:07,167 - 🎯 Using prompt template: template_1
+2026-02-16 15:09:07,167 - INFO - ================================================================================
+2026-02-16 15:09:07,167 - ================================================================================
+2026-02-16 15:09:07,167 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-16 15:09:07,167 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-16 15:09:07,168 - INFO - ================================================================================
+2026-02-16 15:09:07,168 - ================================================================================
+2026-02-16 15:09:07,168 - INFO - ⏰ Wake time: 2026-02-16 15:09:07
+2026-02-16 15:09:07,168 - ⏰ Wake time: 2026-02-16 15:09:07
+2026-02-16 15:09:07,168 - INFO - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-16 15:09:07,168 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-16 15:09:07,168 - INFO - 📅 Estimated completion: 2026-02-16 17:25:07
+2026-02-16 15:09:07,168 - 📅 Estimated completion: 2026-02-16 17:25:07
+2026-02-16 15:09:07,168 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:09:07,168 - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:09:07,168 - INFO - 💤 Starting initial delay: 0.0 minutes
+2026-02-16 15:09:07,168 - 💤 Starting initial delay: 0.0 minutes
+2026-02-16 15:09:07,168 - INFO - 🚀 Starting bot sequence at: 2026-02-16 15:09:07
+2026-02-16 15:09:07,168 - 🚀 Starting bot sequence at: 2026-02-16 15:09:07
+2026-02-16 15:09:07,168 - INFO - ================================================================================
+2026-02-16 15:09:07,168 - ================================================================================
+2026-02-16 15:09:07,168 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:09:07,168 - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:09:07,168 - INFO - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-16 15:09:07,168 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-16 15:09:07,168 - INFO -    🎯 Using template: template_1
+2026-02-16 15:09:07,168 -    🎯 Using template: template_1
+
+============================================================
+[Connection Bot] REAL-TIME OUTPUT START
+============================================================
+   Using prompt template: template_1
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 157.49.123.50
+   Proxy working! Browser IP: 223.177.207.225 (Different from Local: 157.49.123.50)
+   Injecting 8 extension cookies into browser...
+   Injected 8/8 cookies.
+   Cookies added to context. Will inject browser storage after navigation.
+   Checking if already logged in...
+   Could not find login page heading element - user is logged in
+   Injected 6 localStorage keys.
+   Injected 2 sessionStorage keys.
+   User is already logged in! Skipping login process.
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_150937_already_logged_in.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_150937_already_logged_in_page_source.html
+   LinkedIn session established. Starting bot operations...
+   Opening LinkedIn...
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_151009_linkedin_homepage.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_151009_linkedin_homepage_page_source.html
+   Session Active. Ready to start automation.
+   Loaded connection limit from config: 1
+   Found 1 leads. Processing max 1 today.
+
+[1/1]    Checking: https://www.linkedin.com/in/jinkyeonglee/
+      Checking profile accessibility (attempt 1/2)...
+      Profile accessible - found name: Jinkyeong Lee
+      Scraping profile data (scrolling down)...
+      Fetching profile posts via Apify...
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> Status: RUNNING, Message: 
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:52.401Z ACTOR: Pulling container image of build nzCOFiKvVXRzUKnq3 from registry.
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:52.405Z ACTOR: Creating container.
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:52.518Z ACTOR: Starting container.
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:52.522Z ACTOR: Running under "LIMITED_PERMISSIONS" permission level.
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:54.573Z [32mINFO[39m  System info[90m {"apifyVersion":"3.5.3","apifyClientVersion":"2.21.0","crawleeVersion":"3.15.3","osType":"Linux","nodeVersion":"v20.19.6"}[39m
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:54.767Z Input: {
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:54.769Z   username: [32m'https://www.linkedin.com/in/jinkyeonglee/'[39m,
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:54.771Z   page_number: [33m1[39m,
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:54.772Z   pagination_token: [1mnull[22m,
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:54.774Z   limit: [33m20[39m,
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:54.776Z   total_posts: [33m20[39m
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:54.777Z }
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:54.794Z Starting automatic pagination to collect 20 posts...
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:54.796Z Fetching page 1...
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:57.485Z Response status for page 1: [33m200[39m
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:57.649Z Collected 13 posts from page 1. Total: 13/20
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:57.651Z Fetching page 2 with pagination token...
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:58.665Z Response status for page 2: [33m200[39m
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:58.667Z No more posts found after page 1
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> 2026-02-16T09:40:58.668Z Automatic pagination complete. Collected a total of 13 posts.
+[36m[apify.linkedin-profile-posts runId:XQuyqVebQIEWstchk][0m -> Status: SUCCEEDED, Message: 
+      Fetched 0 posts
+      Generating AI messages using template_1...
+✅ Loaded template: template_1 - Default professional outreach template focusing on genuine connection and value-driven messaging with progressive follow-up strategy
+   🤖 Generating initial outreach message...
+   🤖 Generating follow-up message 1...
+   🤖 Generating follow-up message 2...
+   🤖 Generating follow-up message 3...
+   🤖 Generating follow-up message 4...
+      All messages generated (1 outreach + 4 follow-ups)
+      Data gathering complete.
+      Returning to top of profile for interaction...
+      Checking Connection Status...
+      Status: NOT_CONNECTED
+      Attempting to connect...
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+      Connection request sent (No Note).
+   Saved to DB: Jinkyeong Lee (with posts & 4 follow-ups)
+      Removed https://www.linkedin.com/in/jinkyeonglee/ from leads.json
+   Resting for 2.8 min (170s) before next profile...
+   Closing browser session...
+Traceback (most recent call last):
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/msg_draft_connection_bot1.py", line 681, in <module>
+    main()
+    ~~~~^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/msg_draft_connection_bot1.py", line 664, in main
+    time.sleep(sleep_time)
+    ~~~~~~~~~~^^^^^^^^^^^^
+KeyboardInterrupt
+
+🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-16T09:43:48.547127+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-16 15:13:48,716 - INFO - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-16 15:13:48,716 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-16 15:13:48,716 - INFO - 🎯 Using prompt template: template_1
+2026-02-16 15:13:48,716 - 🎯 Using prompt template: template_1
+2026-02-16 15:13:48,717 - INFO - ================================================================================
+2026-02-16 15:13:48,717 - ================================================================================
+2026-02-16 15:13:48,717 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-16 15:13:48,717 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-16 15:13:48,717 - INFO - ================================================================================
+2026-02-16 15:13:48,717 - ================================================================================
+2026-02-16 15:13:48,717 - INFO - ⏰ Wake time: 2026-02-16 15:13:48
+2026-02-16 15:13:48,717 - ⏰ Wake time: 2026-02-16 15:13:48
+2026-02-16 15:13:48,717 - INFO - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-16 15:13:48,717 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-16 15:13:48,717 - INFO - 📅 Estimated completion: 2026-02-16 17:29:48
+2026-02-16 15:13:48,717 - 📅 Estimated completion: 2026-02-16 17:29:48
+2026-02-16 15:13:48,717 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:13:48,717 - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:13:48,717 - INFO - 💤 Starting initial delay: 0.0 minutes
+2026-02-16 15:13:48,717 - 💤 Starting initial delay: 0.0 minutes
+2026-02-16 15:13:48,717 - INFO - 🚀 Starting bot sequence at: 2026-02-16 15:13:48
+2026-02-16 15:13:48,717 - 🚀 Starting bot sequence at: 2026-02-16 15:13:48
+2026-02-16 15:13:48,717 - INFO - ================================================================================
+2026-02-16 15:13:48,717 - ================================================================================
+2026-02-16 15:13:48,717 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:13:48,717 - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:13:48,717 - INFO - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-16 15:13:48,717 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-16 15:13:48,718 - INFO -    🎯 Using template: template_1
+2026-02-16 15:13:48,718 -    🎯 Using template: template_1
+
+============================================================
+[Connection Bot] REAL-TIME OUTPUT START
+============================================================
+   Using prompt template: template_1
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 157.49.123.50
+   Proxy working! Browser IP: 106.219.225.110 (Different from Local: 157.49.123.50)
+   Injecting 7 extension cookies into browser...
+   Injected 7/7 cookies.
+   Cookies added to context. Will inject browser storage after navigation.
+   Checking if already logged in...
+   Could not find login page heading element - user is logged in
+   Injected 6 localStorage keys.
+   Injected 0 sessionStorage keys.
+   User is already logged in! Skipping login process.
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_151416_already_logged_in.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_151416_already_logged_in_page_source.html
+   LinkedIn session established. Starting bot operations...
+   Opening LinkedIn...
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_151424_linkedin_homepage.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/screenshots/20260216_151424_linkedin_homepage_page_source.html
+   Session Active. Ready to start automation.
+   Loaded connection limit from config: 20
+   Found 1 leads. Processing max 20 today.
+
+[1/20]    Checking: https://www.linkedin.com/in/utkarsh-diwakar-59b932257/
+      Checking profile accessibility (attempt 1/2)...
+      Profile accessible - found name: Utkarsh Diwakar
+      Scraping profile data (scrolling down)...
+      Fetching profile posts via Apify...
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> Status: RUNNING, Message: 
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:44.523Z ACTOR: Pulling container image of build nzCOFiKvVXRzUKnq3 from registry.
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:44.525Z ACTOR: Creating container.
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:44.610Z ACTOR: Starting container.
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:44.611Z ACTOR: Running under "LIMITED_PERMISSIONS" permission level.
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:45.412Z [32mINFO[39m  System info[90m {"apifyVersion":"3.5.3","apifyClientVersion":"2.21.0","crawleeVersion":"3.15.3","osType":"Linux","nodeVersion":"v20.19.6"}[39m
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:45.514Z Input: {
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:45.516Z   username: [32m'https://www.linkedin.com/in/utkarsh-diwakar-59b932257/'[39m,
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:45.517Z   page_number: [33m1[39m,
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:45.518Z   pagination_token: [1mnull[22m,
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:45.520Z   limit: [33m20[39m,
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:45.521Z   total_posts: [33m20[39m
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:45.522Z }
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:45.539Z Starting automatic pagination to collect 20 posts...
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:45.541Z Fetching page 1...
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:46.866Z Response status for page 1: [33m200[39m
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:46.904Z Collected 3 posts from page 1. Total: 3/20
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:46.906Z Fetching page 2 with pagination token...
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:47.796Z Response status for page 2: [33m200[39m
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:47.799Z No more posts found after page 1
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> 2026-02-16T09:44:47.800Z Automatic pagination complete. Collected a total of 3 posts.
+[36m[apify.linkedin-profile-posts runId:0ckf98GbIgGK8gyIR][0m -> Status: SUCCEEDED, Message: 
+      Fetched 0 posts
+      Generating AI messages using template_1...
+✅ Loaded template: template_1 - Default professional outreach template focusing on genuine connection and value-driven messaging with progressive follow-up strategy
+   🤖 Generating initial outreach message...
+   🤖 Generating follow-up message 1...
+   🤖 Generating follow-up message 2...
+   🤖 Generating follow-up message 3...
+   🤖 Generating follow-up message 4...
+      All messages generated (1 outreach + 4 follow-ups)
+      Data gathering complete.
+      Returning to top of profile for interaction...
+      Checking Connection Status...
+      Status: NOT_CONNECTED
+      Attempting to connect...
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+      Connection request sent (No Note).
+   Saved to DB: Utkarsh Diwakar (with posts & 4 follow-ups)
+      Removed https://www.linkedin.com/in/utkarsh-diwakar-59b932257/ from leads.json
+   Resting for 2.6 min (158s) before next profile...
+
+   Batch job complete!
+   Closing browser session...
+
+============================================================
+[Connection Bot] REAL-TIME OUTPUT END
+============================================================
+2026-02-16 15:18:08,543 - INFO - ✅ Connection Bot completed successfully in 4.3 minutes
+2026-02-16 15:18:08,543 - ✅ Connection Bot completed successfully in 4.3 minutes
+2026-02-16 15:18:08,544 - INFO - ☕ Taking human break: 0.3 minutes (21s)
+2026-02-16 15:18:08,544 - ☕ Taking human break: 0.3 minutes (21s)
+2026-02-16 15:18:29,550 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:18:29,550 - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:18:29,552 - INFO - ✅ Break completed - ready for next bot
+2026-02-16 15:18:29,552 - ✅ Break completed - ready for next bot
+2026-02-16 15:18:29,552 - INFO - ================================================================================
+2026-02-16 15:18:29,552 - ================================================================================
+2026-02-16 15:18:29,552 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:18:29,552 - 🧪 Test mode - skipping user presence checks
+2026-02-16 15:18:29,552 - INFO - 🚀 Starting Message Bot: Sends queued messages
+2026-02-16 15:18:29,552 - 🚀 Starting Message Bot: Sends queued messages
+
+============================================================
+[Message Bot] REAL-TIME OUTPUT START
+============================================================
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 157.49.123.50
+   Proxy working! Browser IP: 103.79.168.168 (Different from Local: 157.49.123.50)
+   Injecting 7 extension cookies into browser...
+   Injected 7/7 cookies.
+   Cookies added to context. Will inject browser storage after navigation.
+   Checking if already logged in...
+Traceback (most recent call last):
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/send_message.py", line 573, in <module>
+    main()
+    ~~~~^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/send_message.py", line 519, in main
+    driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp)
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/login_credentials.py", line 1090, in ensure_linkedin_login
+    return linkedin_login(suspicious_otp=suspicious_otp)
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/login_credentials.py", line 830, in linkedin_login
+    if check_if_logged_in(page):
+       ~~~~~~~~~~~~~~~~~~^^^^^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot/playwright_bots/login_credentials.py", line 427, in check_if_logged_in
+    page.goto("https://www.linkedin.com/", wait_until="domcontentloaded")
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/playwright/sync_api/_generated.py", line 9054, in goto
+    self._sync(
+    ~~~~~~~~~~^
+        self._impl_obj.goto(
+        ^^^^^^^^^^^^^^^^^^^^
+            url=url, timeout=timeout, waitUntil=wait_until, referer=referer
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        )
+        ^
+    )
+    ^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/playwright/_impl/_sync_base.py", line 113, in _sync
+    self._dispatcher_fiber.switch()
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^
+  File "/Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/venv/lib/python3.13/site-packages/playwright/sync_api/_context_manager.py", line 56, in greenlet_main
+    self._loop.run_until_complete(self._connection.run_as_sync())
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py", line 712, in run_until_complete
+    self.run_forever()
+    ~~~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py", line 683, in run_forever
+    self._run_once()
+    ~~~~~~~~~~~~~~^^
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/asyncio/base_events.py", line 2012, in _run_once
+    event_list = self._selector.select(timeout)
+  File "/opt/homebrew/Cellar/python@3.13/3.13.7/Frameworks/Python.framework/Versions/3.13/lib/python3.13/selectors.py", line 548, in select
+    kev_list = self._selector.control(None, max_ev, timeout)
+KeyboardInterrupt
+
+🛑 Orchestrator interrupted by user

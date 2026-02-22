@@ -35,7 +35,7 @@ class LinkedInBotOrchestrator:
     Master orchestrator for LinkedIn automation bots with safety features.
     """
     
-    def __init__(self, test_mode=False, template_name="template_1"):
+    def __init__(self, test_mode=False, account_name=""):
         # Configuration
         self.EXECUTION_WINDOW_HOURS = 5
         self.MAX_INITIAL_DELAY_MINUTES = 180  # 3 hours
@@ -43,28 +43,28 @@ class LinkedInBotOrchestrator:
         self.MAX_BREAK_SECONDS = 900  # 15 minutes
         self.SAFETY_FILE_PATH = "safety_stop.txt"
         self.LOG_FILE = "daily_log.txt"
-        
+
         # Initialize test mode flag first
         self.test_mode = test_mode
-        self.template_name = template_name
-        
+        self.account_name = account_name
+
         # Initialize logging BEFORE using it
         self.setup_logging()
-        
+
         # Apply test mode settings after logging is set up
         if test_mode:
             self.MAX_INITIAL_DELAY_MINUTES = 0  # No initial delay in test mode
             self.MIN_BREAK_SECONDS = 10  # 10 seconds
             self.MAX_BREAK_SECONDS = 30  # 30 seconds
             self.logger.info("🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks")
-        
-        # Log template selection
-        self.logger.info(f"🎯 Using prompt template: {template_name}")
-        
+
+        # Log account selection
+        self.logger.info(f"🎯 Using account: {account_name}")
+
         # Bot execution order and paths
         self.script_dir = Path(__file__).parent
-        self.main_bots_dir = self.script_dir / "Linkedin_cloud_bot" / "playwright_bots"
-        
+        self.main_bots_dir = self.script_dir / "Linkedin_cloud_bot_attio" / "playwright_bots"
+
         self.bot_sequence = [
             {
                 "name": "Connection Bot",
@@ -72,54 +72,17 @@ class LinkedInBotOrchestrator:
                 "description": "Drafts connection requests"
             },
             {
-                "name": "Message Bot", 
+                "name": "Message Bot",
                 "script": "send_message.py",
                 "description": "Sends queued messages"
             },
             {
                 "name": "Follow-up Bot",
-                "script": "send_followup.py", 
+                "script": "send_followup.py",
                 "description": "Sends follow-up messages"
             }
         ]
-        
-        # Execution tracking
-        self.start_time = None
-        self.execution_stats = {
-            "wake_time": None,
-            "calculated_delay": None,
-            "actual_start_time": None,
-            "bot_executions": [],
-            "total_duration": None,
-            "safety_aborts": 0,
-            "errors": []
-        }
-        
-        # Bot execution order and paths
-        self.script_dir = Path(__file__).parent
-        self.main_bots_dir = self.script_dir / "Linkedin_cloud_bot" / "playwright_bots"
-        
-        self.bot_sequence = [
-            {
-                "name": "Connection Bot",
-                "script": "msg_draft_connection_bot1.py",
-                "description": "Drafts connection requests"
-            },
-            {
-                "name": "Message Bot", 
-                "script": "send_message.py",
-                "description": "Sends queued messages"
-            },
-            {
-                "name": "Follow-up Bot",
-                "script": "send_followup.py", 
-                "description": "Sends follow-up messages"
-            }
-        ]
-        
-        # Initialize logging
-        self.setup_logging()
-        
+
         # Execution tracking
         self.start_time = None
         self.execution_stats = {
@@ -361,11 +324,9 @@ class LinkedInBotOrchestrator:
         start_time = datetime.now()
         
         try:
-            # Build command with template argument for connection bot
-            cmd = [sys.executable, "-u", str(script_path)]
-            if bot_config["script"] == "msg_draft_connection_bot1.py":
-                cmd.append(f"--{self.template_name}")
-                self.logger.info(f"   🎯 Using template: {self.template_name}")
+            # Build command with --account_name for all bots
+            cmd = [sys.executable, "-u", str(script_path), "--account_name", self.account_name]
+            self.logger.info(f"   🎯 Using account: {self.account_name}")
 
             # Execute bot script with real-time log streaming
             # Output goes to both the log file and is captured for summary
@@ -583,24 +544,15 @@ def main():
     
     # Add command line argument parsing
     parser = argparse.ArgumentParser(description='LinkedIn Bot Orchestrator')
-    parser.add_argument('--test', action='store_true', 
+    parser.add_argument('--test', action='store_true',
                        help='Run in test mode (reduced delays, skip safety checks)')
-    parser.add_argument('--template_1', action='store_const', const='template_1', dest='template',
-                       help='Use template 1 (default professional outreach)')
-    parser.add_argument('--template_2', action='store_const', const='template_2', dest='template',
-                       help='Use template 2')
-    parser.add_argument('--template_3', action='store_const', const='template_3', dest='template',
-                       help='Use template 3')
-    parser.add_argument('--template_4', action='store_const', const='template_4', dest='template',
-                       help='Use template 4')
-    
+    parser.add_argument('--account_name', type=str, required=True,
+                       help='Account name (lead_manager) to process leads for')
+
     args = parser.parse_args()
-    
-    # Default to template_1 if no template specified
-    template_name = args.template or 'template_1'
-    
+
     try:
-        orchestrator = LinkedInBotOrchestrator(test_mode=args.test, template_name=template_name)
+        orchestrator = LinkedInBotOrchestrator(test_mode=args.test, account_name=args.account_name)
         success = orchestrator.run_orchestration()
         
         # Exit with appropriate code

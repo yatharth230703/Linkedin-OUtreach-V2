@@ -50,21 +50,40 @@ def auth_middleware():
         return result
 
 
+def _account_slug(account_name):
+    """Convert account name to a filesystem-safe slug."""
+    return account_name.strip().lower().replace(" ", "_") if account_name else ""
+
+
 @app.route("/api/cookies", methods=["POST"])
 def receive_cookies():
     data = request.get_json()
     if not data or "cookies" not in data:
         return jsonify({"success": False, "error": "No cookies provided"}), 400
 
+    account_name = data.get("account_name", "").strip()
+    slug = _account_slug(account_name)
+
+    # Save default (backward-compat) files
     with open(COOKIES_FILE, "w") as f:
         json.dump(data["cookies"], f, indent=2)
 
-    # Save browser storage if provided
     if data.get("browserStorage"):
         with open(STORAGE_FILE, "w") as f:
             json.dump(data["browserStorage"], f, indent=2)
 
-    return jsonify({"success": True, "count": len(data["cookies"])})
+    # Save per-account files if account_name provided
+    if slug:
+        per_account_cookies = os.path.join(DATA_DIR, f"cookies_{slug}.json")
+        with open(per_account_cookies, "w") as f:
+            json.dump(data["cookies"], f, indent=2)
+
+        if data.get("browserStorage"):
+            per_account_storage = os.path.join(DATA_DIR, f"browser_storage_{slug}.json")
+            with open(per_account_storage, "w") as f:
+                json.dump(data["browserStorage"], f, indent=2)
+
+    return jsonify({"success": True, "count": len(data["cookies"]), "account": account_name})
 
 
 @app.route("/api/config", methods=["POST"])
@@ -77,6 +96,7 @@ def receive_config():
         "daily_connect": data.get("daily_connect", 20),
         "daily_message": data.get("daily_message", 15),
         "daily_followup": data.get("daily_followup", 10),
+        "account_name": data.get("account_name", ""),
     }
 
     with open(CONFIG_FILE, "w") as f:
@@ -113,8 +133,20 @@ def start_bot():
     with open(RUN_LOG, "a") as rl:
         rl.write(f"\n--- Bot started at {datetime.now(timezone.utc).isoformat()} ---\n")
 
+    # Read account_name from config
+    account_name = ""
+    try:
+        with open(CONFIG_FILE, "r") as cf:
+            config_data = json.load(cf)
+            account_name = config_data.get("account_name", "")
+    except (FileNotFoundError, json.JSONDecodeError):
+        pass
+
+    if not account_name:
+        return jsonify({"success": False, "error": "No account name configured. Set it in the extension first."}), 400
+
     # Launch orchestrator as subprocess (-u for unbuffered output)
-    cmd = [sys.executable, "-u", os.path.join(PROJECT_DIR, "orchestrator.py"), "--test", "--template_1"]
+    cmd = [sys.executable, "-u", os.path.join(PROJECT_DIR, "orchestrator.py"), "--test", "--account_name", account_name]
 
     bot_process = subprocess.Popen(
         cmd,

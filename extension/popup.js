@@ -26,13 +26,17 @@ const lastRunResult = document.getElementById("last-run-result");
 const dailyConnect = document.getElementById("daily-connect");
 const dailyMessage = document.getElementById("daily-message");
 const dailyFollowup = document.getElementById("daily-followup");
+const accountName = document.getElementById("account-name");
 
 // State
 let botRunning = false;
 
 // Init
 document.addEventListener("DOMContentLoaded", () => {
-  chrome.storage.local.get(["loggedIn", "botRunning"], (data) => {
+  chrome.storage.local.get(["loggedIn", "botRunning", "accountName"], (data) => {
+    if (data.accountName) {
+      accountName.value = data.accountName;
+    }
     if (data.loggedIn) {
       showMainScreen();
       if (data.botRunning) {
@@ -41,6 +45,11 @@ document.addEventListener("DOMContentLoaded", () => {
       fetchStatus();
     }
   });
+});
+
+// Persist account name on change
+accountName.addEventListener("change", () => {
+  chrome.storage.local.set({ accountName: accountName.value.trim() });
 });
 
 // Login
@@ -153,6 +162,7 @@ syncCookiesBtn.addEventListener("click", async () => {
         expirationDate: c.expirationDate,
       })),
       browserStorage: browserStorage,
+      account_name: accountName.value.trim(),
     };
 
     const res = await fetch(`${BACKEND_URL}/api/cookies`, {
@@ -192,6 +202,7 @@ runBtn.addEventListener("click", () => {
     daily_connect: parseInt(dailyConnect.value) || 20,
     daily_message: parseInt(dailyMessage.value) || 15,
     daily_followup: parseInt(dailyFollowup.value) || 10,
+    account_name: accountName.value.trim(),
   };
 
   runBtn.disabled = true;
@@ -280,6 +291,7 @@ function setConfigDisabled(disabled) {
   dailyConnect.disabled = disabled;
   dailyMessage.disabled = disabled;
   dailyFollowup.disabled = disabled;
+  accountName.disabled = disabled;
 }
 
 function fetchStatus() {

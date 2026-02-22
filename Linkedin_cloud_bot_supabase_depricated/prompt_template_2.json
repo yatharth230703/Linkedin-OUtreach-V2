@@ -1,0 +1,13 @@
+{
+  "outreach_prompt": "write a funny short story",
+  
+  "followup_1_prompt": "write an even funnier short story about the same character meeting a new friend",
+  
+  "followup_2_prompt": "write another hilarious story where the character and their friend go on an adventure",
+  
+  "followup_3_prompt": "write a comedic story where the character faces a silly challenge",
+  
+  "followup_4_prompt": "write a final funny story that wraps up the character's journey with a laugh",
+  
+  "description": "Generate a funny story about a horse with progressive follow-up stories"
+}

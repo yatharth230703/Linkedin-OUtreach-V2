@@ -32,7 +32,7 @@ load_dotenv()
 
 def validate_lead_match(scraped_name, scraped_headline, db_lead_data, similarity_threshold=0.7):
     """
-    Validate that scraped LinkedIn data matches Supabase database entry.
+    Validate that scraped LinkedIn data matches Attio database entry.
     """
     db_name = db_lead_data.get('full_name', '').strip()
     db_headline = db_lead_data.get('headline', '').strip()
@@ -169,7 +169,7 @@ def scrape_all_connections_brute(page, lead_manager=""):
         k = 2 * idx + 1
 
         if name not in attio_leads_data:
-            print(f"   Skipping {name} - not found in Supabase database")
+            print(f"   Skipping {name} - not found in Attio database")
             skipped_not_in_db += 1
             continue
 
@@ -488,7 +488,7 @@ def main():
     print(f"   Using account: {account_name}")
 
     print("   Ensuring LinkedIn login...")
-    driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp)
+    driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp, account_name=account_name)
 
     if not driver:
         print("   Could not establish LinkedIn session. Exiting.")

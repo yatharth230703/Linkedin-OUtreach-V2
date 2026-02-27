@@ -1,5 +1,6 @@
 {
   "daily_connect": 20,
-  "daily_message": 15,
-  "daily_followup": 10
+  "daily_message": 5,
+  "daily_followup": 5,
+  "account_name": "yatharth bisht"
 }

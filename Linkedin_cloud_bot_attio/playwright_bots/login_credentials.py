@@ -16,6 +16,24 @@ from proxy_requests import get_proxy_session
 load_dotenv()
 
 
+def _account_slug(account_name):
+    """Convert account name to a filesystem-safe slug."""
+    return account_name.strip().lower().replace(" ", "_") if account_name else ""
+
+
+def get_proxy_password_for_account(account_name=""):
+    """Build the full proxy password with geo-suffix based on account."""
+    base = os.getenv("PROXY_PASSWORD_BASE", os.getenv("PROXY_PASSWORD", ""))
+    slug = _account_slug(account_name)
+    if slug == "yatharth_bisht":
+        return base + "_country-in_city-delhi"
+    elif slug in ("maurice", "leon"):
+        return base + "_country-de_city-hamburg"
+    # Fallback: use raw PROXY_PASSWORD if set, otherwise base with no suffix
+    raw = os.getenv("PROXY_PASSWORD", "")
+    return raw if raw else base
+
+
 class PlaywrightDriver:
     """Wrapper to provide a unified interface similar to Selenium's driver for cleanup"""
     def __init__(self, playwright_instance, browser, context, page):
@@ -553,13 +571,15 @@ def validate_proxy_with_driver(page):
         return False
 
 
-def setup_playwright_browser():
+def setup_playwright_browser(account_name=""):
     """Setup Playwright browser with stealth config and native proxy support"""
     try:
         print("   Setting up Playwright browser with Stealth Config...")
 
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        user_data_path = os.path.join(script_dir, "user_data_yath")
+        slug = _account_slug(account_name)
+        user_data_dir_name = f"user_data_{slug}" if slug else "user_data_yath"
+        user_data_path = os.path.join(script_dir, user_data_dir_name)
 
         if not os.path.exists(user_data_path):
             os.makedirs(user_data_path)
@@ -573,7 +593,7 @@ def setup_playwright_browser():
             proxy_host = os.getenv("PROXY_HOST")
             proxy_port = os.getenv("PROXY_PORT")
             proxy_username = os.getenv("PROXY_USERNAME")
-            proxy_password = os.getenv("PROXY_PASSWORD")
+            proxy_password = get_proxy_password_for_account(account_name)
 
             if all([proxy_host, proxy_port, proxy_username, proxy_password]):
                 print(f"   Configuring native proxy: {proxy_host}:{proxy_port}")
@@ -607,9 +627,11 @@ def setup_playwright_browser():
             "--disable-component-update",
             "--no-default-browser-check",
             "--no-first-run",
+            "--window-size=1920,1200",
         ]
 
         # Use persistent context for session persistence (like Chrome's user-data-dir)
+        is_cloud = os.getenv("CLOUD_MODE", "").lower() == "true"
         context_options = {
             "user_data_dir": user_data_path,
             "viewport": {"width": 1920, "height": 1080},
@@ -618,8 +640,11 @@ def setup_playwright_browser():
             "ignore_https_errors": True,
             "args": launch_args,
             "headless": False,
-            "channel": "chrome",  # Use installed Chrome browser
         }
+        # In cloud mode use Playwright's bundled Chromium (no Chrome install needed)
+        # Locally use installed Chrome for better stealth
+        if not is_cloud:
+            context_options["channel"] = "chrome"
 
         if proxy_config:
             context_options["proxy"] = proxy_config
@@ -735,12 +760,16 @@ def setup_playwright_browser():
         return None
 
 
-def _get_extension_cookies():
-    """Load cookies from backend/cookies.json if it exists. Returns list or None."""
+def _get_extension_cookies(account_name=""):
+    """Load cookies from backend/cookies_{slug}.json (or cookies.json fallback). Returns list or None."""
     import json as _json
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    # Go up two levels: playwright_bots -> Linkedin_cloud_bot -> project root -> backend
-    cookies_file = os.path.join(os.path.dirname(os.path.dirname(script_dir)), "backend", "cookies.json")
+    backend_dir = os.path.join(os.path.dirname(os.path.dirname(script_dir)), "backend")
+    slug = _account_slug(account_name)
+    # Try per-account file first, fall back to default
+    cookies_file = os.path.join(backend_dir, f"cookies_{slug}.json") if slug else None
+    if not cookies_file or not os.path.exists(cookies_file):
+        cookies_file = os.path.join(backend_dir, "cookies.json")
     if not os.path.exists(cookies_file):
         return None
     try:
@@ -765,13 +794,15 @@ def _get_extension_cookies():
     return None
 
 
-def _wipe_profile():
-    """Always wipe user_data_yath for a clean start with extension cookies."""
+def _wipe_profile(account_name=""):
+    """Always wipe user data dir for a clean start with extension cookies."""
     import shutil
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    user_data_path = os.path.join(script_dir, "user_data_yath")
+    slug = _account_slug(account_name)
+    dir_name = f"user_data_{slug}" if slug else "user_data_yath"
+    user_data_path = os.path.join(script_dir, dir_name)
     if os.path.exists(user_data_path):
-        print("   Wiping user_data_yath for clean cookie injection...")
+        print(f"   Wiping {dir_name} for clean cookie injection...")
         shutil.rmtree(user_data_path)
     os.makedirs(user_data_path, exist_ok=True)
     print("   Fresh profile directory ready.")
@@ -882,11 +913,15 @@ def _inject_essential_cookies_only(driver):
         return False
 
 
-def _inject_browser_storage(page):
-    """Inject localStorage and sessionStorage from backend/browser_storage.json into a loaded page."""
+def _inject_browser_storage(page, account_name=""):
+    """Inject localStorage and sessionStorage from backend/browser_storage_{slug}.json into a loaded page."""
     import json as _json
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    storage_file = os.path.join(os.path.dirname(os.path.dirname(script_dir)), "backend", "browser_storage.json")
+    backend_dir = os.path.join(os.path.dirname(os.path.dirname(script_dir)), "backend")
+    slug = _account_slug(account_name)
+    storage_file = os.path.join(backend_dir, f"browser_storage_{slug}.json") if slug else None
+    if not storage_file or not os.path.exists(storage_file):
+        storage_file = os.path.join(backend_dir, "browser_storage.json")
     if not os.path.exists(storage_file):
         return
     try:
@@ -922,19 +957,20 @@ def _inject_browser_storage(page):
         print(f"   Could not inject browser storage: {e}")
 
 
-def linkedin_login(suspicious_otp=None):
+def linkedin_login(suspicious_otp=None, account_name=""):
     """
     Simple LinkedIn login function with CLI input prompts.
     First checks if already logged in, then proceeds with login if needed.
     Args:
         suspicious_otp: Optional OTP for suspicious login challenge (from argparse)
+        account_name: Account name for multi-account support
     """
     # If extension cookies exist, always start fresh
-    ext_cookies = _get_extension_cookies()
+    ext_cookies = _get_extension_cookies(account_name)
     if ext_cookies:
-        _wipe_profile()
+        _wipe_profile(account_name)
 
-    driver = setup_playwright_browser()
+    driver = setup_playwright_browser(account_name)
     if not driver:
         return None
 
@@ -949,7 +985,7 @@ def linkedin_login(suspicious_otp=None):
         if check_if_logged_in(page):
             # Now that we're on LinkedIn, inject browser storage
             if ext_cookies:
-                _inject_browser_storage(page)
+                _inject_browser_storage(page, account_name)
             print("   User is already logged in! Skipping login process.")
             log_action(page, "already_logged_in")
             return driver
@@ -1199,14 +1235,15 @@ def linkedin_login(suspicious_otp=None):
         return None
 
 
-def ensure_linkedin_login(suspicious_otp=None):
+def ensure_linkedin_login(suspicious_otp=None, account_name=""):
     """
     Convenience function for other bots to ensure LinkedIn login.
     Returns a PlaywrightDriver instance if login is successful, None otherwise.
     Args:
         suspicious_otp: Optional OTP for suspicious login challenge (from argparse)
+        account_name: Account name for multi-account support
     """
-    return linkedin_login(suspicious_otp=suspicious_otp)
+    return linkedin_login(suspicious_otp=suspicious_otp, account_name=account_name)
 
 
 def main():

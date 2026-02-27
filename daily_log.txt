@@ -2297,3 +2297,928 @@ Traceback (most recent call last):
 KeyboardInterrupt
 
 🛑 Orchestrator interrupted by user
+
+--- Bot started at 2026-02-23T00:16:50.417313+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-23 05:46:50,523 - INFO - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-23 05:46:50,523 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-23 05:46:50,523 - INFO - 🎯 Using account: yatharth bisht
+2026-02-23 05:46:50,523 - 🎯 Using account: yatharth bisht
+2026-02-23 05:46:50,523 - INFO - ================================================================================
+2026-02-23 05:46:50,523 - ================================================================================
+2026-02-23 05:46:50,523 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-23 05:46:50,523 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-23 05:46:50,523 - INFO - ================================================================================
+2026-02-23 05:46:50,523 - ================================================================================
+2026-02-23 05:46:50,523 - INFO - ⏰ Wake time: 2026-02-23 05:46:50
+2026-02-23 05:46:50,523 - ⏰ Wake time: 2026-02-23 05:46:50
+2026-02-23 05:46:50,523 - INFO - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-23 05:46:50,523 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-23 05:46:50,523 - INFO - 📅 Estimated completion: 2026-02-23 08:02:50
+2026-02-23 05:46:50,523 - 📅 Estimated completion: 2026-02-23 08:02:50
+2026-02-23 05:46:50,523 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:46:50,523 - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:46:50,523 - INFO - 💤 Starting initial delay: 0.0 minutes
+2026-02-23 05:46:50,523 - 💤 Starting initial delay: 0.0 minutes
+2026-02-23 05:46:50,523 - INFO - 🚀 Starting bot sequence at: 2026-02-23 05:46:50
+2026-02-23 05:46:50,523 - 🚀 Starting bot sequence at: 2026-02-23 05:46:50
+2026-02-23 05:46:50,523 - INFO - ================================================================================
+2026-02-23 05:46:50,523 - ================================================================================
+2026-02-23 05:46:50,523 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:46:50,523 - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:46:50,523 - INFO - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-23 05:46:50,523 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-23 05:46:50,523 - INFO -    🎯 Using account: yatharth bisht
+2026-02-23 05:46:50,523 -    🎯 Using account: yatharth bisht
+
+============================================================
+[Connection Bot] REAL-TIME OUTPUT START
+============================================================
+   Using account: yatharth bisht
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 103.212.156.142
+   Proxy browser test failed: Page.goto: net::ERR_TUNNEL_CONNECTION_FAILED at https://httpbin.org/ip
+Call log:
+  - navigating to "https://httpbin.org/ip", waiting until "domcontentloaded"
+
+   Checking LinkedIn reachability through proxy...
+   LinkedIn reachable (status 200)
+   Injecting 7 extension cookies into browser...
+   Injected 7/7 cookies.
+   Readback: 7 cookies in context, auth cookies present: ['li_rm', 'JSESSIONID', 'li_at']
+   Checking if already logged in...
+   Could not find login page heading element - user is logged in
+   Injected 5 localStorage keys.
+   Injected 0 sessionStorage keys.
+   User is already logged in! Skipping login process.
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_054723_already_logged_in.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_054723_already_logged_in_page_source.html
+   LinkedIn session established. Starting bot operations...
+   Opening LinkedIn...
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_054730_linkedin_homepage.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_054730_linkedin_homepage_page_source.html
+   Session Active. Ready to start automation.
+   Loaded connection limit from config: 1
+   Fetched 1 bot_input records for 'yatharth bisht'
+   Found 1 leads. Processing max 1 today.
+
+[1/1]    Checking: https://www.linkedin.com/in/tarun-jain07/
+      Checking profile accessibility (attempt 1/2)...
+      Profile accessible - found name: Tarun Jain
+      Scraping profile data (scrolling down)...
+      Fetching profile posts via Apify...
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> Status: RUNNING, Message: 
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:01.889Z ACTOR: Pulling container image of build nzCOFiKvVXRzUKnq3 from registry.
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:01.891Z ACTOR: Creating container.
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:01.979Z ACTOR: Starting container.
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:01.980Z ACTOR: Running under "LIMITED_PERMISSIONS" permission level.
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:03.171Z [32mINFO[39m  System info[90m {"apifyVersion":"3.5.3","apifyClientVersion":"2.21.0","crawleeVersion":"3.15.3","osType":"Linux","nodeVersion":"v20.19.6"}[39m
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:03.288Z Input: {
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:03.288Z   username: [32m'https://www.linkedin.com/in/tarun-jain07/'[39m,
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:03.289Z   page_number: [33m1[39m,
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:03.290Z   pagination_token: [1mnull[22m,
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:03.291Z   limit: [33m20[39m,
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:03.291Z   total_posts: [33m20[39m
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:03.292Z }
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:03.316Z Starting automatic pagination to collect 20 posts...
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:03.317Z Fetching page 1...
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:06.021Z Response status for page 1: [33m200[39m
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:06.072Z Collected 20 posts from page 1. Total: 20/20
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:06.073Z Reached the requested number of posts (20). Stopping pagination.
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> 2026-02-23T00:18:06.073Z Automatic pagination complete. Collected a total of 20 posts.
+[36m[apify.linkedin-profile-posts runId:P0oUMyp6hJN7Q1pl0][0m -> Status: SUCCEEDED, Message: 
+      Fetched 0 posts
+      Generating AI messages using per-lead template...
+   🤖 Generating initial outreach message...
+   🤖 Generating follow-up message 1...
+   🤖 Generating follow-up message 2...
+   🤖 Generating follow-up message 3...
+   🤖 Generating follow-up message 4...
+      All messages generated (1 outreach + 4 follow-ups)
+      Data gathering complete.
+      Returning to top of profile for interaction...
+      Checking Connection Status...
+      Status: NOT_CONNECTED
+      Attempting to connect...
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+      Connection request sent (No Note).
+   Saved lead to Attio: Tarun Jain (564b1a73-8944-5865-acf5-980cc4285e8b)
+   Saved to Attio: Tarun Jain (with posts & 4 follow-ups)
+      Deleted bot_input record 2384341b-b551-533f-8036-907d156be43c
+   Resting for 1.5 min (89s) before next profile...
+
+   Batch job complete!
+   Closing browser session...
+
+============================================================
+[Connection Bot] REAL-TIME OUTPUT END
+============================================================
+2026-02-23 05:50:19,988 - INFO - ✅ Connection Bot completed successfully in 3.5 minutes
+2026-02-23 05:50:19,988 - ✅ Connection Bot completed successfully in 3.5 minutes
+2026-02-23 05:50:19,989 - INFO - ☕ Taking human break: 0.2 minutes (11s)
+2026-02-23 05:50:19,989 - ☕ Taking human break: 0.2 minutes (11s)
+2026-02-23 05:50:30,991 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:50:30,991 - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:50:30,992 - INFO - ✅ Break completed - ready for next bot
+2026-02-23 05:50:30,992 - ✅ Break completed - ready for next bot
+2026-02-23 05:50:30,992 - INFO - ================================================================================
+2026-02-23 05:50:30,992 - ================================================================================
+2026-02-23 05:50:30,992 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:50:30,992 - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:50:30,992 - INFO - 🚀 Starting Message Bot: Sends queued messages
+2026-02-23 05:50:30,992 - 🚀 Starting Message Bot: Sends queued messages
+2026-02-23 05:50:30,993 - INFO -    🎯 Using account: yatharth bisht
+2026-02-23 05:50:30,993 -    🎯 Using account: yatharth bisht
+
+============================================================
+[Message Bot] REAL-TIME OUTPUT START
+============================================================
+   Using account: yatharth bisht
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 103.212.156.142
+   Proxy working! Browser IP: 106.219.224.42 (Different from Local: 103.212.156.142)
+   Checking LinkedIn reachability through proxy...
+   LinkedIn reachable (status 200)
+   Injecting 7 extension cookies into browser...
+   Injected 7/7 cookies.
+   Readback: 7 cookies in context, auth cookies present: ['li_rm', 'JSESSIONID', 'li_at']
+   Checking if already logged in...
+   Could not find login page heading element - user is logged in
+   Injected 5 localStorage keys.
+   Injected 0 sessionStorage keys.
+   User is already logged in! Skipping login process.
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055056_already_logged_in.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055056_already_logged_in_page_source.html
+   LinkedIn session established. Starting messaging bot...
+   Opening LinkedIn...
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055102_linkedin_homepage.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055102_linkedin_homepage_page_source.html
+   Session Active. Ready to navigate to connections.
+   Navigating to: https://www.linkedin.com/mynetwork/invite-connect/connections/
+   Navigation to https://www.linkedin.com/mynetwork/invite-connect/connections/ failed (attempt 1): Page.goto: Timeout 60000ms exceeded.
+Call log:
+  - navigating to "https://www.linkedin.com/mynetwork/invite-connect/connections/", waiting until "domcontentloaded"
+
+   Retrying in 3s...
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055233_connections_page.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055233_connections_page_page_source.html
+   Successfully reached connections page!
+   Starting connection scraping and lead identification...
+   Fetching leads data from Attio for 'yatharth bisht'...
+   Found 1 total leads in Attio
+   - 0 with 'first message sent' status
+   - 1 available for messaging
+   Reached end of names at position 41
+   Found 20 names
+********************************************************************************
+   Reached end of headlines at position 41
+   Found 20 headlines
+********************************************************************************
+   Skipping Ria Mishra - not found in Supabase database
+   Skipping Aryan Sood - not found in Supabase database
+   Skipping Madhur Gupta - not found in Supabase database
+   Skipping Bhoomi Singh - not found in Supabase database
+   Skipping Shubhranshu Jha - not found in Supabase database
+   Skipping Ammar A. Khan - not found in Supabase database
+   Skipping Kein Tung - not found in Supabase database
+   Skipping Ashish Kushwaha - not found in Supabase database
+   Skipping Saksham Jain - not found in Supabase database
+   Skipping Sparsh Jain - not found in Supabase database
+   Skipping Abhishek Kumar - not found in Supabase database
+   Skipping Jan Miskiewicz - not found in Supabase database
+   Skipping Deepali Singh - not found in Supabase database
+   Skipping Yash Jain - not found in Supabase database
+   Skipping Iksha Jain - not found in Supabase database
+   Skipping Vishrut Grover - not found in Supabase database
+   Skipping Hemang Jain - not found in Supabase database
+   Skipping Maurice Funk - not found in Supabase database
+   Skipping Amrit Singh Rawat - not found in Supabase database
+   Skipping Yash Jain - not found in Supabase database
+
+   Summary:
+   Total connections scraped: 20
+   Skipped (not in database): 20
+   Skipped (poor match): 0
+   Found in database: 0
+   Previously contacted: 0
+   New leads to message: 0
+
+   No new leads to message. All connections have been contacted previously.
+   Closing browser session...
+
+============================================================
+[Message Bot] REAL-TIME OUTPUT END
+============================================================
+2026-02-23 05:52:49,445 - INFO - ✅ Message Bot completed successfully in 2.3 minutes
+2026-02-23 05:52:49,445 - ✅ Message Bot completed successfully in 2.3 minutes
+2026-02-23 05:52:49,446 - INFO - ☕ Taking human break: 0.3 minutes (16s)
+2026-02-23 05:52:49,446 - ☕ Taking human break: 0.3 minutes (16s)
+2026-02-23 05:53:05,451 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:53:05,451 - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:53:05,452 - INFO - ✅ Break completed - ready for next bot
+2026-02-23 05:53:05,452 - ✅ Break completed - ready for next bot
+2026-02-23 05:53:05,452 - INFO - ================================================================================
+2026-02-23 05:53:05,452 - ================================================================================
+2026-02-23 05:53:05,452 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:53:05,452 - 🧪 Test mode - skipping user presence checks
+2026-02-23 05:53:05,452 - INFO - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-02-23 05:53:05,452 - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-02-23 05:53:05,453 - INFO -    🎯 Using account: yatharth bisht
+2026-02-23 05:53:05,453 -    🎯 Using account: yatharth bisht
+
+============================================================
+[Follow-up Bot] REAL-TIME OUTPUT START
+============================================================
+   Using account: yatharth bisht
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 103.212.156.142
+   Proxy working! Browser IP: 157.49.21.193 (Different from Local: 103.212.156.142)
+   Checking LinkedIn reachability through proxy...
+   LinkedIn reachable (status 200)
+   Injecting 7 extension cookies into browser...
+   Injected 7/7 cookies.
+   Readback: 7 cookies in context, auth cookies present: ['li_rm', 'JSESSIONID', 'li_at']
+   Checking if already logged in...
+   Could not find login page heading element - user is logged in
+   Injected 5 localStorage keys.
+   Injected 0 sessionStorage keys.
+   User is already logged in! Skipping login process.
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055331_already_logged_in.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055331_already_logged_in_page_source.html
+   LinkedIn session established. Starting follow-up bot...
+   Opening LinkedIn for follow-up messages...
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055336_linkedin_homepage.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055336_linkedin_homepage_page_source.html
+   Session Active. Ready to navigate to connections.
+   Navigating to: https://www.linkedin.com/mynetwork/invite-connect/connections/
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055353_connections_page.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_055353_connections_page_page_source.html
+   Successfully reached connections page!
+   Starting connection scraping and follow-up lead identification...
+   Fetching follow-up leads data from Attio for 'yatharth bisht'...
+
+   Found 0 leads with eligible status (>3 days ago)
+   Status breakdown:
+      - first message sent: 0
+      - follow-up 1 sent: 0
+      - follow-up 2 sent: 0
+      - follow-up 3 sent: 0
+   - 0 have next message draft available
+   - 0 skipped (no message draft)
+   Reached end of names at position 41
+   Found 20 names
+********************************************************************************
+   Reached end of headlines at position 41
+   Found 20 headlines
+********************************************************************************
+
+   Summary:
+   Total connections scraped: 20
+   Skipped (not in database): 20
+   Skipped (poor match): 0
+   Found in database: 0
+   Not eligible for follow-up: 0
+   Leads needing follow-up: 0
+
+   No leads need follow-up messages at this time.
+   Either all leads have been followed up, or it hasn't been 3 days yet.
+   Closing browser session...
+
+============================================================
+[Follow-up Bot] REAL-TIME OUTPUT END
+============================================================
+2026-02-23 05:54:04,530 - INFO - ✅ Follow-up Bot completed successfully in 1.0 minutes
+2026-02-23 05:54:04,530 - ✅ Follow-up Bot completed successfully in 1.0 minutes
+2026-02-23 05:54:04,534 - INFO - ================================================================================
+2026-02-23 05:54:04,534 - ================================================================================
+2026-02-23 05:54:04,539 - INFO - 📊 EXECUTION SUMMARY
+2026-02-23 05:54:04,539 - 📊 EXECUTION SUMMARY
+2026-02-23 05:54:04,540 - INFO - ================================================================================
+2026-02-23 05:54:04,540 - ================================================================================
+2026-02-23 05:54:04,540 - INFO - ✅ Successful bots: 3/3
+2026-02-23 05:54:04,540 - ✅ Successful bots: 3/3
+2026-02-23 05:54:04,540 - INFO - ⏱️ Total execution time: 7.2 minutes
+2026-02-23 05:54:04,540 - ⏱️ Total execution time: 7.2 minutes
+2026-02-23 05:54:04,540 - INFO - 🛑 Safety aborts: 0
+2026-02-23 05:54:04,540 - 🛑 Safety aborts: 0
+2026-02-23 05:54:04,540 - INFO - ❌ Errors: 0
+2026-02-23 05:54:04,540 - ❌ Errors: 0
+2026-02-23 05:54:04,547 - INFO - 📄 Detailed stats saved to: execution_stats_20260223_055404.json
+2026-02-23 05:54:04,547 - 📄 Detailed stats saved to: execution_stats_20260223_055404.json
+2026-02-23 05:54:04,547 - INFO - ================================================================================
+2026-02-23 05:54:04,547 - ================================================================================
+2026-02-23 05:54:04,547 - INFO - 🎬 LinkedIn Bot Orchestrator Complete
+2026-02-23 05:54:04,547 - 🎬 LinkedIn Bot Orchestrator Complete
+2026-02-23 05:54:04,548 - INFO - ================================================================================
+2026-02-23 05:54:04,548 - ================================================================================
+
+--- Bot started at 2026-02-23T01:08:48.575630+00:00 ---
+--- Launching orchestrator (cookies will be injected at runtime) ---
+2026-02-23 06:38:48,639 - INFO - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-23 06:38:48,639 - 🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks
+2026-02-23 06:38:48,640 - INFO - 🎯 Using account: yatharth bisht
+2026-02-23 06:38:48,640 - 🎯 Using account: yatharth bisht
+2026-02-23 06:38:48,640 - INFO - ================================================================================
+2026-02-23 06:38:48,640 - ================================================================================
+2026-02-23 06:38:48,640 - INFO - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-23 06:38:48,640 - 🎬 LinkedIn Bot Orchestrator Starting
+2026-02-23 06:38:48,640 - INFO - ================================================================================
+2026-02-23 06:38:48,640 - ================================================================================
+2026-02-23 06:38:48,640 - INFO - ⏰ Wake time: 2026-02-23 06:38:48
+2026-02-23 06:38:48,640 - ⏰ Wake time: 2026-02-23 06:38:48
+2026-02-23 06:38:48,640 - INFO - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-23 06:38:48,640 - 🎲 Calculated initial delay: 0.0 minutes
+2026-02-23 06:38:48,640 - INFO - 📅 Estimated completion: 2026-02-23 08:54:48
+2026-02-23 06:38:48,640 - 📅 Estimated completion: 2026-02-23 08:54:48
+2026-02-23 06:38:48,640 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:38:48,640 - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:38:48,640 - INFO - 💤 Starting initial delay: 0.0 minutes
+2026-02-23 06:38:48,640 - 💤 Starting initial delay: 0.0 minutes
+2026-02-23 06:38:48,640 - INFO - 🚀 Starting bot sequence at: 2026-02-23 06:38:48
+2026-02-23 06:38:48,640 - 🚀 Starting bot sequence at: 2026-02-23 06:38:48
+2026-02-23 06:38:48,640 - INFO - ================================================================================
+2026-02-23 06:38:48,640 - ================================================================================
+2026-02-23 06:38:48,640 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:38:48,640 - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:38:48,640 - INFO - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-23 06:38:48,640 - 🚀 Starting Connection Bot: Drafts connection requests
+2026-02-23 06:38:48,640 - INFO -    🎯 Using account: yatharth bisht
+2026-02-23 06:38:48,640 -    🎯 Using account: yatharth bisht
+
+============================================================
+[Connection Bot] REAL-TIME OUTPUT START
+============================================================
+   Using account: yatharth bisht
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 103.212.156.142
+   Proxy working! Browser IP: 43.248.243.82 (Different from Local: 103.212.156.142)
+   Checking LinkedIn reachability through proxy...
+   LinkedIn reachable (status 200)
+   Injecting 7 extension cookies into browser...
+   Injected 7/7 cookies.
+   Readback: 7 cookies in context, auth cookies present: ['li_rm', 'JSESSIONID', 'li_at']
+   Checking if already logged in...
+   Could not find login page heading element - user is logged in
+   Injected 5 localStorage keys.
+   Injected 0 sessionStorage keys.
+   User is already logged in! Skipping login process.
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_063914_already_logged_in.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_063914_already_logged_in_page_source.html
+   LinkedIn session established. Starting bot operations...
+   Opening LinkedIn...
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_063921_linkedin_homepage.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_063921_linkedin_homepage_page_source.html
+   Session Active. Ready to start automation.
+   Loaded connection limit from config: 20
+   Fetched 0 bot_input records for 'yatharth bisht'
+   No bot_input leads found in Attio. Exiting.
+   Closing browser session...
+
+============================================================
+[Connection Bot] REAL-TIME OUTPUT END
+============================================================
+2026-02-23 06:39:35,898 - INFO - ✅ Connection Bot completed successfully in 0.8 minutes
+2026-02-23 06:39:35,898 - ✅ Connection Bot completed successfully in 0.8 minutes
+2026-02-23 06:39:35,898 - INFO - ☕ Taking human break: 0.2 minutes (13s)
+2026-02-23 06:39:35,898 - ☕ Taking human break: 0.2 minutes (13s)
+2026-02-23 06:39:48,904 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:39:48,904 - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:39:48,905 - INFO - ✅ Break completed - ready for next bot
+2026-02-23 06:39:48,905 - ✅ Break completed - ready for next bot
+2026-02-23 06:39:48,905 - INFO - ================================================================================
+2026-02-23 06:39:48,905 - ================================================================================
+2026-02-23 06:39:48,905 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:39:48,905 - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:39:48,905 - INFO - 🚀 Starting Message Bot: Sends queued messages
+2026-02-23 06:39:48,905 - 🚀 Starting Message Bot: Sends queued messages
+2026-02-23 06:39:48,905 - INFO -    🎯 Using account: yatharth bisht
+2026-02-23 06:39:48,905 -    🎯 Using account: yatharth bisht
+
+============================================================
+[Message Bot] REAL-TIME OUTPUT START
+============================================================
+   Using account: yatharth bisht
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 103.212.156.142
+   Proxy working! Browser IP: 103.47.65.225 (Different from Local: 103.212.156.142)
+   Checking LinkedIn reachability through proxy...
+   LinkedIn reachable (status 200)
+   Injecting 7 extension cookies into browser...
+   Injected 7/7 cookies.
+   Readback: 7 cookies in context, auth cookies present: ['li_rm', 'JSESSIONID', 'li_at']
+   Checking if already logged in...
+   Could not find login page heading element - user is logged in
+   Injected 5 localStorage keys.
+   Injected 0 sessionStorage keys.
+   User is already logged in! Skipping login process.
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064019_already_logged_in.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064019_already_logged_in_page_source.html
+   LinkedIn session established. Starting messaging bot...
+   Opening LinkedIn...
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064026_linkedin_homepage.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064026_linkedin_homepage_page_source.html
+   Session Active. Ready to navigate to connections.
+   Navigating to: https://www.linkedin.com/mynetwork/invite-connect/connections/
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064045_connections_page.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064045_connections_page_page_source.html
+   Successfully reached connections page!
+   Starting connection scraping and lead identification...
+   Fetching leads data from Attio for 'yatharth bisht'...
+   Found 23 total leads in Attio
+   - 13 with 'first message sent' status
+   - 10 available for messaging
+   Reached end of names at position 41
+   Found 20 names
+********************************************************************************
+   Reached end of headlines at position 41
+   Found 20 headlines
+********************************************************************************
+   New lead identified (position 1): Ria Mishra - needs first message
+      Match confidence: 1.00
+      Message draft: Hi Ria, I came across your profile and was struck ...
+   New lead identified (position 3): Aryan Sood - needs first message
+      Match confidence: 1.00
+      Message draft: Hi Aryan, I came across your profile and was impre...
+   Skipping Madhur Gupta - already has 'first message sent' status
+   Skipping Bhoomi Singh - already has 'first message sent' status
+   Skipping Shubhranshu Jha - already has 'first message sent' status
+   Skipping Ammar A. Khan - already has 'first message sent' status
+   Skipping Kein Tung - not found in Attio database
+   Skipping Ashish Kushwaha - already has 'first message sent' status
+   Skipping Saksham Jain - already has 'first message sent' status
+   Skipping Sparsh Jain - already has 'first message sent' status
+   Skipping Abhishek Kumar - not found in Attio database
+   Skipping Jan Miskiewicz - not found in Attio database
+   Skipping Deepali Singh - not found in Attio database
+   Skipping Yash Jain - already has 'first message sent' status
+   Skipping Iksha Jain - not found in Attio database
+   Skipping Vishrut Grover - already has 'first message sent' status
+   Skipping Hemang Jain - not found in Attio database
+   Skipping Maurice Funk - not found in Attio database
+   Skipping Amrit Singh Rawat - not found in Attio database
+   Skipping Yash Jain - Poor match - potential mismatch (name: 1.00, headline: 0.43)
+      Scraped headline: JPMorgan | CSE Undergrad at DTU (Formerly DCE) ‘26
+      Database headline: Student at Delhi Technological University (Formerly DCE) | expert @codeforces
+
+   Summary:
+   Total connections scraped: 20
+   Skipped (not in database): 8
+   Skipped (poor match): 1
+   Found in database: 11
+   Previously contacted: 9
+   New leads to message: 2
+
+   Message order (top to bottom):
+   1. Ria Mishra (position k=1)
+   2. Aryan Sood (position k=3)
+
+   Found 2 new leads to message!
+   Loaded message limit from config: 5
+   Starting to message leads (Daily limit: 5)...
+   Found 2 leads available for messaging
+   Scrolling back to top of page...
+
+   Processing lead 1/2: Ria Mishra
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+   Preparing to send message to: Ria Mishra
+      Position K: 1
+      Headline: Delhi Technological University (Formerly DCE)| SIH'24 Finalist
+      Message: Hi Ria, I came across your profile and was struck by the unique intersection of Engineering Physics ...
+   Starting message relay for Ria Mishra
+      Typing message via keyboard...
+      Message typed for Ria Mishra
+      Sending message via Ctrl+Enter...
+      Message sent to Ria Mishra
+      Closing message dialog for Ria Mishra...
+      Pressed Escape to close dialog
+      Dialog closed successfully for Ria Mishra
+   Updated Ria Mishra -> 'first message sent'
+   Successfully processed message for Ria Mishra
+
+   Processing lead 2/2: Aryan Sood
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+   Preparing to send message to: Aryan Sood
+      Position K: 3
+      Headline: SIH’25 Winner | DTU’27 CSE | Amazon MLSS’25 | Ex-AI Engineer Intern @ Matiks | Ex-DL Intern @ Devnex Technology | Winner @ Adobe Devcraft | 7x Hackathon Winner | NLP/CV/Agentic AI
+      Message: Hi Aryan, I came across your profile and was impressed by your recent win at SIH’25 and your work at...
+   Starting message relay for Aryan Sood
+      Typing message via keyboard...
+      Message typed for Aryan Sood
+      Sending message via Ctrl+Enter...
+      Message sent to Aryan Sood
+      Closing message dialog for Aryan Sood...
+      Pressed Escape to close dialog
+      Dialog still open, trying additional close methods...
+      Closed via button: button[aria-label*='Close']
+      Dialog still open, trying to click outside...
+      Dialog still open, pressing Escape again...
+      Could not close dialog for Aryan Sood, may affect next lead
+   Updated Aryan Sood -> 'first message sent'
+   Successfully processed message for Aryan Sood
+
+   Messaging Summary:
+   Successful: 2
+   Failed: 0
+   Total processed: 2
+
+   Messaging campaign completed!
+      Successful messages: 2
+      Failed messages: 0
+   Closing browser session...
+
+============================================================
+[Message Bot] REAL-TIME OUTPUT END
+============================================================
+2026-02-23 06:42:12,538 - INFO - ✅ Message Bot completed successfully in 2.4 minutes
+2026-02-23 06:42:12,538 - ✅ Message Bot completed successfully in 2.4 minutes
+2026-02-23 06:42:12,538 - INFO - ☕ Taking human break: 0.4 minutes (24s)
+2026-02-23 06:42:12,538 - ☕ Taking human break: 0.4 minutes (24s)
+2026-02-23 06:42:36,544 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:42:36,544 - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:42:36,544 - INFO - ✅ Break completed - ready for next bot
+2026-02-23 06:42:36,544 - ✅ Break completed - ready for next bot
+2026-02-23 06:42:36,544 - INFO - ================================================================================
+2026-02-23 06:42:36,544 - ================================================================================
+2026-02-23 06:42:36,544 - INFO - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:42:36,544 - 🧪 Test mode - skipping user presence checks
+2026-02-23 06:42:36,544 - INFO - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-02-23 06:42:36,544 - 🚀 Starting Follow-up Bot: Sends follow-up messages
+2026-02-23 06:42:36,545 - INFO -    🎯 Using account: yatharth bisht
+2026-02-23 06:42:36,545 -    🎯 Using account: yatharth bisht
+
+============================================================
+[Follow-up Bot] REAL-TIME OUTPUT START
+============================================================
+   Using account: yatharth bisht
+   Ensuring LinkedIn login...
+   Wiping user_data_yath for clean cookie injection...
+   Fresh profile directory ready.
+   Setting up Playwright browser with Stealth Config...
+   Configuring native proxy: geo.iproyal.com:12321
+   Playwright browser setup complete with advanced stealth
+   Testing proxy connection via browser...
+   Local IP: 103.212.156.142
+   Proxy working! Browser IP: 49.36.181.164 (Different from Local: 103.212.156.142)
+   Checking LinkedIn reachability through proxy...
+   LinkedIn reachable (status 200)
+   Injecting 7 extension cookies into browser...
+   Injected 7/7 cookies.
+   Readback: 7 cookies in context, auth cookies present: ['li_rm', 'JSESSIONID', 'li_at']
+   Checking if already logged in...
+   Could not find login page heading element - user is logged in
+   Injected 5 localStorage keys.
+   Injected 0 sessionStorage keys.
+   User is already logged in! Skipping login process.
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064302_already_logged_in.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064302_already_logged_in_page_source.html
+   LinkedIn session established. Starting follow-up bot...
+   Opening LinkedIn for follow-up messages...
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064309_linkedin_homepage.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064309_linkedin_homepage_page_source.html
+   Session Active. Ready to navigate to connections.
+   Navigating to: https://www.linkedin.com/mynetwork/invite-connect/connections/
+   Screenshot saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064327_connections_page.png
+   Page source saved: /Users/yatharthbisht/Desktop/Programming/Linkedin Outreach/Linkedin_cloud_bot_attio/playwright_bots/screenshots/20260223_064327_connections_page_page_source.html
+   Successfully reached connections page!
+   Starting connection scraping and follow-up lead identification...
+   Fetching follow-up leads data from Attio for 'yatharth bisht'...
+      Shubhranshu Jha - needs follow-up #1
+      Skipping Aman Jain - no message draft available for next follow-up
+      Yash Jain - needs follow-up #1
+      Madhur Gupta - needs follow-up #1
+      Skipping Abhijeet Kumar - no message draft available for next follow-up
+      Vishrut Grover - needs follow-up #1
+      Leon Brunner - needs follow-up #1
+      Sparsh Jain - needs follow-up #1
+      Yatharth Bisht - needs follow-up #1
+      Saksham Jain - needs follow-up #1
+      Ammar A. Khan - needs follow-up #1
+      Ashish Kushwaha - needs follow-up #1
+      Bhoomi Singh - needs follow-up #1
+
+   Found 13 leads with eligible status (>3 days ago)
+   Status breakdown:
+      - first message sent: 13
+      - follow-up 1 sent: 0
+      - follow-up 2 sent: 0
+      - follow-up 3 sent: 0
+   - 11 have next message draft available
+   - 2 skipped (no message draft)
+   Reached end of names at position 41
+   Found 20 names
+********************************************************************************
+   Reached end of headlines at position 41
+   Found 20 headlines
+********************************************************************************
+   Follow-up lead identified (position 5): Madhur Gupta
+      Last contacted: 2026-02-12 23:11:45.086314+00
+      Current status: first message sent
+      Next follow-up: #1
+      Match confidence: 1.00
+      Message preview: Hi Madhur, thanks for connecting! 
+
+I’ve been foll...
+   Follow-up lead identified (position 7): Bhoomi Singh
+      Last contacted: 2026-02-12 17:38:17.684123+00
+      Current status: first message sent
+      Next follow-up: #1
+      Match confidence: 1.00
+      Message preview: Hi Bhoomi, thanks for connecting! It’s great to ha...
+   Follow-up lead identified (position 9): Shubhranshu Jha
+      Last contacted: 2026-02-12 23:42:34.405998+00
+      Current status: first message sent
+      Next follow-up: #1
+      Match confidence: 1.00
+      Message preview: Hi Shubhranshu, thanks for connecting! It’s great ...
+   Follow-up lead identified (position 11): Ammar A. Khan
+      Last contacted: 2026-02-12 17:40:02.294673+00
+      Current status: first message sent
+      Next follow-up: #1
+      Match confidence: 1.00
+      Message preview: Hi Ammar, thanks for connecting! I was looking thr...
+   Follow-up lead identified (position 15): Ashish Kushwaha
+      Last contacted: 2026-02-12 17:40:33.500669+00
+      Current status: first message sent
+      Next follow-up: #1
+      Match confidence: 1.00
+      Message preview: Hi Ashish, thanks for connecting! It’s great to ha...
+   Follow-up lead identified (position 17): Saksham Jain
+      Last contacted: 2026-02-12 17:41:03.647617+00
+      Current status: first message sent
+      Next follow-up: #1
+      Match confidence: 1.00
+      Message preview: Hi Saksham, thanks for connecting!
+
+I’ve been foll...
+   Follow-up lead identified (position 19): Sparsh Jain
+      Last contacted: 2026-02-12 19:08:57.002865+00
+      Current status: first message sent
+      Next follow-up: #1
+      Match confidence: 1.00
+      Message preview: Hi Sparsh, thanks for connecting! 
+
+I’ve been foll...
+   Follow-up lead identified (position 27): Yash Jain
+      Last contacted: 2026-02-12 23:12:50.41777+00
+      Current status: first message sent
+      Next follow-up: #1
+      Match confidence: 1.00
+      Message preview: Hi Yash, thanks for connecting! 
+
+I was browsing y...
+   Follow-up lead identified (position 31): Vishrut Grover
+      Last contacted: 2026-02-12 23:12:17.754017+00
+      Current status: first message sent
+      Next follow-up: #1
+      Match confidence: 0.93
+      Message preview: Hi Vishrut, thanks for connecting! 
+
+I’ve been fol...
+   Skipping Yash Jain - Poor match - potential mismatch (name: 1.00, headline: 0.43)
+      Scraped headline: JPMorgan | CSE Undergrad at DTU (Formerly DCE) ‘26
+      Database headline: Student at Delhi Technological University (Formerly DCE) | expert @codeforces
+
+   Summary:
+   Total connections scraped: 20
+   Skipped (not in database): 10
+   Skipped (poor match): 1
+   Found in database: 9
+   Not eligible for follow-up: 0
+   Leads needing follow-up: 9
+
+   Follow-up message order (top to bottom):
+   1. Madhur Gupta (position k=5)
+   2. Bhoomi Singh (position k=7)
+   3. Shubhranshu Jha (position k=9)
+   4. Ammar A. Khan (position k=11)
+   5. Ashish Kushwaha (position k=15)
+   6. Saksham Jain (position k=17)
+   7. Sparsh Jain (position k=19)
+   8. Yash Jain (position k=27)
+   9. Vishrut Grover (position k=31)
+
+   Found 9 leads needing follow-up messages!
+   Loaded follow-up limit from config: 5
+   Starting to send follow-up messages (Daily limit: 5)...
+   Found 9 leads available for follow-up
+   Limiting to 5 follow-ups today (out of 9 available)
+   Scrolling back to top of page...
+
+   Processing follow-up lead 1/5: Madhur Gupta
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+   Preparing to send follow-up message to: Madhur Gupta
+      Position K: 5
+      Headline: SDE Intern @PlusWealth • Ex-BNY, WorldQuant • Candidate Master @Codeforces • Guardian @Leetcode • DTU’26 - IT
+      Current status: first message sent
+      Last contacted: 2026-02-12 23:11:45.086314+00
+      Sending follow-up #1: Hi Madhur, thanks for connecting! 
+
+I’ve been following your updates and wanted to say a huge congra...
+   Starting message relay for Madhur Gupta
+      Checking if Madhur Gupta has replied...
+      Found 9 messages in conversation
+      REPLY DETECTED! Madhur Gupta sent a message
+      Message preview: Thanks, Yatharth
+      Madhur Gupta has already replied! Skipping follow-up message.
+   Updated Madhur Gupta -> 'LEAD REPLIED'
+      Closing message dialog for Madhur Gupta...
+      Pressed Escape to close dialog
+      Dialog still open, trying additional close methods...
+      Closed via button: button[aria-label*='Close']
+      Dialog still open, trying to click outside...
+      Dialog still open, pressing Escape again...
+      Could not close dialog for Madhur Gupta, may affect next lead
+      Lead has replied! Status updated to 'LEAD REPLIED'
+   Madhur Gupta has already replied! Skipped follow-up.
+
+   Processing follow-up lead 2/5: Bhoomi Singh
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+   Preparing to send follow-up message to: Bhoomi Singh
+      Position K: 7
+      Headline: Former Technology Analyst Intern @ Morgan Stanley | DTU’26 (CSE) | JPMC CFG’24 | Academic Head @IGTS-DTU
+      Current status: first message sent
+      Last contacted: 2026-02-12 17:38:17.684123+00
+      Sending follow-up #1: Hi Bhoomi, thanks for connecting! It’s great to have you in my network.
+
+I was looking through your ...
+   Starting message relay for Bhoomi Singh
+      Checking if Bhoomi Singh has replied...
+      Found 18 messages in conversation
+      REPLY DETECTED! Bhoomi Singh sent a message
+      Message preview: Thanks, Yatharth
+      Bhoomi Singh has already replied! Skipping follow-up message.
+   Updated Bhoomi Singh -> 'LEAD REPLIED'
+      Closing message dialog for Bhoomi Singh...
+      Pressed Escape to close dialog
+      Dialog still open, trying additional close methods...
+      Closed via button: button[aria-label*='Close']
+      Dialog still open, trying to click outside...
+      Dialog still open, pressing Escape again...
+      Could not close dialog for Bhoomi Singh, may affect next lead
+      Lead has replied! Status updated to 'LEAD REPLIED'
+   Bhoomi Singh has already replied! Skipped follow-up.
+
+   Processing follow-up lead 3/5: Shubhranshu Jha
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+   Preparing to send follow-up message to: Shubhranshu Jha
+      Position K: 9
+      Headline: Attended Delhi Technological University (Formerly DCE)
+      Current status: first message sent
+      Last contacted: 2026-02-12 23:42:34.405998+00
+      Sending follow-up #1: Hi Shubhranshu, thanks for connecting! It’s great to have someone from DTU in my network. 
+
+I was lo...
+   Starting message relay for Shubhranshu Jha
+      Checking if Shubhranshu Jha has replied...
+      Found 29 messages in conversation
+      No reply detected from Shubhranshu Jha
+      No reply detected. Proceeding to send follow-up message...
+      Typing message via keyboard...
+      Message typed for Shubhranshu Jha
+      Sending message via Ctrl+Enter...
+      Message sent to Shubhranshu Jha
+      Closing message dialog for Shubhranshu Jha...
+      Pressed Escape to close dialog
+      Dialog still open, trying additional close methods...
+      Closed via button: button[aria-label*='Close']
+      Dialog still open, trying to click outside...
+      Dialog still open, pressing Escape again...
+      Could not close dialog for Shubhranshu Jha, may affect next lead
+   Updated Shubhranshu Jha -> 'follow-up 1 sent'
+   Successfully processed follow-up message for Shubhranshu Jha
+
+   Processing follow-up lead 4/5: Ammar A. Khan
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+   Preparing to send follow-up message to: Ammar A. Khan
+      Position K: 11
+      Headline: Student
+      Current status: first message sent
+      Last contacted: 2026-02-12 17:40:02.294673+00
+      Sending follow-up #1: Hi Ammar, thanks for connecting! I was looking through your profile and noticed you’re currently nav...
+   Starting message relay for Ammar A. Khan
+      Checking if Ammar A. Khan has replied...
+      Found 22 messages in conversation
+      REPLY DETECTED! Ammar A. Khan sent a message
+      Message preview: yeah sure, do share that resource you mentioned.
+      Ammar A. Khan has already replied! Skipping follow-up message.
+   Updated Ammar A. Khan -> 'LEAD REPLIED'
+      Closing message dialog for Ammar A. Khan...
+      Pressed Escape to close dialog
+      Dialog still open, trying additional close methods...
+      Closed via button: button[aria-label*='Close']
+      Dialog still open, trying to click outside...
+      Dialog still open, pressing Escape again...
+      Could not close dialog for Ammar A. Khan, may affect next lead
+      Lead has replied! Status updated to 'LEAD REPLIED'
+   Ammar A. Khan has already replied! Skipped follow-up.
+
+   Processing follow-up lead 5/5: Ashish Kushwaha
+   Click successful (Bezier curve)
+   Click successful on attempt 1 (Bezier curve)
+   Preparing to send follow-up message to: Ashish Kushwaha
+      Position K: 15
+      Headline: DTU (DCE) | 
+°Ex-Intern at Springer Capital | 
+°Ex-Intern at USIP
+      Current status: first message sent
+      Last contacted: 2026-02-12 17:40:33.500669+00
+      Sending follow-up #1: Hi Ashish, thanks for connecting! It’s great to have a fellow DTU student/alum in my network.
+
+I was...
+   Starting message relay for Ashish Kushwaha
+      Checking if Ashish Kushwaha has replied...
+      Found 17 messages in conversation
+      No reply detected from Ashish Kushwaha
+      No reply detected. Proceeding to send follow-up message...
+      Typing message via keyboard...
+      Message typed for Ashish Kushwaha
+      Sending message via Ctrl+Enter...
+      Message sent to Ashish Kushwaha
+      Closing message dialog for Ashish Kushwaha...
+      Pressed Escape to close dialog
+      Dialog still open, trying additional close methods...
+      Closed via button: button[aria-label*='Close']
+      Dialog still open, trying to click outside...
+      Dialog still open, pressing Escape again...
+      Could not close dialog for Ashish Kushwaha, may affect next lead
+   Updated Ashish Kushwaha -> 'follow-up 1 sent'
+   Successfully processed follow-up message for Ashish Kushwaha
+
+   Follow-up Messaging Summary:
+      Successful follow-ups sent: 2
+      Leads who already replied: 3
+      Failed: 0
+      Total processed: 5
+
+   Follow-up messaging campaign completed!
+      Successful follow-ups: 2
+      Leads who already replied: 3
+      Failed follow-ups: 0
+   Closing browser session...
+
+============================================================
+[Follow-up Bot] REAL-TIME OUTPUT END
+============================================================
+2026-02-23 06:46:59,927 - INFO - ✅ Follow-up Bot completed successfully in 4.4 minutes
+2026-02-23 06:46:59,927 - ✅ Follow-up Bot completed successfully in 4.4 minutes
+2026-02-23 06:46:59,927 - INFO - ================================================================================
+2026-02-23 06:46:59,927 - ================================================================================
+2026-02-23 06:46:59,927 - INFO - 📊 EXECUTION SUMMARY
+2026-02-23 06:46:59,927 - 📊 EXECUTION SUMMARY
+2026-02-23 06:46:59,927 - INFO - ================================================================================
+2026-02-23 06:46:59,927 - ================================================================================
+2026-02-23 06:46:59,927 - INFO - ✅ Successful bots: 3/3
+2026-02-23 06:46:59,927 - ✅ Successful bots: 3/3
+2026-02-23 06:46:59,927 - INFO - ⏱️ Total execution time: 8.2 minutes
+2026-02-23 06:46:59,927 - ⏱️ Total execution time: 8.2 minutes
+2026-02-23 06:46:59,927 - INFO - 🛑 Safety aborts: 0
+2026-02-23 06:46:59,927 - 🛑 Safety aborts: 0
+2026-02-23 06:46:59,927 - INFO - ❌ Errors: 0
+2026-02-23 06:46:59,927 - ❌ Errors: 0
+2026-02-23 06:46:59,927 - INFO - 📄 Detailed stats saved to: execution_stats_20260223_064659.json
+2026-02-23 06:46:59,927 - 📄 Detailed stats saved to: execution_stats_20260223_064659.json
+2026-02-23 06:46:59,927 - INFO - ================================================================================
+2026-02-23 06:46:59,927 - ================================================================================
+2026-02-23 06:46:59,927 - INFO - 🎬 LinkedIn Bot Orchestrator Complete
+2026-02-23 06:46:59,927 - 🎬 LinkedIn Bot Orchestrator Complete
+2026-02-23 06:46:59,927 - INFO - ================================================================================
+2026-02-23 06:46:59,927 - ================================================================================

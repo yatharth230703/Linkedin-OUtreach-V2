@@ -1,5 +1,5 @@
 // Configuration
-const BACKEND_URL = "http://localhost:8080"; // Change to GCE IP after deploy
+let BACKEND_URL = "http://localhost:8080"; // Loaded from chrome.storage
 const API_KEY = "linkedin-bot-beta-2024"; // Shared API key for beta
 
 // Hardcoded beta credentials
@@ -27,13 +27,27 @@ const dailyConnect = document.getElementById("daily-connect");
 const dailyMessage = document.getElementById("daily-message");
 const dailyFollowup = document.getElementById("daily-followup");
 const accountName = document.getElementById("account-name");
+const backendUrl = document.getElementById("backend-url");
+
+// Template elements
+const templateSelect = document.getElementById("template-select");
+const templateFile = document.getElementById("template-file");
+const uploadTemplateBtn = document.getElementById("upload-template-btn");
+const templatePreview = document.getElementById("template-preview");
+const previewContent = document.getElementById("preview-content");
 
 // State
 let botRunning = false;
 
 // Init
 document.addEventListener("DOMContentLoaded", () => {
-  chrome.storage.local.get(["loggedIn", "botRunning", "accountName"], (data) => {
+  chrome.storage.local.get(["loggedIn", "botRunning", "accountName", "backendUrl"], (data) => {
+    if (data.backendUrl) {
+      BACKEND_URL = data.backendUrl;
+      backendUrl.value = data.backendUrl;
+    } else {
+      backendUrl.value = BACKEND_URL;
+    }
     if (data.accountName) {
       accountName.value = data.accountName;
     }
@@ -43,8 +57,19 @@ document.addEventListener("DOMContentLoaded", () => {
         setBotRunning(true);
       }
       fetchStatus();
+      loadTemplates();
     }
   });
+});
+
+// Backend URL change handler
+backendUrl.addEventListener("change", () => {
+  let url = backendUrl.value.trim();
+  // Remove trailing slash
+  if (url.endsWith("/")) url = url.slice(0, -1);
+  BACKEND_URL = url;
+  backendUrl.value = url;
+  chrome.storage.local.set({ backendUrl: url });
 });
 
 // Persist account name on change
@@ -61,6 +86,7 @@ loginBtn.addEventListener("click", () => {
     chrome.storage.local.set({ loggedIn: true });
     loginError.classList.add("hidden");
     showMainScreen();
+    loadTemplates();
   } else {
     loginError.classList.remove("hidden");
   }
@@ -218,7 +244,8 @@ runBtn.addEventListener("click", () => {
     .then(() => {
       return fetch(`${BACKEND_URL}/api/start`, {
         method: "POST",
-        headers: { "X-Api-Key": API_KEY },
+        headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
+        body: JSON.stringify({ account_name: accountName.value.trim() }),
       });
     })
     .then((res) => res.json())
@@ -246,7 +273,8 @@ stopBtn.addEventListener("click", () => {
 
   fetch(`${BACKEND_URL}/api/stop`, {
     method: "POST",
-    headers: { "X-Api-Key": API_KEY },
+    headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
+    body: JSON.stringify({ account_name: accountName.value.trim() }),
   })
     .then((res) => res.json())
     .then((data) => {
@@ -264,7 +292,126 @@ stopBtn.addEventListener("click", () => {
     });
 });
 
-// Helpers
+// ── Template Management ──────────────────────────────────────────────────
+
+function loadTemplates() {
+  fetch(`${BACKEND_URL}/api/templates`, {
+    headers: { "X-Api-Key": API_KEY },
+  })
+    .then((res) => res.json())
+    .then((data) => {
+      if (data.success && data.templates) {
+        templateSelect.innerHTML = "";
+        if (data.templates.length === 0) {
+          templateSelect.innerHTML = '<option value="">No templates found</option>';
+          return;
+        }
+        data.templates.forEach((t) => {
+          const opt = document.createElement("option");
+          opt.value = t.filename;
+          opt.textContent = `${t.filename} - ${t.description.substring(0, 40)}...`;
+          templateSelect.appendChild(opt);
+        });
+      }
+    })
+    .catch(() => {
+      templateSelect.innerHTML = '<option value="">Backend unreachable</option>';
+    });
+}
+
+// Upload template button triggers file picker
+uploadTemplateBtn.addEventListener("click", () => {
+  templateFile.click();
+});
+
+// Handle file selection
+templateFile.addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const templateData = JSON.parse(text);
+
+    // Client-side validation
+    const required = ["outreach_prompt", "followup_1_prompt", "followup_2_prompt",
+                      "followup_3_prompt", "followup_4_prompt"];
+    const missing = required.filter((k) => !templateData[k]);
+    if (missing.length > 0) {
+      alert(`Invalid template. Missing keys: ${missing.join(", ")}`);
+      templateFile.value = "";
+      return;
+    }
+
+    uploadTemplateBtn.disabled = true;
+    uploadTemplateBtn.textContent = "Uploading...";
+
+    // Upload to backend
+    const res = await fetch(`${BACKEND_URL}/api/templates`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
+      body: JSON.stringify(templateData),
+    });
+    const result = await res.json();
+
+    if (result.success) {
+      // Show preview
+      uploadTemplateBtn.textContent = "Generating preview...";
+      const previewRes = await fetch(`${BACKEND_URL}/api/templates/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
+        body: JSON.stringify(templateData),
+      });
+      const previewData = await previewRes.json();
+
+      if (previewData.success) {
+        showPreview(previewData.messages);
+      }
+
+      loadTemplates();
+      alert(`Template saved as ${result.filename}`);
+    } else {
+      alert("Upload failed: " + (result.error || "Unknown error"));
+    }
+  } catch (err) {
+    if (err instanceof SyntaxError) {
+      alert("Invalid JSON file. Please check the template format.");
+    } else {
+      alert("Upload error: " + err.message);
+    }
+  } finally {
+    uploadTemplateBtn.disabled = false;
+    uploadTemplateBtn.textContent = "Upload New Template";
+    templateFile.value = "";
+  }
+});
+
+function showPreview(messages) {
+  if (!messages) return;
+
+  const labels = {
+    outreach: "Connection Request",
+    followup_1: "Follow-up 1",
+    followup_2: "Follow-up 2",
+    followup_3: "Follow-up 3",
+    followup_4: "Follow-up 4",
+  };
+
+  let html = "";
+  for (const [key, label] of Object.entries(labels)) {
+    const msg = messages[key] || "(not generated)";
+    html += `<div class="preview-message">
+      <strong>${label}:</strong>
+      <p>${msg.replace(/\n/g, "<br>")}</p>
+    </div>`;
+  }
+
+  previewContent.innerHTML = html;
+  templatePreview.classList.remove("hidden");
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
 function showMainScreen() {
   loginScreen.classList.add("hidden");
   mainScreen.classList.remove("hidden");
@@ -295,7 +442,12 @@ function setConfigDisabled(disabled) {
 }
 
 function fetchStatus() {
-  fetch(`${BACKEND_URL}/api/status`, {
+  const acct = accountName.value.trim();
+  const url = acct
+    ? `${BACKEND_URL}/api/status?account_name=${encodeURIComponent(acct)}`
+    : `${BACKEND_URL}/api/status`;
+
+  fetch(url, {
     headers: { "X-Api-Key": API_KEY },
   })
     .then((res) => res.json())

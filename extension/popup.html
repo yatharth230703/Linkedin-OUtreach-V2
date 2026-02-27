@@ -29,6 +29,15 @@
       <span id="status-text">Stopped</span>
     </div>
 
+    <!-- Settings -->
+    <div class="section">
+      <h3>Settings</h3>
+      <div class="config-row">
+        <label for="backend-url">Backend URL</label>
+        <input type="text" id="backend-url" class="input-wide" placeholder="http://localhost:8080">
+      </div>
+    </div>
+
     <!-- Account -->
     <div class="section">
       <h3>Account</h3>
@@ -58,6 +67,25 @@
       <div class="config-row">
         <label for="daily-followup">Follow-ups</label>
         <input type="number" id="daily-followup" min="1" max="100" value="10">
+      </div>
+    </div>
+
+    <!-- Template Management -->
+    <div class="section">
+      <h3>Template Management</h3>
+      <div class="config-row">
+        <label for="template-select">Active Templates</label>
+        <select id="template-select">
+          <option value="">Loading...</option>
+        </select>
+      </div>
+      <div class="template-actions">
+        <input type="file" id="template-file" accept=".json" class="hidden">
+        <button id="upload-template-btn" class="btn btn-secondary btn-full">Upload New Template</button>
+      </div>
+      <div id="template-preview" class="template-preview hidden">
+        <h4>Preview</h4>
+        <div id="preview-content"></div>
       </div>
     </div>
 

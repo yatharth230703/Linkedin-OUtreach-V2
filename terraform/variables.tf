@@ -16,6 +16,6 @@ variable "zone" {
 }
 
 variable "docker_image" {
-  description = "Docker image for the bot (e.g. gcr.io/PROJECT/linkedin-bot:latest)"
+  description = "Docker image for the bot (e.g. asia-south1-docker.pkg.dev/PROJECT/linkedin-bot/bot:latest)"
   type        = string
 }

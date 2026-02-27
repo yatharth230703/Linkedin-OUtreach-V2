@@ -2,5 +2,5 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 DISPLAY=:99
 
-# Run bot daily at 9 AM UTC
-0 9 * * * /app/backend/run_daily.sh >> /app/backend/cron_output.txt 2>&1
+# Run master scheduler hourly - checks each account's time window
+0 * * * * /app/backend/run_master.sh >> /app/backend/cron_output.txt 2>&1

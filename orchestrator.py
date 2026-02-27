@@ -35,7 +35,7 @@ class LinkedInBotOrchestrator:
     Master orchestrator for LinkedIn automation bots with safety features.
     """
     
-    def __init__(self, test_mode=False, account_name=""):
+    def __init__(self, test_mode=False, cloud_mode=False, account_name=""):
         # Configuration
         self.EXECUTION_WINDOW_HOURS = 5
         self.MAX_INITIAL_DELAY_MINUTES = 180  # 3 hours
@@ -44,8 +44,9 @@ class LinkedInBotOrchestrator:
         self.SAFETY_FILE_PATH = "safety_stop.txt"
         self.LOG_FILE = "daily_log.txt"
 
-        # Initialize test mode flag first
+        # Initialize mode flags first
         self.test_mode = test_mode
+        self.cloud_mode = cloud_mode
         self.account_name = account_name
 
         # Initialize logging BEFORE using it
@@ -57,6 +58,11 @@ class LinkedInBotOrchestrator:
             self.MIN_BREAK_SECONDS = 10  # 10 seconds
             self.MAX_BREAK_SECONDS = 30  # 30 seconds
             self.logger.info("🧪 TEST MODE ENABLED - No initial delay, reduced timings and safety checks")
+
+        # Cloud mode: skip user presence checks, shorter initial delay
+        if cloud_mode:
+            self.MAX_INITIAL_DELAY_MINUTES = 30  # 0-30min random delay in cloud
+            self.logger.info("☁️ CLOUD MODE ENABLED - Skipping user presence checks, 0-30min initial delay")
 
         # Log account selection
         self.logger.info(f"🎯 Using account: {account_name}")
@@ -132,9 +138,9 @@ class LinkedInBotOrchestrator:
         User presence detection based on actual input activity.
         Returns True if user is actively using keyboard/mouse, False if system is safe to use.
         """
-        # Skip safety checks in test mode
-        if self.test_mode:
-            self.logger.info("🧪 Test mode - skipping user presence checks")
+        # Skip safety checks in test/cloud mode
+        if self.test_mode or self.cloud_mode:
+            self.logger.info("🧪 Test/cloud mode - skipping user presence checks")
             return False
             
         try:
@@ -546,13 +552,15 @@ def main():
     parser = argparse.ArgumentParser(description='LinkedIn Bot Orchestrator')
     parser.add_argument('--test', action='store_true',
                        help='Run in test mode (reduced delays, skip safety checks)')
+    parser.add_argument('--cloud', action='store_true',
+                       help='Run in cloud mode (skip user presence checks, shorter initial delay)')
     parser.add_argument('--account_name', type=str, required=True,
                        help='Account name (lead_manager) to process leads for')
 
     args = parser.parse_args()
 
     try:
-        orchestrator = LinkedInBotOrchestrator(test_mode=args.test, account_name=args.account_name)
+        orchestrator = LinkedInBotOrchestrator(test_mode=args.test, cloud_mode=args.cloud, account_name=args.account_name)
         success = orchestrator.run_orchestration()
         
         # Exit with appropriate code

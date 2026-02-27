@@ -474,7 +474,7 @@ def main():
     print(f"   Using account: {account_name}")
 
     print("   Ensuring LinkedIn login...")
-    driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp)
+    driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp, account_name=account_name)
 
     if not driver:
         print("   Could not establish LinkedIn session. Exiting.")

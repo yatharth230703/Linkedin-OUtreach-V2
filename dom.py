@@ -28,10 +28,7 @@ def download_dom(url):
 
 if __name__ == "__main__":
     urls = [
-        "https://legora.com/security",
-        "https://legora.com/careers",
-        "https://legora.com/about",
-        "https://legora.com/contact-us"
+        "https://status.claude.com"
     ]
 
     for url in urls:

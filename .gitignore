@@ -1,7 +1,13 @@
 .env
-/__pycache__
+__pycache__/
+*.pyc
 /Linkedin_cloud_bot/user_data_yath
 /screenshots
 /venv
 *.zip
 /.claude
+terraform/.terraform/
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/terraform.tfvars
+terraform/.terraform.lock.hcl

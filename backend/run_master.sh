@@ -15,7 +15,7 @@ export DISPLAY=:99
 
 # Account definitions: slug, UTC start hour, UTC end hour
 ACCOUNTS=(
-    "yatharth_bisht:3:11"
+    "yatharth_bisht:0:24"
     "maurice:7:15"
     "leon:15:23"
 )

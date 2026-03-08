@@ -29,6 +29,17 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import json
 
+# Add project root for imports
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from Linkedin_cloud_bot_attio.notifier import (
+    notify_campaign_started,
+    notify_campaign_completed,
+    notify_bot_started,
+    notify_bot_completed,
+    notify_bot_failed,
+    notify_error,
+)
+
 
 class LinkedInBotOrchestrator:
     """
@@ -321,7 +332,8 @@ class LinkedInBotOrchestrator:
         script_path = self.main_bots_dir / bot_config["script"]
         
         self.logger.info(f"🚀 Starting {bot_name}: {bot_config['description']}")
-        
+        notify_bot_started(bot_name, self.account_name)
+
         if not script_path.exists():
             error_msg = f"Script not found: {script_path}"
             self.logger.error(f"❌ {error_msg}")
@@ -369,22 +381,26 @@ class LinkedInBotOrchestrator:
 
             if returncode == 0:
                 self.logger.info(f"✅ {bot_name} completed successfully in {execution_time/60:.1f} minutes")
+                notify_bot_completed(bot_name, f"Finished in {execution_time/60:.1f} min", self.account_name)
                 return True, execution_time, None
             else:
                 error_msg = f"Exit code {returncode}"
                 self.logger.error(f"❌ {bot_name} failed: {error_msg}")
+                notify_bot_failed(bot_name, error_msg, self.account_name)
                 return False, execution_time, error_msg
                 
         except subprocess.TimeoutExpired:
             execution_time = (datetime.now() - start_time).total_seconds()
             error_msg = "Execution timeout (1 hour)"
             self.logger.error(f"⏰ {bot_name} timed out after {execution_time/60:.1f} minutes")
+            notify_bot_failed(bot_name, error_msg, self.account_name)
             return False, execution_time, error_msg
-            
+
         except Exception as e:
             execution_time = (datetime.now() - start_time).total_seconds()
             error_msg = str(e)
             self.logger.error(f"💥 {bot_name} crashed: {error_msg}")
+            notify_bot_failed(bot_name, error_msg, self.account_name)
             return False, execution_time, error_msg
 
     def human_break(self):
@@ -469,7 +485,8 @@ class LinkedInBotOrchestrator:
         actual_start = datetime.now()
         self.execution_stats["actual_start_time"] = actual_start.isoformat()
         self.logger.info(f"🚀 Starting bot sequence at: {actual_start.strftime('%Y-%m-%d %H:%M:%S')}")
-        
+        notify_campaign_started(self.account_name)
+
         # Execute bot sequence
         successful_bots = 0
         
@@ -538,7 +555,11 @@ class LinkedInBotOrchestrator:
         self.log_separator()
         self.logger.info("🎬 LinkedIn Bot Orchestrator Complete")
         self.log_separator()
-        
+
+        notify_campaign_completed(
+            successful_bots, len(self.bot_sequence), total_duration / 60, self.account_name
+        )
+
         return successful_bots == len(self.bot_sequence)
 
 
@@ -568,9 +589,11 @@ def main():
         
     except KeyboardInterrupt:
         print("\n🛑 Orchestrator interrupted by user")
+        notify_error("Orchestrator interrupted by user", args.account_name)
         sys.exit(130)
     except Exception as e:
         print(f"💥 Critical orchestrator error: {e}")
+        notify_error(f"Critical orchestrator crash: {e}", args.account_name)
         import traceback
         traceback.print_exc()
         sys.exit(1)

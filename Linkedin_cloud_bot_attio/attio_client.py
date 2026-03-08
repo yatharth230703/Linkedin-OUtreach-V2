@@ -14,17 +14,50 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # ---------------------------------------------------------------------------
-# Singleton
+# Key selection helpers
 # ---------------------------------------------------------------------------
-_client_instance = None
+
+YATHARTH_SLUGS = {"yatharth_bisht", "yatharth bisht", "yatharth"}
+
+# Module-level active account — set once per process via set_active_account()
+_active_account: str = ""
 
 
-def get_attio_client():
-    """Return a shared AttioClient instance (singleton)."""
-    global _client_instance
-    if _client_instance is None:
-        _client_instance = AttioClient()
-    return _client_instance
+def set_active_account(account_name: str):
+    """Set the active account for this process. Call once at bot startup."""
+    global _active_account, _client_instances
+    _active_account = account_name.strip()
+    # Clear cache so next get_attio_client() picks the right key
+    _client_instances.clear()
+
+
+def _is_yatharth(account_name: str) -> bool:
+    return account_name.strip().lower() in YATHARTH_SLUGS
+
+
+def _pick_attio_key(account_name: str) -> str:
+    if _is_yatharth(account_name):
+        return os.getenv("ATTIO_API", "")
+    return os.getenv("ATTIO_API_ALT", "") or os.getenv("ATTIO_API", "")
+
+
+# ---------------------------------------------------------------------------
+# Per-account singleton cache
+# ---------------------------------------------------------------------------
+_client_instances: dict[str, "AttioClient"] = {}
+
+
+def get_attio_client(account_name: str = ""):
+    """Return an AttioClient for the given account (cached per key).
+    Falls back to _active_account if no account_name provided."""
+    global _client_instances
+    effective_account = account_name or _active_account
+    api_key = _pick_attio_key(effective_account)
+    if not api_key:
+        raise RuntimeError("No ATTIO_API key available")
+    if api_key not in _client_instances:
+        _client_instances[api_key] = AttioClient(api_key=api_key)
+    return _client_instances[api_key]
 
 
 class AttioClient:
@@ -33,8 +66,9 @@ class AttioClient:
     LEADS_SOURCES_SLUG = "leads_sources"
     MATCHING_ATTRIBUTE = "linkedin_url"
 
-    def __init__(self):
-        api_key = os.getenv("ATTIO_API")
+    def __init__(self, api_key: str = ""):
+        if not api_key:
+            api_key = os.getenv("ATTIO_API", "")
         if not api_key:
             raise RuntimeError("ATTIO_API environment variable is not set")
         self.headers = {

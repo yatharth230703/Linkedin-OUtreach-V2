@@ -25,7 +25,8 @@ from playwright_bots.msg_draft_connection_bot1 import (
     human_scroll,
     human_sleep_with_activity,
 )
-from attio_client import get_attio_client
+from attio_client import get_attio_client, set_active_account
+from notifier import notify_message_sent, notify_error, notify_login_failed
 
 load_dotenv()
 
@@ -386,6 +387,8 @@ def send_message_to_lead(page, lead_data):
 
     if success:
         db_success = update_lead_status_to_sent(lead_data['name'], lead_data['headline'])
+        if db_success:
+            notify_message_sent(lead_data['name'])
         return db_success
 
     return False
@@ -486,12 +489,14 @@ def main():
 
     account_name = args.account_name
     print(f"   Using account: {account_name}")
+    set_active_account(account_name)
 
     print("   Ensuring LinkedIn login...")
     driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp, account_name=account_name)
 
     if not driver:
         print("   Could not establish LinkedIn session. Exiting.")
+        notify_login_failed(account_name)
         return
 
     print("   LinkedIn session established. Starting messaging bot...")
@@ -531,6 +536,7 @@ def main():
 
     except Exception as e:
         print(f"   Critical Script Error: {e}")
+        notify_error(f"Message Bot crash: {e}", account_name)
         log_action(page, "critical_failure")
 
     finally:

@@ -4,7 +4,7 @@
 # Write environment variables to file so cron jobs can source them
 ENV_FILE="/app/.env.cron"
 echo "# Auto-generated env for cron jobs" > "$ENV_FILE"
-env | grep -E '^(ATTIO_API|GEMINI_API|APIFY_API|PROXY_|USE_PROXY|CLOUD_MODE|DISPLAY)=' | while read line; do
+env | grep -E '^(ATTIO_API|ATTIO_API_ALT|GEMINI_API|APIFY_API|PROXY_|USE_PROXY|CLOUD_MODE|DISPLAY|SLACK_WEBHOOK_URL|SLACK_WEBHOOK_URL_ALT)=' | while read line; do
     echo "export $line" >> "$ENV_FILE"
 done
 

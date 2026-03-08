@@ -25,7 +25,8 @@ from playwright_bots.msg_draft_connection_bot1 import (
     human_scroll,
     human_sleep_with_activity,
 )
-from attio_client import get_attio_client
+from attio_client import get_attio_client, set_active_account
+from notifier import notify_followup_sent, notify_lead_replied, notify_error, notify_login_failed
 
 load_dotenv()
 
@@ -769,10 +770,13 @@ def send_followup_to_lead(page, lead_data):
 
     if result == "REPLIED":
         print(f"      Lead has replied! Status updated to 'LEAD REPLIED'")
+        notify_lead_replied(lead_data['name'])
         return "REPLIED"
 
     if result:
         db_success = update_lead_status_to_followup_sent(lead_data['name'], lead_data['headline'], next_status)
+        if db_success:
+            notify_followup_sent(lead_data['name'], followup_num)
         return db_success
 
     return False
@@ -878,12 +882,14 @@ def main():
 
     account_name = args.account_name
     print(f"   Using account: {account_name}")
+    set_active_account(account_name)
 
     print("   Ensuring LinkedIn login...")
     driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp, account_name=account_name)
 
     if not driver:
         print("   Could not establish LinkedIn session. Exiting.")
+        notify_login_failed(account_name)
         return
 
     print("   LinkedIn session established. Starting follow-up bot...")
@@ -925,6 +931,7 @@ def main():
 
     except Exception as e:
         print(f"   Critical Script Error: {e}")
+        notify_error(f"Follow-up Bot crash: {e}", account_name)
         import traceback
         traceback.print_exc()
         log_action(page, "critical_failure")

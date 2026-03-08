@@ -13,7 +13,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from apify_scraper import scrape_linkedin_posts
 from gemini_outreach import GeminiLinkedInMessager
 from proxy_requests import get_proxy_session
-from attio_client import get_attio_client
+from attio_client import get_attio_client, set_active_account
+from notifier import notify_connection_sent, notify_error, notify_login_failed
 from playwright_bots.login_credentials import (
     ensure_linkedin_login,
     human_pause,
@@ -472,12 +473,14 @@ def main():
 
     account_name = args.account_name
     print(f"   Using account: {account_name}")
+    set_active_account(account_name)
 
     print("   Ensuring LinkedIn login...")
     driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp, account_name=account_name)
 
     if not driver:
         print("   Could not establish LinkedIn session. Exiting.")
+        notify_login_failed(account_name)
         return
 
     print("   LinkedIn session established. Starting bot operations...")
@@ -602,6 +605,7 @@ def main():
                     sent = li_manager.send_connection_request()
                     if sent:
                         db_status_update = "PENDING"
+                        notify_connection_sent(profile_data["full_name"], account_name)
 
                 elif status == "PENDING":
                     print("      Invite pending. Skipping.")
@@ -646,6 +650,7 @@ def main():
 
     except Exception as e:
         print(f"   Critical Script Error: {e}")
+        notify_error(f"Connection Bot crash: {e}", account_name)
         log_action(page, "critical_failure")
 
     finally:

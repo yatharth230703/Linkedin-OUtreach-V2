@@ -99,7 +99,7 @@ resource "google_compute_instance" "linkedin_bot" {
       # Ensure it mounts on reboot
       echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
     fi
-    mkdir -p "$MOUNT_POINT/backend"
+    mkdir -p "$MOUNT_POINT/browser_profiles"
 
     # Authenticate Docker to Artifact Registry
     gcloud auth configure-docker ${var.region}-docker.pkg.dev --quiet
@@ -113,6 +113,9 @@ resource "google_compute_instance" "linkedin_bot" {
     PROXY_USERNAME=$(gcloud secrets versions access latest --secret=PROXY_USERNAME 2>/dev/null || echo "")
     PROXY_PASSWORD_BASE=$(gcloud secrets versions access latest --secret=PROXY_PASSWORD_BASE 2>/dev/null || echo "")
     USE_PROXY=$(gcloud secrets versions access latest --secret=USE_PROXY 2>/dev/null || echo "true")
+    SLACK_WEBHOOK_URL=$(gcloud secrets versions access latest --secret=SLACK_WEBHOOK_URL 2>/dev/null || echo "")
+    ATTIO_API_ALT=$(gcloud secrets versions access latest --secret=ATTIO_API_ALT 2>/dev/null || echo "")
+    SLACK_WEBHOOK_URL_ALT=$(gcloud secrets versions access latest --secret=SLACK_WEBHOOK_URL_ALT 2>/dev/null || echo "")
 
     # Pull and run the container
     docker pull ${var.docker_image}
@@ -122,7 +125,7 @@ resource "google_compute_instance" "linkedin_bot" {
       --name linkedin-bot \
       --restart unless-stopped \
       -p 8080:8080 \
-      -v "$MOUNT_POINT/backend:/app/backend" \
+      -v "$MOUNT_POINT/browser_profiles:/app/Linkedin_cloud_bot_attio/playwright_bots/browser_profiles" \
       -e ATTIO_API="$ATTIO_API" \
       -e GEMINI_API_KEY_TEST="$GEMINI_API_KEY_TEST" \
       -e APIFY_API="$APIFY_API" \
@@ -131,6 +134,9 @@ resource "google_compute_instance" "linkedin_bot" {
       -e PROXY_USERNAME="$PROXY_USERNAME" \
       -e PROXY_PASSWORD_BASE="$PROXY_PASSWORD_BASE" \
       -e USE_PROXY="$USE_PROXY" \
+      -e SLACK_WEBHOOK_URL="$SLACK_WEBHOOK_URL" \
+      -e SLACK_WEBHOOK_URL_ALT="$SLACK_WEBHOOK_URL_ALT" \
+      -e ATTIO_API_ALT="$ATTIO_API_ALT" \
       -e CLOUD_MODE=true \
       ${var.docker_image}
   SCRIPT

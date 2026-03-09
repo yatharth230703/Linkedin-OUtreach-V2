@@ -38,6 +38,7 @@ from Linkedin_cloud_bot_attio.notifier import (
     notify_bot_completed,
     notify_bot_failed,
     notify_error,
+    set_active_account as set_notifier_account,
 )
 
 
@@ -75,6 +76,9 @@ class LinkedInBotOrchestrator:
             self.MAX_INITIAL_DELAY_MINUTES = 30  # 0-30min random delay in cloud
             self.logger.info("☁️ CLOUD MODE ENABLED - Skipping user presence checks, 0-30min initial delay")
 
+        # Set active account for notification routing
+        set_notifier_account(account_name)
+
         # Log account selection
         self.logger.info(f"🎯 Using account: {account_name}")
 
@@ -99,6 +103,9 @@ class LinkedInBotOrchestrator:
                 "description": "Sends follow-up messages"
             }
         ]
+
+        # Status file for extension visibility
+        self.status_dir = self.script_dir / "backend"
 
         # Execution tracking
         self.start_time = None
@@ -138,6 +145,22 @@ class LinkedInBotOrchestrator:
         # Add handlers
         self.logger.addHandler(file_handler)
         self.logger.addHandler(console_handler)
+
+    def _write_phase_status(self, phase, detail=""):
+        """Write current phase to a status file so the extension can read it."""
+        slug = self.account_name.strip().lower().replace(" ", "_")
+        status_path = self.status_dir / f"phase_status_{slug}.json"
+        status = {
+            "phase": phase,
+            "detail": detail,
+            "account": self.account_name,
+            "updated_at": datetime.now().isoformat(),
+        }
+        try:
+            with open(status_path, "w") as f:
+                json.dump(status, f)
+        except Exception:
+            pass  # Non-critical
 
     def log_separator(self):
         """Add a visual separator to logs."""
@@ -332,6 +355,7 @@ class LinkedInBotOrchestrator:
         script_path = self.main_bots_dir / bot_config["script"]
         
         self.logger.info(f"🚀 Starting {bot_name}: {bot_config['description']}")
+        self._write_phase_status(bot_name, bot_config["description"])
         notify_bot_started(bot_name, self.account_name)
 
         if not script_path.exists():
@@ -410,6 +434,7 @@ class LinkedInBotOrchestrator:
         break_duration = random.randint(self.MIN_BREAK_SECONDS, self.MAX_BREAK_SECONDS)
         break_minutes = break_duration / 60
         
+        self._write_phase_status("Break", f"{break_minutes:.0f} min pause")
         self.logger.info(f"☕ Taking human break: {break_minutes:.1f} minutes ({break_duration}s)")
         
         # Break the sleep into chunks for safety checks
@@ -461,6 +486,7 @@ class LinkedInBotOrchestrator:
                 return False
         
         # Initial delay with periodic safety checks
+        self._write_phase_status("Waiting", f"Initial delay: {initial_delay/60:.0f} min")
         self.logger.info(f"💤 Starting initial delay: {initial_delay/60:.1f} minutes")
         
         chunk_size = 300  # Check every 5 minutes
@@ -485,6 +511,7 @@ class LinkedInBotOrchestrator:
         actual_start = datetime.now()
         self.execution_stats["actual_start_time"] = actual_start.isoformat()
         self.logger.info(f"🚀 Starting bot sequence at: {actual_start.strftime('%Y-%m-%d %H:%M:%S')}")
+        self._write_phase_status("Starting", "Bot sequence beginning")
         notify_campaign_started(self.account_name)
 
         # Execute bot sequence
@@ -555,6 +582,7 @@ class LinkedInBotOrchestrator:
         self.log_separator()
         self.logger.info("🎬 LinkedIn Bot Orchestrator Complete")
         self.log_separator()
+        self._write_phase_status("Completed", f"{successful_bots}/{len(self.bot_sequence)} bots OK")
 
         notify_campaign_completed(
             successful_bots, len(self.bot_sequence), total_duration / 60, self.account_name

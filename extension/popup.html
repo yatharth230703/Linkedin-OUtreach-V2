@@ -28,6 +28,20 @@
     <div id="status-bar" class="status-bar status-stopped">
       <span id="status-text">Stopped</span>
     </div>
+    <div id="campaign-info" class="campaign-info hidden">
+      <div class="campaign-row">
+        <span class="campaign-label">Account</span>
+        <span id="campaign-account" class="campaign-value">-</span>
+      </div>
+      <div class="campaign-row">
+        <span class="campaign-label">Phase</span>
+        <span id="campaign-phase" class="campaign-value">-</span>
+      </div>
+      <div class="campaign-row">
+        <span class="campaign-label">Time Window</span>
+        <span id="campaign-window" class="campaign-value">-</span>
+      </div>
+    </div>
 
     <!-- Settings -->
     <div class="section">
@@ -72,20 +86,12 @@
 
     <!-- Template Management -->
     <div class="section">
-      <h3>Template Management</h3>
-      <div class="config-row">
-        <label for="template-select">Active Templates</label>
-        <select id="template-select">
-          <option value="">Loading...</option>
-        </select>
-      </div>
+      <h3>Prompt Templates</h3>
+      <p class="hint">Upload templates here. Assign them to leads via the prompt_template field in Attio bot_inputs (e.g. "template_5").</p>
       <div class="template-actions">
         <input type="file" id="template-file" accept=".json" class="hidden">
         <button id="upload-template-btn" class="btn btn-secondary btn-full">Upload New Template</button>
-      </div>
-      <div id="template-preview" class="template-preview hidden">
-        <h4>Preview</h4>
-        <div id="preview-content"></div>
+        <p id="upload-status" class="hint hidden"></p>
       </div>
     </div>
 

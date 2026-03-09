@@ -106,7 +106,7 @@ resource "google_compute_instance" "linkedin_bot" {
 
     # Fetch secrets from Secret Manager
     ATTIO_API=$(gcloud secrets versions access latest --secret=ATTIO_API 2>/dev/null || echo "")
-    GEMINI_API_KEY_TEST=$(gcloud secrets versions access latest --secret=GEMINI_API_KEY_TEST 2>/dev/null || echo "")
+    GEMINI_API_KEY=$(gcloud secrets versions access latest --secret=GEMINI_API_KEY 2>/dev/null || echo "")
     APIFY_API=$(gcloud secrets versions access latest --secret=APIFY_API 2>/dev/null || echo "")
     PROXY_HOST=$(gcloud secrets versions access latest --secret=PROXY_HOST 2>/dev/null || echo "")
     PROXY_PORT=$(gcloud secrets versions access latest --secret=PROXY_PORT 2>/dev/null || echo "")
@@ -127,7 +127,7 @@ resource "google_compute_instance" "linkedin_bot" {
       -p 8080:8080 \
       -v "$MOUNT_POINT/browser_profiles:/app/Linkedin_cloud_bot_attio/playwright_bots/browser_profiles" \
       -e ATTIO_API="$ATTIO_API" \
-      -e GEMINI_API_KEY_TEST="$GEMINI_API_KEY_TEST" \
+      -e GEMINI_API_KEY="$GEMINI_API_KEY" \
       -e APIFY_API="$APIFY_API" \
       -e PROXY_HOST="$PROXY_HOST" \
       -e PROXY_PORT="$PROXY_PORT" \

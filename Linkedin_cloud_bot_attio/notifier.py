@@ -16,9 +16,19 @@ SLACK_WEBHOOK_URL_ALT = os.getenv("SLACK_WEBHOOK_URL_ALT", "")
 
 YATHARTH_SLUGS = {"yatharth_bisht", "yatharth bisht", "yatharth"}
 
+# Module-level active account — set once per process via set_active_account()
+_active_account: str = ""
+
+
+def set_active_account(account_name: str):
+    """Set the active account for this process so notifications route correctly."""
+    global _active_account
+    _active_account = account_name.strip()
+
 
 def _pick_webhook(account_name: str) -> str:
-    if account_name.strip().lower() in YATHARTH_SLUGS:
+    effective = account_name.strip() or _active_account
+    if effective.lower() in YATHARTH_SLUGS:
         return SLACK_WEBHOOK_URL
     return SLACK_WEBHOOK_URL_ALT or SLACK_WEBHOOK_URL
 
@@ -32,7 +42,8 @@ def notify(message, account_name="", level="info"):
         account_name: Which lead manager account this relates to.
         level: "info", "success", "warning", or "error" for icon prefix.
     """
-    webhook_url = _pick_webhook(account_name)
+    effective_account = account_name or _active_account
+    webhook_url = _pick_webhook(effective_account)
     if not webhook_url:
         return
 
@@ -45,7 +56,7 @@ def notify(message, account_name="", level="info"):
     icon = icons.get(level, ":robot_face:")
 
     timestamp = datetime.now().strftime("%H:%M:%S UTC")
-    account_tag = f" [{account_name}]" if account_name else ""
+    account_tag = f" [{effective_account}]" if effective_account else ""
 
     text = f"{icon}{account_tag} {message}  _({timestamp})_"
 

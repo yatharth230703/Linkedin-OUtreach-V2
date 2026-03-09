@@ -22,7 +22,7 @@ class OutreachMessages:
 
 class GeminiLinkedInMessager:
     def __init__(self, template_name="template_1", template_dict=None):
-        self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY_TEST"))
+        self.client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
         self.model = "gemini-3-flash-preview"
         if template_dict:
             self.template_data = template_dict

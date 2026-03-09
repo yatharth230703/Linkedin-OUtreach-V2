@@ -158,6 +158,7 @@ class AttioClient:
             })
         return results
 
+
     def delete_bot_input(self, record_id):
         """Hard-delete a bot_input record after processing."""
         resp = self._delete(

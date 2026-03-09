@@ -22,6 +22,10 @@ const configSection = document.getElementById("config-section");
 const lastRunInfo = document.getElementById("last-run-info");
 const lastRunTime = document.getElementById("last-run-time");
 const lastRunResult = document.getElementById("last-run-result");
+const campaignInfo = document.getElementById("campaign-info");
+const campaignAccount = document.getElementById("campaign-account");
+const campaignPhase = document.getElementById("campaign-phase");
+const campaignWindow = document.getElementById("campaign-window");
 
 const dailyConnect = document.getElementById("daily-connect");
 const dailyMessage = document.getElementById("daily-message");
@@ -30,34 +34,50 @@ const accountName = document.getElementById("account-name");
 const backendUrl = document.getElementById("backend-url");
 
 // Template elements
-const templateSelect = document.getElementById("template-select");
 const templateFile = document.getElementById("template-file");
 const uploadTemplateBtn = document.getElementById("upload-template-btn");
-const templatePreview = document.getElementById("template-preview");
-const previewContent = document.getElementById("preview-content");
+const uploadStatus = document.getElementById("upload-status");
 
 // State
-let botRunning = false;
+let currentState = "stopped"; // "running" | "enabled" | "stopped"
+
+// Persisted keys in chrome.storage.local
+const STORAGE_KEYS = [
+  "loggedIn", "backendUrl", "accountName",
+  "cachedState", "cachedPhase", "cachedPhaseDetail",
+  "cachedTimeWindow", "cachedLastRun",
+];
 
 // Init
 document.addEventListener("DOMContentLoaded", () => {
-  chrome.storage.local.get(["loggedIn", "botRunning", "accountName", "backendUrl"], (data) => {
+  chrome.storage.local.get(STORAGE_KEYS, (data) => {
+    // Restore backend URL
     if (data.backendUrl) {
       BACKEND_URL = data.backendUrl;
       backendUrl.value = data.backendUrl;
     } else {
       backendUrl.value = BACKEND_URL;
     }
+
+    // Restore account name
     if (data.accountName) {
       accountName.value = data.accountName;
     }
+
     if (data.loggedIn) {
       showMainScreen();
-      if (data.botRunning) {
-        setBotRunning(true);
+
+      // Immediately restore cached state so UI is not blank
+      if (data.cachedState) {
+        applyState(data.cachedState, data.cachedPhase, data.cachedPhaseDetail, data.cachedTimeWindow);
       }
+      if (data.cachedLastRun) {
+        lastRunInfo.classList.remove("hidden");
+        lastRunTime.textContent = data.cachedLastRun;
+      }
+
+      // Then fetch live state from backend (overrides cache)
       fetchStatus();
-      loadTemplates();
     }
   });
 });
@@ -65,16 +85,16 @@ document.addEventListener("DOMContentLoaded", () => {
 // Backend URL change handler
 backendUrl.addEventListener("change", () => {
   let url = backendUrl.value.trim();
-  // Remove trailing slash
   if (url.endsWith("/")) url = url.slice(0, -1);
   BACKEND_URL = url;
   backendUrl.value = url;
   chrome.storage.local.set({ backendUrl: url });
 });
 
-// Persist account name on change
+// Persist account name on change — also re-fetch status for new account
 accountName.addEventListener("change", () => {
   chrome.storage.local.set({ accountName: accountName.value.trim() });
+  fetchStatus();
 });
 
 // Login
@@ -86,7 +106,7 @@ loginBtn.addEventListener("click", () => {
     chrome.storage.local.set({ loggedIn: true });
     loginError.classList.add("hidden");
     showMainScreen();
-    loadTemplates();
+    fetchStatus();
   } else {
     loginError.classList.remove("hidden");
   }
@@ -94,7 +114,7 @@ loginBtn.addEventListener("click", () => {
 
 // Logout
 logoutBtn.addEventListener("click", () => {
-  chrome.storage.local.set({ loggedIn: false, botRunning: false });
+  chrome.storage.local.set({ loggedIn: false, cachedState: null });
   loginScreen.classList.remove("hidden");
   mainScreen.classList.add("hidden");
 });
@@ -139,7 +159,6 @@ syncCookiesBtn.addEventListener("click", async () => {
     let browserStorage = null;
     let storageError = null;
     try {
-      // Find any LinkedIn tab (not just active - popup might steal focus)
       const tabs = await chrome.tabs.query({ url: "https://www.linkedin.com/*" });
       if (tabs && tabs.length > 0 && chrome.scripting) {
         const linkedInTab = tabs[0];
@@ -234,7 +253,6 @@ runBtn.addEventListener("click", () => {
   runBtn.disabled = true;
   runBtn.textContent = "Starting...";
 
-  // Send config then start
   fetch(`${BACKEND_URL}/api/config`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
@@ -251,13 +269,15 @@ runBtn.addEventListener("click", () => {
     .then((res) => res.json())
     .then((data) => {
       if (data.success) {
-        setBotRunning(true);
-        chrome.storage.local.set({ botRunning: true });
+        applyState("enabled", null, null, null);
+        chrome.storage.local.set({ cachedState: "enabled" });
+        // Fetch real status after a moment
+        setTimeout(fetchStatus, 2000);
       } else {
         alert("Failed to start: " + (data.error || "Unknown error"));
       }
     })
-    .catch((err) => {
+    .catch(() => {
       alert("Connection failed. Is the backend running?");
     })
     .finally(() => {
@@ -279,11 +299,11 @@ stopBtn.addEventListener("click", () => {
     .then((res) => res.json())
     .then((data) => {
       if (data.success) {
-        setBotRunning(false);
-        chrome.storage.local.set({ botRunning: false });
+        applyState("stopped", null, null, null);
+        chrome.storage.local.set({ cachedState: "stopped", cachedPhase: null, cachedPhaseDetail: null });
       }
     })
-    .catch((err) => {
+    .catch(() => {
       alert("Connection failed.");
     })
     .finally(() => {
@@ -292,39 +312,40 @@ stopBtn.addEventListener("click", () => {
     });
 });
 
-// ── Template Management ──────────────────────────────────────────────────
+// ── Template Upload ─────────────────────────────────────────────────────
 
-function loadTemplates() {
-  fetch(`${BACKEND_URL}/api/templates`, {
-    headers: { "X-Api-Key": API_KEY },
-  })
-    .then((res) => res.json())
-    .then((data) => {
-      if (data.success && data.templates) {
-        templateSelect.innerHTML = "";
-        if (data.templates.length === 0) {
-          templateSelect.innerHTML = '<option value="">No templates found</option>';
-          return;
-        }
-        data.templates.forEach((t) => {
-          const opt = document.createElement("option");
-          opt.value = t.filename;
-          opt.textContent = `${t.filename} - ${t.description.substring(0, 40)}...`;
-          templateSelect.appendChild(opt);
-        });
-      }
-    })
-    .catch(() => {
-      templateSelect.innerHTML = '<option value="">Backend unreachable</option>';
-    });
+function validateTemplate(data) {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    return "Template must be a JSON object";
+  }
+
+  const required = [
+    "outreach_prompt", "followup_1_prompt", "followup_2_prompt",
+    "followup_3_prompt", "followup_4_prompt",
+  ];
+  const allowed = new Set([...required, "description"]);
+
+  const extra = Object.keys(data).filter((k) => !allowed.has(k));
+  if (extra.length > 0) {
+    return `Unexpected keys: ${extra.join(", ")}. Allowed: ${[...allowed].join(", ")}`;
+  }
+
+  const missing = required.filter((k) => !(k in data));
+  if (missing.length > 0) return `Missing keys: ${missing.join(", ")}`;
+
+  const badType = required.filter((k) => k in data && typeof data[k] !== "string");
+  if (badType.length > 0) return `These must be strings: ${badType.join(", ")}`;
+
+  const empty = required.filter((k) => k in data && typeof data[k] === "string" && !data[k].trim());
+  if (empty.length > 0) return `These are empty: ${empty.join(", ")}`;
+
+  return null;
 }
 
-// Upload template button triggers file picker
 uploadTemplateBtn.addEventListener("click", () => {
   templateFile.click();
 });
 
-// Handle file selection
 templateFile.addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -333,20 +354,19 @@ templateFile.addEventListener("change", async (e) => {
     const text = await file.text();
     const templateData = JSON.parse(text);
 
-    // Client-side validation
-    const required = ["outreach_prompt", "followup_1_prompt", "followup_2_prompt",
-                      "followup_3_prompt", "followup_4_prompt"];
-    const missing = required.filter((k) => !templateData[k]);
-    if (missing.length > 0) {
-      alert(`Invalid template. Missing keys: ${missing.join(", ")}`);
+    const validationError = validateTemplate(templateData);
+    if (validationError) {
+      uploadStatus.textContent = `Invalid: ${validationError}`;
+      uploadStatus.className = "hint error";
+      uploadStatus.classList.remove("hidden");
       templateFile.value = "";
       return;
     }
 
     uploadTemplateBtn.disabled = true;
     uploadTemplateBtn.textContent = "Uploading...";
+    uploadStatus.classList.add("hidden");
 
-    // Upload to backend
     const res = await fetch(`${BACKEND_URL}/api/templates`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
@@ -355,60 +375,27 @@ templateFile.addEventListener("change", async (e) => {
     const result = await res.json();
 
     if (result.success) {
-      // Show preview
-      uploadTemplateBtn.textContent = "Generating preview...";
-      const previewRes = await fetch(`${BACKEND_URL}/api/templates/preview`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-Api-Key": API_KEY },
-        body: JSON.stringify(templateData),
-      });
-      const previewData = await previewRes.json();
-
-      if (previewData.success) {
-        showPreview(previewData.messages);
-      }
-
-      loadTemplates();
-      alert(`Template saved as ${result.filename}`);
+      uploadStatus.textContent = `Saved as ${result.filename}. Use "${result.template_name}" in Attio bot_inputs prompt_template column.`;
+      uploadStatus.className = "hint success";
     } else {
-      alert("Upload failed: " + (result.error || "Unknown error"));
+      uploadStatus.textContent = "Failed: " + (result.error || "Unknown error");
+      uploadStatus.className = "hint error";
     }
+    uploadStatus.classList.remove("hidden");
   } catch (err) {
     if (err instanceof SyntaxError) {
-      alert("Invalid JSON file. Please check the template format.");
+      uploadStatus.textContent = "Invalid JSON file. Check the format.";
     } else {
-      alert("Upload error: " + err.message);
+      uploadStatus.textContent = "Upload error: " + err.message;
     }
+    uploadStatus.className = "hint error";
+    uploadStatus.classList.remove("hidden");
   } finally {
     uploadTemplateBtn.disabled = false;
     uploadTemplateBtn.textContent = "Upload New Template";
     templateFile.value = "";
   }
 });
-
-function showPreview(messages) {
-  if (!messages) return;
-
-  const labels = {
-    outreach: "Connection Request",
-    followup_1: "Follow-up 1",
-    followup_2: "Follow-up 2",
-    followup_3: "Follow-up 3",
-    followup_4: "Follow-up 4",
-  };
-
-  let html = "";
-  for (const [key, label] of Object.entries(labels)) {
-    const msg = messages[key] || "(not generated)";
-    html += `<div class="preview-message">
-      <strong>${label}:</strong>
-      <p>${msg.replace(/\n/g, "<br>")}</p>
-    </div>`;
-  }
-
-  previewContent.innerHTML = html;
-  templatePreview.classList.remove("hidden");
-}
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
@@ -417,11 +404,19 @@ function showMainScreen() {
   mainScreen.classList.remove("hidden");
 }
 
-function setBotRunning(running) {
-  botRunning = running;
-  if (running) {
+function applyState(state, phase, phaseDetail, timeWindow) {
+  currentState = state;
+
+  if (state === "running") {
     statusBar.className = "status-bar status-running";
-    statusText.textContent = "Running (daily automation active)";
+    const phaseStr = phase ? ` — ${phase}` : "";
+    statusText.textContent = `Running${phaseStr}`;
+    runBtn.classList.add("hidden");
+    stopBtn.classList.remove("hidden");
+    setConfigDisabled(true);
+  } else if (state === "enabled") {
+    statusBar.className = "status-bar status-enabled";
+    statusText.textContent = "Enabled (waiting for next cycle)";
     runBtn.classList.add("hidden");
     stopBtn.classList.remove("hidden");
     setConfigDisabled(true);
@@ -431,6 +426,19 @@ function setBotRunning(running) {
     runBtn.classList.remove("hidden");
     stopBtn.classList.add("hidden");
     setConfigDisabled(false);
+  }
+
+  // Campaign info panel
+  const acct = accountName.value.trim();
+  if (state !== "stopped" && acct) {
+    campaignInfo.classList.remove("hidden");
+    campaignAccount.textContent = acct;
+    campaignPhase.textContent = phase
+      ? `${phase}${phaseDetail ? " — " + phaseDetail : ""}`
+      : (state === "enabled" ? "Scheduled" : "-");
+    campaignWindow.textContent = timeWindow || "-";
+  } else if (state === "stopped") {
+    campaignInfo.classList.add("hidden");
   }
 }
 
@@ -452,17 +460,34 @@ function fetchStatus() {
   })
     .then((res) => res.json())
     .then((data) => {
-      if (data.running !== undefined) {
-        setBotRunning(data.running);
-        chrome.storage.local.set({ botRunning: data.running });
+      const state = data.state || (data.running ? "running" : "stopped");
+      applyState(state, data.phase, data.phase_detail, data.time_window);
+
+      // Restore config from backend if available
+      if (data.config) {
+        if (data.config.daily_connect) dailyConnect.value = data.config.daily_connect;
+        if (data.config.daily_message) dailyMessage.value = data.config.daily_message;
+        if (data.config.daily_followup) dailyFollowup.value = data.config.daily_followup;
       }
+
+      // Last run info
       if (data.last_run) {
         lastRunInfo.classList.remove("hidden");
         lastRunTime.textContent = data.last_run;
         lastRunResult.textContent = data.last_result || "-";
       }
+
+      // Cache everything for persistence across popup close/reopen
+      chrome.storage.local.set({
+        cachedState: state,
+        cachedPhase: data.phase || null,
+        cachedPhaseDetail: data.phase_detail || null,
+        cachedTimeWindow: data.time_window || null,
+        cachedLastRun: data.last_run || null,
+      });
     })
     .catch(() => {
-      // Backend unreachable, keep local state
+      // Backend unreachable — keep cached state, show hint
+      console.warn("Backend unreachable, using cached state");
     });
 }

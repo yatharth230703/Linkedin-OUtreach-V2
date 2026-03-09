@@ -5,7 +5,6 @@ Supports multi-account operation with per-account config, PID files, and templat
 """
 
 import os
-import sys
 import json
 import glob as glob_module
 import signal
@@ -235,6 +234,14 @@ def stop_bot():
     return jsonify({"success": True, "message": "Bot stopped."})
 
 
+# Time windows per account (UTC hours, matches run_master.sh)
+ACCOUNT_TIME_WINDOWS = {
+    "yatharth_bisht": (0, 24),
+    "maurice": (7, 15),
+    "leon": (15, 23),
+}
+
+
 @app.route("/api/status", methods=["GET"])
 def get_status():
     account_name = request.args.get("account_name", "").strip()
@@ -256,44 +263,118 @@ def get_status():
     enabled_flag = os.path.join(DATA_DIR, f"bot_enabled_{slug}") if slug else ENABLED_FLAG
     flag_exists = os.path.exists(enabled_flag) or os.path.exists(ENABLED_FLAG)
 
-    running = alive and flag_exists
+    # Read phase status file (written by orchestrator)
+    phase = None
+    phase_detail = None
+    phase_updated = None
+    phase_file = os.path.join(DATA_DIR, f"phase_status_{slug}.json")
+    if os.path.exists(phase_file):
+        try:
+            with open(phase_file, "r") as f:
+                phase_data = json.load(f)
+            phase = phase_data.get("phase")
+            phase_detail = phase_data.get("detail")
+            phase_updated = phase_data.get("updated_at")
+        except (json.JSONDecodeError, IOError):
+            pass
 
+    # Determine state: running (process alive), enabled (flag exists but idle), stopped
+    if alive and flag_exists:
+        state = "running"
+    elif flag_exists:
+        state = "enabled"
+    else:
+        state = "stopped"
+
+    # Time window info
+    time_window = ACCOUNT_TIME_WINDOWS.get(slug)
+    time_window_str = f"{time_window[0]}:00-{time_window[1]}:00 UTC" if time_window else None
+
+    # Last log line
     last_run = None
     if os.path.exists(RUN_LOG):
-        with open(RUN_LOG, "r") as f:
-            lines = f.readlines()
-            if lines:
-                last_run = lines[-1].strip()
+        try:
+            with open(RUN_LOG, "r") as f:
+                lines = f.readlines()
+                if lines:
+                    last_run = lines[-1].strip()
+        except IOError:
+            pass
+
+    # Per-account config (daily limits)
+    config = None
+    config_path = os.path.join(DATA_DIR, f"config_{slug}.json") if slug else CONFIG_FILE
+    if os.path.exists(config_path):
+        try:
+            with open(config_path, "r") as f:
+                config = json.load(f)
+        except (json.JSONDecodeError, IOError):
+            pass
 
     return jsonify({
         "success": True,
-        "running": running,
+        "state": state,
+        "running": alive and flag_exists,
+        "enabled": flag_exists,
+        "account": account_name,
+        "phase": phase,
+        "phase_detail": phase_detail,
+        "phase_updated": phase_updated,
+        "time_window": time_window_str,
         "last_run": last_run,
         "pid": pid if alive else None,
-        "account": account_name,
+        "config": config,
     })
 
 
 # ── Template endpoints ──────────────────────────────────────────────────────
 
-@app.route("/api/templates", methods=["GET"])
-def list_templates():
-    """List all prompt_template_*.json files with descriptions."""
-    templates = []
-    pattern = os.path.join(TEMPLATES_DIR, "prompt_template_*.json")
-    for filepath in sorted(glob_module.glob(pattern)):
-        try:
-            with open(filepath, "r") as f:
-                data = json.load(f)
-            name = os.path.basename(filepath)
-            templates.append({
-                "filename": name,
-                "description": data.get("description", "No description"),
-            })
-        except (json.JSONDecodeError, IOError):
-            continue
+TEMPLATE_REQUIRED_KEYS = [
+    "outreach_prompt", "followup_1_prompt", "followup_2_prompt",
+    "followup_3_prompt", "followup_4_prompt",
+]
 
-    return jsonify({"success": True, "templates": templates})
+# Keys that are allowed in a template file (required + optional)
+TEMPLATE_ALLOWED_KEYS = set(TEMPLATE_REQUIRED_KEYS + ["description"])
+
+
+def _validate_template(data):
+    """
+    Validate a template dict. Returns (ok: bool, error: str|None).
+    Checks: required keys present, all values are non-empty strings, no unexpected keys.
+    """
+    if not isinstance(data, dict):
+        return False, "Template must be a JSON object"
+
+    # Check for unexpected keys
+    extra_keys = set(data.keys()) - TEMPLATE_ALLOWED_KEYS
+    if extra_keys:
+        return False, f"Unexpected keys: {', '.join(sorted(extra_keys))}. Allowed: {', '.join(sorted(TEMPLATE_ALLOWED_KEYS))}"
+
+    # Check required keys exist and are non-empty strings
+    missing = []
+    empty = []
+    bad_type = []
+    for key in TEMPLATE_REQUIRED_KEYS:
+        if key not in data:
+            missing.append(key)
+        elif not isinstance(data[key], str):
+            bad_type.append(key)
+        elif not data[key].strip():
+            empty.append(key)
+
+    errors = []
+    if missing:
+        errors.append(f"Missing keys: {', '.join(missing)}")
+    if bad_type:
+        errors.append(f"Must be strings: {', '.join(bad_type)}")
+    if empty:
+        errors.append(f"Empty values: {', '.join(empty)}")
+
+    if errors:
+        return False, ". ".join(errors)
+
+    return True, None
 
 
 @app.route("/api/templates", methods=["POST"])
@@ -303,12 +384,9 @@ def upload_template():
     if not data:
         return jsonify({"success": False, "error": "No template data provided"}), 400
 
-    # Validate required keys
-    required_keys = ["outreach_prompt", "followup_1_prompt", "followup_2_prompt",
-                     "followup_3_prompt", "followup_4_prompt"]
-    missing = [k for k in required_keys if k not in data]
-    if missing:
-        return jsonify({"success": False, "error": f"Missing required keys: {', '.join(missing)}"}), 400
+    ok, error = _validate_template(data)
+    if not ok:
+        return jsonify({"success": False, "error": error}), 400
 
     # Find next template number
     existing = sorted(glob_module.glob(os.path.join(TEMPLATES_DIR, "prompt_template_*.json")))
@@ -326,64 +404,9 @@ def upload_template():
     with open(filepath, "w") as f:
         json.dump(data, f, indent=2)
 
-    return jsonify({"success": True, "filename": filename, "number": next_num})
+    template_name = f"template_{next_num}"
+    return jsonify({"success": True, "filename": filename, "template_name": template_name})
 
-
-@app.route("/api/templates/preview", methods=["POST"])
-def preview_template():
-    """Generate sample messages using a template with a random Attio lead."""
-    data = request.get_json()
-    if not data:
-        return jsonify({"success": False, "error": "No template data provided"}), 400
-
-    try:
-        sys.path.insert(0, TEMPLATES_DIR)
-        sys.path.insert(0, os.path.join(PROJECT_DIR, "Linkedin_cloud_bot_attio"))
-        from gemini_outreach import GeminiLinkedInMessager
-
-        messager = GeminiLinkedInMessager()
-
-        # Use a sample profile for preview
-        sample_profile = {
-            "name": "Jane Smith",
-            "headline": "VP of Engineering at TechCorp | Building scalable systems",
-            "location": "San Francisco Bay Area",
-            "about": "Passionate about distributed systems and team leadership. Previously at Google and Stripe.",
-            "experience": "VP Engineering at TechCorp (2022-present), Senior Director at Stripe (2019-2022), Staff Engineer at Google (2015-2019)"
-        }
-        sample_posts = "Recent post: 'Excited to share that our team just shipped a new microservices platform serving 10M requests/day'"
-
-        profile_str = json.dumps(sample_profile, indent=2)
-        posts_str = sample_posts
-
-        messages = {}
-        prompt_keys = [
-            ("outreach_prompt", "outreach"),
-            ("followup_1_prompt", "followup_1"),
-            ("followup_2_prompt", "followup_2"),
-            ("followup_3_prompt", "followup_3"),
-            ("followup_4_prompt", "followup_4"),
-        ]
-
-        for template_key, output_key in prompt_keys:
-            prompt = data.get(template_key, "")
-            if not prompt:
-                continue
-            # Fill in template variables
-            filled = prompt.replace("{profile_str}", profile_str).replace("{posts_str}", posts_str)
-            filled = filled.replace("{context_str}", "Previously sent a connection request that was accepted.")
-            try:
-                response = messager.generate_message(filled)
-                messages[output_key] = response
-            except Exception as e:
-                messages[output_key] = f"[Error generating: {e}]"
-
-        return jsonify({"success": True, "messages": messages, "sample_profile": sample_profile})
-
-    except ImportError as e:
-        return jsonify({"success": False, "error": f"Could not import GeminiLinkedInMessager: {e}"}), 500
-    except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@ from playwright_bots.msg_draft_connection_bot1 import (
 )
 from attio_client import get_attio_client, set_active_account
 from notifier import notify_message_sent, notify_error, notify_login_failed
+from notifier import set_active_account as set_notifier_account
 
 load_dotenv()
 
@@ -101,6 +102,25 @@ def scroll_to_top(page):
     human_pause(2, 4)
 
 
+def scroll_to_load_all_connections(page):
+    """Scroll down incrementally to force LinkedIn to lazy-load all connection cards, then scroll back to top."""
+    print("   Scrolling to load all connections...")
+    prev_height = 0
+    stable_count = 0
+    while stable_count < 3:
+        page.evaluate("window.scrollBy(0, 800)")
+        time.sleep(random.uniform(0.8, 1.5))
+        curr_height = page.evaluate("document.body.scrollHeight")
+        if curr_height == prev_height:
+            stable_count += 1
+        else:
+            stable_count = 0
+        prev_height = curr_height
+    page.evaluate("window.scrollTo(0, 0)")
+    time.sleep(random.uniform(1.5, 2.5))
+    print("   All connections loaded, back at top.")
+
+
 def scrape_all_connections_brute(page, lead_manager=""):
     """
     Multi-level framework to scrape connections and identify leads to message.
@@ -113,12 +133,19 @@ def scrape_all_connections_brute(page, lead_manager=""):
 
     attio_leads_data, contacted_leads = get_attio_leads_data(lead_manager)
 
+    scroll_to_load_all_connections(page)
+
     ## Scrape names
     names_list = []
     i = 1
     while i < 90:
         try:
-            names_xp = f"xpath=/html/body/div/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div[{i}]/div/div[1]/div/a/div/p/a"
+                        
+            
+                                # /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[1]. /div/div[1]/div/a/div/p/a
+                                # /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[3]. /div/div[1]/div/a/div/p/a
+                                # /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[5]  /div/div[1]/div/a/div/p/a
+            names_xp = f"xpath= /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{i}]/div/div[1]/div/a/div/p/a"
             name_elem = page.locator(names_xp)
             if name_elem.count() > 0:
                 names_list.append(name_elem.first.inner_text().strip())
@@ -126,11 +153,18 @@ def scrape_all_connections_brute(page, lead_manager=""):
                 print(f"   Reached end of names at position {i}")
                 break
             i += 2
-        except:
-            print(f"   Reached end of names at position {i}")
+        except Exception as e:
+            print(f"   Reached end of names at position {i} (exception: {e})")
             break
 
     print(f"   Found {len(names_list)} names")
+    if len(names_list) == 0:
+        print("   ⚠️ XPATH FAILURE: Could not find any connection name elements!")
+        print("   LinkedIn may have changed their DOM structure. XPaths need updating.")
+        try:
+            notify_error("Message Bot XPATH FAILURE: Found 0 connection names on page. LinkedIn DOM may have changed — XPaths need updating.", lead_manager)
+        except Exception:
+            pass
     print("*" * 80)
     human_pause(3, 5)
 
@@ -139,7 +173,10 @@ def scrape_all_connections_brute(page, lead_manager=""):
     j = 1
     while j < 90:
         try:
-            headlines_xp = f"xpath=/html/body/div/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div[{j}]/div/div[1]/div/a/div/div/p"
+                                #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[1]. /div/div[1]/div/a/div/div/p
+                                #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[3]. /div/div[1]/div/a/div/div/p
+                                #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[5]. /div/div[1]/div/a/div/div/p
+            headlines_xp = f"xpath=/html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{j}]/div/div[1]/div/a/div/div/p"
             headline_elem = page.locator(headlines_xp)
             if headline_elem.count() > 0:
                 headline_list.append(headline_elem.first.inner_text().strip())
@@ -147,11 +184,13 @@ def scrape_all_connections_brute(page, lead_manager=""):
                 print(f"   Reached end of headlines at position {j}")
                 break
             j += 2
-        except:
-            print(f"   Reached end of headlines at position {j}")
+        except Exception as e:
+            print(f"   Reached end of headlines at position {j} (exception: {e})")
             break
 
     print(f"   Found {len(headline_list)} headlines")
+    if len(headline_list) == 0:
+        print("   ⚠️ XPATH FAILURE: Could not find any connection headline elements!")
     print("*" * 80)
     human_pause(3, 5)
 
@@ -399,9 +438,14 @@ def message_all_leads(page, leads_to_message):
     Iterate through all identified leads and send messages using their position values.
     Processes leads in order from top to bottom as they appear on LinkedIn page.
     """
-    # Read daily limit from config.json
+    # Read daily limit from per-account config, fallback to generic
     daily_limit = random.randint(10, 15)
-    config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "backend", "config.json")
+    backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "backend")
+    import attio_client as _ac
+    slug = _ac._active_account.strip().lower().replace(" ", "_") if _ac._active_account else ""
+    config_path = os.path.join(backend_dir, f"config_{slug}.json") if slug else ""
+    if not config_path or not os.path.exists(config_path):
+        config_path = os.path.join(backend_dir, "config.json")
     try:
         with open(config_path, "r") as f:
             config = json.load(f)
@@ -428,8 +472,11 @@ def message_all_leads(page, leads_to_message):
             print(f"\n   Processing lead {idx + 1}/{len(leads_to_process)}: {name}")
 
             k = lead_data['position_k']
+                                        #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[1]/div/div[2]/div/div/a
+                                        #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[3]/div/div[2]/div/div/a
+                                        #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[5]/div/div[2]/div/div/a
 
-            message_button_xpath = f"xpath=/html/body/div/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div[{k}]/div/div[2]/div/div/a"
+            message_button_xpath = f"xpath=/html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{k}]/div/div[2]/div/div/a"
 
             try:
                 message_button = page.locator(message_button_xpath)
@@ -490,6 +537,7 @@ def main():
     account_name = args.account_name
     print(f"   Using account: {account_name}")
     set_active_account(account_name)
+    set_notifier_account(account_name)
 
     print("   Ensuring LinkedIn login...")
     driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp, account_name=account_name)

@@ -76,7 +76,7 @@ for entry in "${ACCOUNTS[@]}"; do
     fi
 
     # Reconstruct account_name from slug (replace _ with space, title case)
-    ACCOUNT_NAME=$(echo "$SLUG" | sed 's/_/ /g')
+    ACCOUNT_NAME=$(echo "$SLUG" | sed 's/_/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2))}1')
 
     echo "$(date -u): Launching orchestrator for $ACCOUNT_NAME" >> "$LOG"
 

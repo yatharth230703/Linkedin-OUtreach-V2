@@ -15,6 +15,7 @@ from gemini_outreach import GeminiLinkedInMessager
 from proxy_requests import get_proxy_session
 from attio_client import get_attio_client, set_active_account
 from notifier import notify_connection_sent, notify_error, notify_login_failed
+from notifier import set_active_account as set_notifier_account
 from playwright_bots.login_credentials import (
     ensure_linkedin_login,
     human_pause,
@@ -134,15 +135,11 @@ def fetch_profile_posts(linkedin_url: str) -> list[dict]:
         return []
 
 
-def generate_ai_messages(profile_data: dict, posts_data: list[dict], template_name: str = "template_1", template_dict: dict = None) -> tuple[str, str, str, str, str]:
-    """Generate outreach and 4 followup messages using Gemini with specified template or dict"""
+def generate_ai_messages(profile_data: dict, posts_data: list[dict], template_name: str = "template_1") -> tuple[str, str, str, str, str]:
+    """Generate outreach and 4 followup messages using Gemini with specified template"""
     try:
-        if template_dict:
-            print(f"      Generating AI messages using per-lead template...")
-            messager = GeminiLinkedInMessager(template_dict=template_dict)
-        else:
-            print(f"      Generating AI messages using {template_name}...")
-            messager = GeminiLinkedInMessager(template_name=template_name)
+        print(f"      Generating AI messages using {template_name}...")
+        messager = GeminiLinkedInMessager(template_name=template_name)
         messages = messager.generate_messages(profile_data, posts_data)
         print("      All messages generated (1 outreach + 4 follow-ups)")
         return (
@@ -474,6 +471,7 @@ def main():
     account_name = args.account_name
     print(f"   Using account: {account_name}")
     set_active_account(account_name)
+    set_notifier_account(account_name)
 
     print("   Ensuring LinkedIn login...")
     driver = ensure_linkedin_login(suspicious_otp=args.suspicious_otp, account_name=account_name)
@@ -495,9 +493,13 @@ def main():
         print("   Session Active. Ready to start automation.")
         human_scroll(page)
 
-        # Read daily limit from config.json
+        # Read daily limit from per-account config, fallback to generic
         daily_limit = 18
-        config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "backend", "config.json")
+        backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "backend")
+        slug = account_name.strip().lower().replace(" ", "_")
+        config_path = os.path.join(backend_dir, f"config_{slug}.json")
+        if not os.path.exists(config_path):
+            config_path = os.path.join(backend_dir, "config.json")
         try:
             with open(config_path, "r") as f:
                 config = json.load(f)
@@ -524,15 +526,8 @@ def main():
 
             url = lead_record["linkedin_url"]
             record_id = lead_record["record_id"]
-            prompt_template_str = lead_record.get("prompt_template", "")
-
-            # Parse per-lead template
-            template_dict = None
-            if prompt_template_str:
-                try:
-                    template_dict = json.loads(prompt_template_str)
-                except (json.JSONDecodeError, TypeError):
-                    print(f"      Could not parse prompt_template, using default")
+            # Template name from Attio (e.g. "template_5") — refers to prompt_template_5.json on disk
+            template_name = lead_record.get("prompt_template", "").strip() or "template_1"
 
             print(f"\n[{count + 1}/{daily_limit}]    Checking: {url}")
 
@@ -580,7 +575,7 @@ def main():
 
                 posts_data = fetch_profile_posts(url)
                 outreach_msg, followup_msg_1, followup_msg_2, followup_msg_3, followup_msg_4 = generate_ai_messages(
-                    profile_data, posts_data, template_dict=template_dict
+                    profile_data, posts_data, template_name=template_name
                 )
                 print("      Data gathering complete.")
 
@@ -617,7 +612,7 @@ def main():
                     status=db_status_update,
                     last_contacted=last_contacted,
                     lead_manager=account_name,
-                    prompt_template=prompt_template_str,
+                    prompt_template=template_name,
                 )
 
                 # PHASE 4: CLEANUP - delete from bot_inputs

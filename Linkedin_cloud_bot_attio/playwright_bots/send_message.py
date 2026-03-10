@@ -98,7 +98,7 @@ def get_attio_leads_data(lead_manager):
 def scroll_to_top(page):
     """Scroll back to the top of the connections page"""
     print("   Scrolling back to top of page...")
-    page.evaluate("window.scrollTo(0, 0)")
+    page.evaluate("document.querySelector('main#workspace').scrollTo(0, 0)")
     human_pause(2, 4)
 
 
@@ -108,15 +108,15 @@ def scroll_to_load_all_connections(page):
     prev_height = 0
     stable_count = 0
     while stable_count < 3:
-        page.evaluate("window.scrollBy(0, 800)")
+        page.evaluate("document.querySelector('main#workspace').scrollBy(0, 800)")
         time.sleep(random.uniform(0.8, 1.5))
-        curr_height = page.evaluate("document.body.scrollHeight")
+        curr_height = page.evaluate("document.querySelector('main#workspace').scrollHeight")
         if curr_height == prev_height:
             stable_count += 1
         else:
             stable_count = 0
         prev_height = curr_height
-    page.evaluate("window.scrollTo(0, 0)")
+    page.evaluate("document.querySelector('main#workspace').scrollTo(0, 0)")
     time.sleep(random.uniform(1.5, 2.5))
     print("   All connections loaded, back at top.")
 
@@ -140,12 +140,12 @@ def scrape_all_connections_brute(page, lead_manager=""):
     i = 1
     while i < 90:
         try:
-                        
+                            
             
                                 # /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[1]. /div/div[1]/div/a/div/p/a
                                 # /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[3]. /div/div[1]/div/a/div/p/a
                                 # /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[5]  /div/div[1]/div/a/div/p/a
-            names_xp = f"xpath= /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{i}]/div/div[1]/div/a/div/p/a"
+            names_xp = f"xpath=/html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{i}]/div/div[1]/div/a/div/p"
             name_elem = page.locator(names_xp)
             if name_elem.count() > 0:
                 names_list.append(name_elem.first.inner_text().strip())
@@ -491,6 +491,10 @@ def message_all_leads(page, leads_to_message):
                     print(f"   Button found but not a message button: {button_text}")
                     failed_messages += 1
                     continue
+
+                message_button.first.scroll_into_view_if_needed()
+                human_scroll(page)
+                human_pause(1, 2)
 
                 human_move_click(page, message_button.first)
                 human_pause(3, 4)

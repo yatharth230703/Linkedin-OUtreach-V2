@@ -74,6 +74,13 @@ resource "google_compute_instance" "linkedin_bot" {
 
   metadata_startup_script = <<-SCRIPT
     #!/bin/bash
+    # First-boot bootstrap for the LinkedIn bot VM.
+    #
+    # NOTE: This script only runs when the VM is created/recreated. Day-to-day
+    # deploys go through scripts/redeploy.sh via the GitHub Actions workflow,
+    # which does NOT recreate the VM. To prevent Terraform from recreating the
+    # VM on every plan when this script is edited, this resource is configured
+    # with `lifecycle.ignore_changes = [metadata_startup_script]` (see below).
     set -e
 
     # Install Docker if not present
@@ -99,46 +106,31 @@ resource "google_compute_instance" "linkedin_bot" {
       # Ensure it mounts on reboot
       echo "$DEVICE $MOUNT_POINT ext4 defaults,nofail 0 2" >> /etc/fstab
     fi
-    mkdir -p "$MOUNT_POINT/browser_profiles"
+
+    # Pre-create the persistent state subdirectories so the bind mount has
+    # something to attach to. The container also creates these on its side.
+    mkdir -p \
+      "$MOUNT_POINT/state/cookies" \
+      "$MOUNT_POINT/state/config" \
+      "$MOUNT_POINT/state/flags" \
+      "$MOUNT_POINT/state/status" \
+      "$MOUNT_POINT/state/logs" \
+      "$MOUNT_POINT/state/templates"
+
+    # Drop the run_container.sh launcher into /opt so subsequent SSH-driven
+    # redeploys can call it. The deploy workflow uploads its own copy on every
+    # deploy, but having one here means the VM can self-heal on reboot.
+    install -d /opt/linkedin-bot
+    cat > /opt/linkedin-bot/run_container.sh <<'LAUNCHER'
+    ${file("${path.module}/../scripts/run_container.sh")}
+    LAUNCHER
+    chmod +x /opt/linkedin-bot/run_container.sh
 
     # Authenticate Docker to Artifact Registry
     gcloud auth configure-docker ${var.region}-docker.pkg.dev --quiet
 
-    # Fetch secrets from Secret Manager
-    ATTIO_API=$(gcloud secrets versions access latest --secret=ATTIO_API 2>/dev/null || echo "")
-    GEMINI_API_KEY=$(gcloud secrets versions access latest --secret=GEMINI_API_KEY 2>/dev/null || echo "")
-    APIFY_API=$(gcloud secrets versions access latest --secret=APIFY_API 2>/dev/null || echo "")
-    PROXY_HOST=$(gcloud secrets versions access latest --secret=PROXY_HOST 2>/dev/null || echo "")
-    PROXY_PORT=$(gcloud secrets versions access latest --secret=PROXY_PORT 2>/dev/null || echo "")
-    PROXY_USERNAME=$(gcloud secrets versions access latest --secret=PROXY_USERNAME 2>/dev/null || echo "")
-    PROXY_PASSWORD_BASE=$(gcloud secrets versions access latest --secret=PROXY_PASSWORD_BASE 2>/dev/null || echo "")
-    USE_PROXY=$(gcloud secrets versions access latest --secret=USE_PROXY 2>/dev/null || echo "true")
-    SLACK_WEBHOOK_URL=$(gcloud secrets versions access latest --secret=SLACK_WEBHOOK_URL 2>/dev/null || echo "")
-    ATTIO_API_ALT=$(gcloud secrets versions access latest --secret=ATTIO_API_ALT 2>/dev/null || echo "")
-    SLACK_WEBHOOK_URL_ALT=$(gcloud secrets versions access latest --secret=SLACK_WEBHOOK_URL_ALT 2>/dev/null || echo "")
-
-    # Pull and run the container
-    docker pull ${var.docker_image}
-    docker stop linkedin-bot 2>/dev/null || true
-    docker rm linkedin-bot 2>/dev/null || true
-    docker run -d \
-      --name linkedin-bot \
-      --restart unless-stopped \
-      -p 8080:8080 \
-      -v "$MOUNT_POINT/browser_profiles:/app/Linkedin_cloud_bot_attio/playwright_bots/browser_profiles" \
-      -e ATTIO_API="$ATTIO_API" \
-      -e GEMINI_API_KEY="$GEMINI_API_KEY" \
-      -e APIFY_API="$APIFY_API" \
-      -e PROXY_HOST="$PROXY_HOST" \
-      -e PROXY_PORT="$PROXY_PORT" \
-      -e PROXY_USERNAME="$PROXY_USERNAME" \
-      -e PROXY_PASSWORD_BASE="$PROXY_PASSWORD_BASE" \
-      -e USE_PROXY="$USE_PROXY" \
-      -e SLACK_WEBHOOK_URL="$SLACK_WEBHOOK_URL" \
-      -e SLACK_WEBHOOK_URL_ALT="$SLACK_WEBHOOK_URL_ALT" \
-      -e ATTIO_API_ALT="$ATTIO_API_ALT" \
-      -e CLOUD_MODE=true \
-      ${var.docker_image}
+    # First-boot launch.
+    IMAGE="${var.docker_image}" MOUNT_POINT="$MOUNT_POINT" /opt/linkedin-bot/run_container.sh
   SCRIPT
 
   tags = ["linkedin-bot"]
@@ -146,6 +138,17 @@ resource "google_compute_instance" "linkedin_bot" {
   service_account {
     email  = google_service_account.bot_sa.email
     scopes = ["cloud-platform"]
+  }
+
+  lifecycle {
+    # Day-to-day deploys edit the container, not the VM. Ignore startup-script
+    # diffs so editing main.tf or run_container.sh doesn't force-recreate the
+    # VM (which would lose the running container, even though /mnt/bot-data
+    # would survive).
+    ignore_changes = [
+      metadata_startup_script,
+      boot_disk[0].initialize_params[0].image,
+    ]
   }
 }
 
@@ -162,4 +165,34 @@ resource "google_compute_firewall" "bot_api" {
   # Restrict to your IP in production
   source_ranges = ["0.0.0.0/0"]
   target_tags   = ["linkedin-bot"]
+}
+
+# Firewall rule to allow SSH from approved operator IPs.
+# Manage this here so the rule survives any clean re-apply.
+resource "google_compute_firewall" "ssh" {
+  name    = "allow-ssh"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = var.ssh_allowed_ips
+}
+
+# Firewall rule to allow SSH from Google's IAP relay range.
+# Required for GitHub Actions (and any other CI/operator without a static IP)
+# to SSH via `gcloud compute ssh --tunnel-through-iap`.
+resource "google_compute_firewall" "ssh_iap" {
+  name    = "allow-ssh-iap"
+  network = "default"
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  # Google's documented IAP TCP forwarding source range.
+  source_ranges = ["35.235.240.0/20"]
 }

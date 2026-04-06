@@ -1,0 +1,92 @@
+name: Build and deploy
+
+on:
+  push:
+    branches:
+      - main
+
+# Cancel any in-progress deploy when a newer commit lands.
+concurrency:
+  group: linkedin-bot-deploy
+  cancel-in-progress: false
+
+env:
+  GCP_PROJECT_ID: optimum-beach-489223-h7
+  GCP_REGION: asia-south1
+  AR_REPO: linkedin-bot
+  IMAGE_NAME: bot
+  GCE_INSTANCE: linkedin-bot
+  GCE_ZONE: asia-south1-a
+
+jobs:
+  build-and-deploy:
+    name: Build, push, redeploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.GCP_REGION }}-docker.pkg.dev --quiet
+
+      - name: Compute image tag
+        id: tag
+        run: |
+          SHA="${GITHUB_SHA::7}"
+          IMAGE_BASE="${{ env.GCP_REGION }}-docker.pkg.dev/${{ env.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/${{ env.IMAGE_NAME }}"
+          echo "image_sha=${IMAGE_BASE}:${SHA}"     >> "$GITHUB_OUTPUT"
+          echo "image_latest=${IMAGE_BASE}:latest"  >> "$GITHUB_OUTPUT"
+          echo "short_sha=${SHA}"                   >> "$GITHUB_OUTPUT"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t "${{ steps.tag.outputs.image_sha }}" \
+            -t "${{ steps.tag.outputs.image_latest }}" \
+            .
+
+      - name: Push image (sha + latest)
+        run: |
+          docker push "${{ steps.tag.outputs.image_sha }}"
+          docker push "${{ steps.tag.outputs.image_latest }}"
+
+      - name: Upload deploy scripts to VM
+        run: |
+          # Copy the latest run_container.sh and redeploy.sh to the VM so the
+          # deploy uses whatever is in this commit (single source of truth).
+          gcloud compute scp \
+            --zone="${{ env.GCE_ZONE }}" \
+            --tunnel-through-iap \
+            scripts/run_container.sh scripts/redeploy.sh \
+            "${{ env.GCE_INSTANCE }}:/tmp/"
+          gcloud compute ssh "${{ env.GCE_INSTANCE }}" \
+            --zone="${{ env.GCE_ZONE }}" \
+            --tunnel-through-iap \
+            --command="sudo install -d /opt/linkedin-bot && sudo install -m 755 /tmp/run_container.sh /tmp/redeploy.sh /opt/linkedin-bot/"
+
+      - name: Run redeploy on VM
+        run: |
+          gcloud compute ssh "${{ env.GCE_INSTANCE }}" \
+            --zone="${{ env.GCE_ZONE }}" \
+            --tunnel-through-iap \
+            --command="sudo /opt/linkedin-bot/redeploy.sh '${{ steps.tag.outputs.image_sha }}'"
+
+      - name: Show recent deploy log
+        if: always()
+        run: |
+          gcloud compute ssh "${{ env.GCE_INSTANCE }}" \
+            --zone="${{ env.GCE_ZONE }}" \
+            --tunnel-through-iap \
+            --command="sudo tail -50 /mnt/bot-data/state/logs/deploy.log || true"

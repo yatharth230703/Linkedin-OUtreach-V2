@@ -1,15 +1,22 @@
 #!/bin/bash
 # Master cron script - runs hourly, checks each account's time window
-# and launches orchestrator for enabled accounts.
+# and launches the orchestrator for enabled accounts.
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 APP_DIR="$(dirname "$SCRIPT_DIR")"
-LOG="$SCRIPT_DIR/run_log.txt"
 
-# Source environment variables for cron
+# Source environment variables (STATE_DIR + secrets) for cron context.
 if [ -f /app/.env.cron ]; then
     source /app/.env.cron
 fi
+
+# Default STATE_DIR if .env.cron isn't present.
+STATE_DIR="${STATE_DIR:-/app/state}"
+FLAGS_DIR="$STATE_DIR/flags"
+LOGS_DIR="$STATE_DIR/logs"
+LOG="$LOGS_DIR/run_log.txt"
+
+mkdir -p "$FLAGS_DIR" "$LOGS_DIR"
 
 export DISPLAY=:99
 
@@ -27,8 +34,8 @@ echo "$(date -u): Master cron check (UTC hour: $CURRENT_HOUR)" >> "$LOG"
 for entry in "${ACCOUNTS[@]}"; do
     IFS=':' read -r SLUG START END <<< "$entry"
 
-    ENABLED_FLAG="$SCRIPT_DIR/bot_enabled_${SLUG}"
-    PID_FILE="$SCRIPT_DIR/pid_${SLUG}.txt"
+    ENABLED_FLAG="$FLAGS_DIR/bot_enabled_${SLUG}"
+    PID_FILE="$FLAGS_DIR/pid_${SLUG}.txt"
 
     # Skip if not enabled
     if [ ! -f "$ENABLED_FLAG" ]; then
@@ -60,7 +67,7 @@ for entry in "${ACCOUNTS[@]}"; do
         if [ "$OTHER_SLUG" = "$SLUG" ]; then
             continue
         fi
-        OTHER_PID_FILE="$SCRIPT_DIR/pid_${OTHER_SLUG}.txt"
+        OTHER_PID_FILE="$FLAGS_DIR/pid_${OTHER_SLUG}.txt"
         if [ -f "$OTHER_PID_FILE" ]; then
             OTHER_PID=$(cat "$OTHER_PID_FILE")
             if kill -0 "$OTHER_PID" 2>/dev/null; then
@@ -82,7 +89,7 @@ for entry in "${ACCOUNTS[@]}"; do
 
     cd "$APP_DIR"
     nohup python3 -u "$APP_DIR/orchestrator.py" --cloud --account_name "$ACCOUNT_NAME" \
-        >> "$APP_DIR/daily_log.txt" 2>&1 &
+        >> "$LOGS_DIR/daily_log.txt" 2>&1 &
     BOT_PID=$!
 
     echo "$BOT_PID" > "$PID_FILE"

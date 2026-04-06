@@ -434,14 +434,54 @@ def handle_suspicious_login_challenge(page, suspicious_otp=None):
         return False
 
 
+class BrowserDeadError(Exception):
+    """Raised when the underlying Chromium / Playwright driver process has died.
+
+    Distinguished from ordinary navigation errors so callers know that retrying
+    on the same `page` object is pointless and a fresh browser launch is required.
+    """
+    pass
+
+
+_BROWSER_DEAD_MARKERS = (
+    "epipe",
+    "broken pipe",
+    "target page, context or browser has been closed",
+    "browser has been closed",
+    "browser has disconnected",
+    "browser closed",
+    "target closed",
+    "connection closed",
+    "page has been closed",
+    "context or browser has been closed",
+    "playwright driver",
+    "transport closed",
+)
+
+
+def _is_browser_dead_error(err_str):
+    """Return True if the error string indicates the browser process is dead."""
+    e = (err_str or "").lower()
+    return any(marker in e for marker in _BROWSER_DEAD_MARKERS)
+
+
 def _safe_goto(page, url, timeout=60000, retries=2):
-    """Navigate with proxy-friendly timeout and retry on transient failures."""
+    """Navigate with proxy-friendly timeout and retry on transient failures.
+
+    Raises BrowserDeadError if the underlying browser process has died, so the
+    caller can relaunch the browser instead of retrying with a dead page.
+    """
     for attempt in range(retries):
         try:
             page.goto(url, wait_until="domcontentloaded", timeout=timeout)
             return True
         except Exception as e:
             err = str(e).lower()
+
+            # If the browser itself died, no point retrying with the same page.
+            if _is_browser_dead_error(err):
+                raise BrowserDeadError(f"Browser died during goto({url}): {e}") from e
+
             is_transient = any(k in err for k in ("timeout", "err_timed_out", "err_tunnel_connection_failed"))
             if is_transient and attempt < retries - 1:
                 wait = 3 + attempt * 2
@@ -453,12 +493,13 @@ def _safe_goto(page, url, timeout=60000, retries=2):
     return False
 
 
-def check_if_logged_in(page, _redirect_recovery=False):
+def check_if_logged_in(page, account_name="", _redirect_recovery=False):
     """
     Sanity check function to determine if user is logged in.
     Goes to linkedin.com and checks for login page heading element.
     If heading exists -> NOT logged in. If no heading -> logged in.
-    Handles ERR_TOO_MANY_REDIRECTS by falling back to essential-only cookies.
+    Handles ERR_TOO_MANY_REDIRECTS by falling back to essential-only cookies
+    loaded from the per-account cookie file.
     """
     try:
         print("   Checking if already logged in...")
@@ -482,25 +523,34 @@ def check_if_logged_in(page, _redirect_recovery=False):
         err_str = str(e).lower()
         print(f"   Error checking login status: {e}")
 
+        # If the browser/page died entirely, no cookie tweak will save us — bubble up.
+        if _is_browser_dead_error(err_str):
+            print("   Browser/page is dead — cannot recover here, signalling caller.")
+            raise BrowserDeadError(str(e))
+
         # Redirect loop recovery: clear cookies and re-inject only essentials
         if "err_too_many_redirects" in err_str and not _redirect_recovery:
-            print("   REDIRECT LOOP detected — attempting recovery with essential cookies only...")
+            print(f"   REDIRECT LOOP detected — attempting recovery with essential cookies only (account='{account_name}')...")
             try:
                 # Access driver via page's context
                 context = page.context
                 context.clear_cookies()
 
-                # Re-inject only essential auth cookies
-                cookies = _get_extension_cookies()
+                # Re-inject only essential auth cookies from the correct per-account file
+                cookies = _get_extension_cookies(account_name)
                 if cookies:
-                    essential = [c for c in cookies if c["name"] in _AUTH_COOKIES]
+                    essential = [c for c in cookies if c["name"] in _AUTH_COOKIES or c["name"] in _ROUTING_COOKIES]
                     pw_cookies = [_convert_cookie_for_playwright(c) for c in essential]
                     if pw_cookies:
                         context.add_cookies(pw_cookies)
                         print(f"   Re-injected {len(pw_cookies)} essential cookies only")
 
                     human_pause(2, 3)
-                    return check_if_logged_in(page, _redirect_recovery=True)
+                    return check_if_logged_in(page, account_name=account_name, _redirect_recovery=True)
+                else:
+                    print(f"   No cookies found for account '{account_name}' — recovery aborted.")
+            except BrowserDeadError:
+                raise
             except Exception as recovery_err:
                 print(f"   Redirect recovery failed: {recovery_err}")
 
@@ -761,15 +811,22 @@ def setup_playwright_browser(account_name=""):
 
 
 def _get_extension_cookies(account_name=""):
-    """Load cookies from backend/cookies_{slug}.json (or cookies.json fallback). Returns list or None."""
+    """Load cookies from STATE_DIR/cookies/cookies_{slug}.json (or default fallback).
+
+    Returns a list of cookie dicts (with expired ones filtered out) or None.
+    """
     import json as _json
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    backend_dir = os.path.join(os.path.dirname(os.path.dirname(script_dir)), "backend")
+    import sys as _sys
+    _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if _project_root not in _sys.path:
+        _sys.path.insert(0, _project_root)
+    from state_paths import cookies_path as _cookies_path
+
     slug = _account_slug(account_name)
     # Try per-account file first, fall back to default
-    cookies_file = os.path.join(backend_dir, f"cookies_{slug}.json") if slug else None
+    cookies_file = _cookies_path(slug) if slug else None
     if not cookies_file or not os.path.exists(cookies_file):
-        cookies_file = os.path.join(backend_dir, "cookies.json")
+        cookies_file = _cookies_path()
     if not os.path.exists(cookies_file):
         return None
     try:
@@ -810,17 +867,23 @@ def _wipe_profile(account_name=""):
 
 # Auth-critical cookies that need domain broadened to .linkedin.com
 _AUTH_COOKIES = {"li_at", "li_rm", "JSESSIONID", "liap", "li_mc"}
+# Routing cookies that LinkedIn's edge proxy reads — must also be on .linkedin.com
+# scope, otherwise login can fall into a redirect loop.
+_ROUTING_COOKIES = {"lidc", "bcookie", "bscookie"}
 
 
 def _convert_cookie_for_playwright(cookie):
     """Convert a single Chrome extension cookie to Playwright format with smart domain handling."""
-    domain = cookie.get("domain", ".linkedin.com")
+    domain = (cookie.get("domain") or ".linkedin.com").strip()
 
-    # Only normalize domain for auth-critical cookies
-    if cookie["name"] in _AUTH_COOKIES:
-        if domain in (".www.linkedin.com", "www.linkedin.com"):
+    # Normalize domain for auth and routing cookies. We accept any variant of
+    # www.linkedin.com (with/without leading dot, with stray whitespace) and
+    # broaden it to .linkedin.com so LinkedIn sees the cookie on every subdomain.
+    if cookie["name"] in _AUTH_COOKIES or cookie["name"] in _ROUTING_COOKIES:
+        d = domain.lower().lstrip(".")
+        if d == "www.linkedin.com" or d == "linkedin.com":
             domain = ".linkedin.com"
-    # Leave non-auth cookies with original domain (prevents redirect loops)
+    # Leave other non-auth cookies with original domain (prevents redirect loops)
 
     c = {
         "name": cookie["name"],
@@ -842,7 +905,7 @@ def _convert_cookie_for_playwright(cookie):
 
 def inject_extension_cookies(driver):
     """
-    If backend/cookies.json exists, inject those cookies into the running browser.
+    If a cookies file exists in the state dir, inject those cookies into the running browser.
     Returns True if cookies were injected.
     """
     cookies = _get_extension_cookies()
@@ -914,14 +977,18 @@ def _inject_essential_cookies_only(driver):
 
 
 def _inject_browser_storage(page, account_name=""):
-    """Inject localStorage and sessionStorage from backend/browser_storage_{slug}.json into a loaded page."""
+    """Inject localStorage and sessionStorage from STATE_DIR/cookies/browser_storage_{slug}.json into a loaded page."""
     import json as _json
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    backend_dir = os.path.join(os.path.dirname(os.path.dirname(script_dir)), "backend")
+    import sys as _sys
+    _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if _project_root not in _sys.path:
+        _sys.path.insert(0, _project_root)
+    from state_paths import storage_path as _storage_path
+
     slug = _account_slug(account_name)
-    storage_file = os.path.join(backend_dir, f"browser_storage_{slug}.json") if slug else None
+    storage_file = _storage_path(slug) if slug else None
     if not storage_file or not os.path.exists(storage_file):
-        storage_file = os.path.join(backend_dir, "browser_storage.json")
+        storage_file = _storage_path()
     if not os.path.exists(storage_file):
         return
     try:
@@ -982,7 +1049,7 @@ def linkedin_login(suspicious_otp=None, account_name=""):
             inject_extension_cookies(driver)
 
         # Check if logged in (this navigates to linkedin.com)
-        if check_if_logged_in(page):
+        if check_if_logged_in(page, account_name=account_name):
             # Now that we're on LinkedIn, inject browser storage
             if ext_cookies:
                 _inject_browser_storage(page, account_name)
@@ -1066,7 +1133,7 @@ def linkedin_login(suspicious_otp=None, account_name=""):
             human_pause(3, 5)
 
             # Check if we're now logged in after suspicious challenge
-            if check_if_logged_in(page):
+            if check_if_logged_in(page, account_name=account_name):
                 print("   Login successful after suspicious login verification!")
                 log_action(page, "login_success_suspicious")
                 return driver
@@ -1082,7 +1149,7 @@ def linkedin_login(suspicious_otp=None, account_name=""):
             human_pause(3, 5)
 
         # Check if login was successful
-        if check_if_logged_in(page):
+        if check_if_logged_in(page, account_name=account_name):
             print("   Login successful! Session cookies saved.")
             log_action(page, "login_success")
             return driver
@@ -1179,7 +1246,7 @@ def linkedin_login(suspicious_otp=None, account_name=""):
                 human_pause(5, 8)
                 log_action(page, "verification_submitted")
 
-                if check_if_logged_in(page):
+                if check_if_logged_in(page, account_name=account_name):
                     print("   Login successful with verification! Session cookies saved.")
                     log_action(page, "login_success_with_verification")
                     return driver
@@ -1194,7 +1261,7 @@ def linkedin_login(suspicious_otp=None, account_name=""):
             print("   Press ENTER once you see your LinkedIn feed...")
             input()
 
-            if check_if_logged_in(page):
+            if check_if_logged_in(page, account_name=account_name):
                 print("   Login successful after manual verification completion!")
                 log_action(page, "login_success_manual_verification")
                 return driver
@@ -1215,7 +1282,7 @@ def linkedin_login(suspicious_otp=None, account_name=""):
         print("   Press ENTER once you see your LinkedIn feed...")
         input()
 
-        if check_if_logged_in(page):
+        if check_if_logged_in(page, account_name=account_name):
             print("   Login successful after manual completion!")
             log_action(page, "login_success_final")
             return driver
@@ -1225,25 +1292,110 @@ def linkedin_login(suspicious_otp=None, account_name=""):
             driver.quit()
             return None
 
-    except Exception as e:
-        print(f"   Critical error during login: {e}")
-        log_action(page, "login_critical_error")
+    except BrowserDeadError as e:
+        print(f"   Browser died during login: {e}")
+        try:
+            log_action(page, "login_browser_dead")
+        except Exception:
+            pass
         try:
             driver.quit()
-        except:
+        except Exception:
+            pass
+        # Re-raise so ensure_linkedin_login can retry with a fresh browser.
+        raise
+    except Exception as e:
+        err_str = str(e).lower()
+        if _is_browser_dead_error(err_str):
+            print(f"   Browser-dead error during login: {e}")
+            try:
+                driver.quit()
+            except Exception:
+                pass
+            raise BrowserDeadError(str(e)) from e
+        print(f"   Critical error during login: {e}")
+        try:
+            log_action(page, "login_critical_error")
+        except Exception:
+            pass
+        try:
+            driver.quit()
+        except Exception:
             pass
         return None
 
 
-def ensure_linkedin_login(suspicious_otp=None, account_name=""):
+def _kill_zombie_chrome_processes():
+    """Best-effort cleanup of orphaned Chromium / Playwright processes after a crash."""
+    try:
+        import psutil
+    except ImportError:
+        return
+    killed = 0
+    for proc in psutil.process_iter(["name", "cmdline"]):
+        try:
+            name = (proc.info.get("name") or "").lower()
+            cmdline = " ".join(proc.info.get("cmdline") or []).lower()
+            if any(k in name for k in ("chrome", "chromium", "playwright")) or \
+               "playwright" in cmdline or "chromium" in cmdline:
+                proc.kill()
+                killed += 1
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            continue
+    if killed:
+        print(f"   Cleaned up {killed} zombie chrome/playwright processes")
+
+
+def ensure_linkedin_login(suspicious_otp=None, account_name="", max_attempts=2):
     """
     Convenience function for other bots to ensure LinkedIn login.
     Returns a PlaywrightDriver instance if login is successful, None otherwise.
+
+    If the underlying browser dies (EPIPE / target closed / etc.) during login,
+    this will clean up zombie processes and retry with a freshly launched browser
+    up to `max_attempts` times. Other failure modes (bad credentials, captcha,
+    etc.) are NOT retried — they'll fail fast on the first attempt.
+
     Args:
         suspicious_otp: Optional OTP for suspicious login challenge (from argparse)
         account_name: Account name for multi-account support
+        max_attempts: Number of times to attempt login on browser-dead errors
     """
-    return linkedin_login(suspicious_otp=suspicious_otp, account_name=account_name)
+    last_err = None
+    for attempt in range(1, max_attempts + 1):
+        try:
+            driver = linkedin_login(suspicious_otp=suspicious_otp, account_name=account_name)
+            if driver:
+                return driver
+            # linkedin_login returned None — likely a non-recoverable login failure
+            # (bad cookies, captcha, etc.). Don't retry.
+            return None
+        except BrowserDeadError as e:
+            last_err = e
+            print(f"   Browser died during login attempt {attempt}/{max_attempts}: {e}")
+            if attempt < max_attempts:
+                _kill_zombie_chrome_processes()
+                wait = 5 * attempt
+                print(f"   Waiting {wait}s before relaunching with a fresh browser...")
+                time.sleep(wait)
+                continue
+        except Exception as e:
+            err = str(e).lower()
+            if _is_browser_dead_error(err):
+                last_err = e
+                print(f"   Browser-dead error on attempt {attempt}/{max_attempts}: {e}")
+                if attempt < max_attempts:
+                    _kill_zombie_chrome_processes()
+                    wait = 5 * attempt
+                    print(f"   Waiting {wait}s before relaunching with a fresh browser...")
+                    time.sleep(wait)
+                    continue
+            # Anything else: fail fast
+            print(f"   Login failed with non-recoverable error: {e}")
+            return None
+
+    print(f"   Login failed after {max_attempts} attempts. Last error: {last_err}")
+    return None
 
 
 def main():

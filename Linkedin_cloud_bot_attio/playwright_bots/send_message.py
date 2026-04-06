@@ -440,14 +440,18 @@ def message_all_leads(page, leads_to_message):
     """
     # Read daily limit from per-account config, fallback to generic
     daily_limit = random.randint(10, 15)
-    backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "backend")
+    import sys as _sys
+    _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if _project_root not in _sys.path:
+        _sys.path.insert(0, _project_root)
+    from state_paths import config_path as _config_path, slugify as _slugify
     import attio_client as _ac
-    slug = _ac._active_account.strip().lower().replace(" ", "_") if _ac._active_account else ""
-    config_path = os.path.join(backend_dir, f"config_{slug}.json") if slug else ""
-    if not config_path or not os.path.exists(config_path):
-        config_path = os.path.join(backend_dir, "config.json")
+    slug = _slugify(_ac._active_account) if _ac._active_account else ""
+    cfg_path = _config_path(slug) if slug else _config_path()
+    if not os.path.exists(cfg_path):
+        cfg_path = _config_path()
     try:
-        with open(config_path, "r") as f:
+        with open(cfg_path, "r") as f:
             config = json.load(f)
             daily_limit = config.get("daily_message", daily_limit)
             print(f"   Loaded message limit from config: {daily_limit}")

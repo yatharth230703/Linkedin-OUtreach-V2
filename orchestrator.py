@@ -40,6 +40,11 @@ from Linkedin_cloud_bot_attio.notifier import (
     notify_error,
     set_active_account as set_notifier_account,
 )
+from state_paths import (
+    daily_log_path,
+    phase_status_path,
+    slugify,
+)
 
 
 class LinkedInBotOrchestrator:
@@ -54,7 +59,7 @@ class LinkedInBotOrchestrator:
         self.MIN_BREAK_SECONDS = 300  # 5 minutes
         self.MAX_BREAK_SECONDS = 900  # 15 minutes
         self.SAFETY_FILE_PATH = "safety_stop.txt"
-        self.LOG_FILE = "daily_log.txt"
+        self.LOG_FILE = daily_log_path()
 
         # Initialize mode flags first
         self.test_mode = test_mode
@@ -104,8 +109,7 @@ class LinkedInBotOrchestrator:
             }
         ]
 
-        # Status file for extension visibility
-        self.status_dir = self.script_dir / "backend"
+        # Status file path is resolved per-call via state_paths.phase_status_path()
 
         # Execution tracking
         self.start_time = None
@@ -148,8 +152,10 @@ class LinkedInBotOrchestrator:
 
     def _write_phase_status(self, phase, detail=""):
         """Write current phase to a status file so the extension can read it."""
-        slug = self.account_name.strip().lower().replace(" ", "_")
-        status_path = self.status_dir / f"phase_status_{slug}.json"
+        slug = slugify(self.account_name)
+        if not slug:
+            return
+        status_path = phase_status_path(slug)
         status = {
             "phase": phase,
             "detail": detail,

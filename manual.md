@@ -335,3 +335,4 @@ Or simply restart the VM from GCP Console — the startup script re-pulls and ru
 5. **Templates are stored on the VM** — upload via extension, reference by name in Attio
 6. **The bot survives restarts** — VM reboots, Docker restarts, laptop shutdowns — it picks back up automatically
 7. **Close/reopen the extension freely** — it remembers everything (state, config, account)
+

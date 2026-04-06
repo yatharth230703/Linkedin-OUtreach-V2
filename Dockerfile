@@ -20,6 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN playwright install chromium && playwright install-deps chromium
 
 # Copy application code
+COPY state_paths.py /app/state_paths.py
 COPY orchestrator.py /app/orchestrator.py
 COPY Linkedin_cloud_bot_attio/ /app/Linkedin_cloud_bot_attio/
 COPY backend/ /app/backend/
@@ -30,6 +31,10 @@ RUN chmod 0644 /etc/cron.d/bot-cron && crontab /etc/cron.d/bot-cron
 
 # Make scripts executable
 RUN chmod +x /app/backend/entrypoint.sh /app/backend/run_daily.sh /app/backend/run_master.sh
+
+# Persistent state directory (host-mounted in production from /mnt/bot-data/state)
+ENV STATE_DIR=/app/state
+RUN mkdir -p /app/state/cookies /app/state/config /app/state/flags /app/state/status /app/state/logs /app/state/templates
 
 # Cloud mode flag for Playwright to use bundled Chromium
 ENV CLOUD_MODE=true

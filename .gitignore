@@ -15,3 +15,24 @@ terraform/.terraform.lock.hcl
 /Linkedin_cloud_bot/playwright_bots/user_data_yath
 /Linkedin_cloud_bot_attio/playwright_bots/user_data_yath
 /Linkedin_cloud_bot_attio/playwright_bots/user_data_yatharth
+/Linkedin_cloud_bot_attio/playwright_bots/user_data_*
+
+# Runtime state — local-dev fallback for state_paths.py.
+# In production these live under /app/state via the persistent disk mount.
+/backend/cookies/
+/backend/config/
+/backend/flags/
+/backend/status/
+/backend/logs/
+/backend/templates/
+/backend/cookies_*.json
+/backend/cookies.json
+/backend/browser_storage*.json
+/backend/config_*.json
+/backend/config.json
+/backend/bot_enabled*
+/backend/pid_*.txt
+/backend/phase_status_*.json
+/backend/run_log.txt
+/backend/cron_output.txt
+/daily_log.txt

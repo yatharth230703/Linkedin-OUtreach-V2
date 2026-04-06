@@ -1,11 +1,19 @@
 """Gemini LinkedIn Outreach Message Generator"""
 import os
+import sys
 import json
 from pathlib import Path
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 from dataclasses import dataclass
+
+# Make project root importable for state_paths
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, _PROJECT_ROOT)
+
+from state_paths import template_path as _state_template_path  # noqa: E402
 
 load_dotenv()
 
@@ -32,10 +40,31 @@ class GeminiLinkedInMessager:
             self.template_data = self._load_template(template_name)
     
     def _load_template(self, template_name):
-        """Load prompt template from JSON file"""
+        """Load prompt template from JSON file.
+
+        Search order:
+          1. State dir (STATE_DIR/templates/prompt_<template_name>.json) — uploads via the extension
+          2. Baked-in templates next to this file (Linkedin_cloud_bot_attio/prompt_<template_name>.json)
+        """
         script_dir = Path(__file__).parent
-        template_file = script_dir / f"prompt_{template_name}.json"
-        
+
+        # 1. State dir (extension uploads). _state_template_path expects the
+        #    numeric suffix only, so derive it from "template_5" → 5.
+        state_template_file = None
+        try:
+            num_str = template_name.replace("template_", "")
+            num = int(num_str)
+            candidate = Path(_state_template_path(num))
+            if candidate.exists():
+                state_template_file = candidate
+        except (ValueError, AttributeError):
+            pass
+
+        # 2. Built-in baked template
+        baked_template_file = script_dir / f"prompt_{template_name}.json"
+
+        template_file = state_template_file or baked_template_file
+
         try:
             with open(template_file, 'r', encoding='utf-8') as f:
                 template_data = json.load(f)

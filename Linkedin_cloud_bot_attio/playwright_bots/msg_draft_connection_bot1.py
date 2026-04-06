@@ -495,13 +495,18 @@ def main():
 
         # Read daily limit from per-account config, fallback to generic
         daily_limit = 18
-        backend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "backend")
-        slug = account_name.strip().lower().replace(" ", "_")
-        config_path = os.path.join(backend_dir, f"config_{slug}.json")
-        if not os.path.exists(config_path):
-            config_path = os.path.join(backend_dir, "config.json")
+        # Make project root importable for state_paths (idempotent — safe if already added)
+        import sys as _sys
+        _project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if _project_root not in _sys.path:
+            _sys.path.insert(0, _project_root)
+        from state_paths import config_path as _config_path, slugify as _slugify
+        slug = _slugify(account_name)
+        cfg_path = _config_path(slug)
+        if not os.path.exists(cfg_path):
+            cfg_path = _config_path()
         try:
-            with open(config_path, "r") as f:
+            with open(cfg_path, "r") as f:
                 config = json.load(f)
                 daily_limit = config.get("daily_connect", 18)
                 print(f"   Loaded connection limit from config: {daily_limit}")

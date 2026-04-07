@@ -74,15 +74,19 @@ jobs:
         run: |
           # Copy the latest run_container.sh and redeploy.sh to the VM so the
           # deploy uses whatever is in this commit (single source of truth).
+          #
+          # We scp to the OS Login user's home directory (~), not /tmp, because
+          # /tmp has the sticky bit and any leftover file from a previous user
+          # would block overwrite. ~ is always writable by the current user.
           gcloud compute scp \
             --zone="${{ env.GCE_ZONE }}" \
             --tunnel-through-iap \
             scripts/run_container.sh scripts/redeploy.sh \
-            "${{ env.GCE_INSTANCE }}:/tmp/"
+            "${{ env.GCE_INSTANCE }}:~/"
           gcloud compute ssh "${{ env.GCE_INSTANCE }}" \
             --zone="${{ env.GCE_ZONE }}" \
             --tunnel-through-iap \
-            --command="sudo install -d /opt/linkedin-bot && sudo install -m 755 /tmp/run_container.sh /tmp/redeploy.sh /opt/linkedin-bot/"
+            --command="sudo install -d /opt/linkedin-bot && sudo install -m 755 ~/run_container.sh ~/redeploy.sh /opt/linkedin-bot/ && rm -f ~/run_container.sh ~/redeploy.sh"
 
       - name: Run redeploy on VM
         run: |

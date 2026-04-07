@@ -2,5 +2,9 @@ SHELL=/bin/bash
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 DISPLAY=:99
 
-# Run master scheduler hourly - checks each account's time window
-0 * * * * /app/backend/run_master.sh >> /app/backend/cron_output.txt 2>&1
+# Run master scheduler every minute. The script is cheap when no flag is set
+# (just a few file existence checks), and per-account time windows + the
+# "another account already running" guard inside run_master.sh prevent any
+# unwanted launches. This makes /api/start near-instant for any account
+# whose time window is currently open.
+* * * * * /app/backend/run_master.sh >> /app/state/logs/cron_output.txt 2>&1

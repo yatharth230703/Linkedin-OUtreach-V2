@@ -36,3 +36,4 @@ terraform/.terraform.lock.hcl
 /backend/run_log.txt
 /backend/cron_output.txt
 /daily_log.txt
+gcp-sa-key.json

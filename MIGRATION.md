@@ -15,12 +15,13 @@ itself with no manual steps.
 ## TL;DR sequence
 
 1. Create CI service account + grant roles
-2. Drop the SA key into the GitHub repo as `GCP_SA_KEY` secret
-3. `terraform import` + `terraform apply` (idempotent — only adds firewall rules)
-4. Copy `scripts/run_container.sh` and `scripts/redeploy.sh` to the VM at `/opt/linkedin-bot/`
-5. Stop the old container, run the new one with the new mount layout
-6. Re-sync cookies via the extension
-7. Push a no-op commit and watch the workflow deploy itself
+2. Set up Workload Identity Federation (no JSON keys — org policy blocks them)
+3. Add two GitHub repo **variables** for the WIF provider + SA email
+4. `terraform import` + `terraform apply` (idempotent — only adds firewall rules)
+5. Copy `scripts/run_container.sh` and `scripts/redeploy.sh` to the VM at `/opt/linkedin-bot/`
+6. Stop the old container, run the new one with the new mount layout
+7. Re-sync cookies via the extension
+8. Push a no-op commit and watch the workflow deploy itself
 
 ## 1. Service account for CI
 
@@ -34,28 +35,75 @@ gcloud iam service-accounts create "$SA_NAME" \
   --project="$PROJECT"
 
 # Roles:
-#  - artifactregistry.writer  : push images to Artifact Registry
-#  - compute.instanceAdmin.v1 : ssh / scp via gcloud
+#  - artifactregistry.writer    : push images to Artifact Registry
+#  - compute.instanceAdmin.v1   : ssh / scp via gcloud
 #  - iap.tunnelResourceAccessor : use IAP tunnel (no public SSH needed)
-#  - iam.serviceAccountUser   : impersonate the bot SA when running gcloud (needed for SSH)
-for role in \
-    roles/artifactregistry.writer \
-    roles/compute.instanceAdmin.v1 \
-    roles/iap.tunnelResourceAccessor \
-    roles/iam.serviceAccountUser; do
+#  - iam.serviceAccountUser     : impersonate the bot SA when running gcloud (needed for SSH)
+for role in roles/artifactregistry.writer roles/compute.instanceAdmin.v1 roles/iap.tunnelResourceAccessor roles/iam.serviceAccountUser; do
   gcloud projects add-iam-policy-binding "$PROJECT" \
     --member="serviceAccount:$SA_EMAIL" \
     --role="$role"
 done
-
-# Generate key
-gcloud iam service-accounts keys create gcp-sa-key.json \
-  --iam-account="$SA_EMAIL"
 ```
 
-Open `gcp-sa-key.json`, copy the entire contents, and paste it into a new
-GitHub repo secret named `GCP_SA_KEY` (Settings → Secrets and variables →
-Actions → New repository secret). **Then delete the local file.**
+> **Why no JSON key?** The Patterno organization enforces
+> `constraints/iam.disableServiceAccountKeyCreation` org-wide. SA key creation
+> is blocked at the org level and cannot be overridden from inside the
+> project. We use Workload Identity Federation instead — see step 2.
+
+## 2. Workload Identity Federation for GitHub Actions
+
+WIF lets the GitHub Actions runner trade its OIDC token for a short-lived
+(1 hour) GCP access token that impersonates `linkedin-bot-ci`. No long-lived
+secret is stored anywhere.
+
+```bash
+PROJECT=optimum-beach-489223-h7
+PROJECT_NUMBER=1033037451036
+SA_EMAIL="linkedin-bot-ci@${PROJECT}.iam.gserviceaccount.com"
+GH_REPO="yatharth230703/Linkedin-OUtreach-V2"
+POOL=github-pool
+PROVIDER=github-provider
+
+# Create the workload identity pool.
+gcloud iam workload-identity-pools create "$POOL" \
+  --project="$PROJECT" --location="global" \
+  --display-name="GitHub Actions Pool"
+
+# Create the GitHub OIDC provider in the pool.
+gcloud iam workload-identity-pools providers create-oidc "$PROVIDER" \
+  --project="$PROJECT" --location="global" \
+  --workload-identity-pool="$POOL" \
+  --display-name="GitHub Provider" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.repository_owner=assertion.repository_owner" \
+  --attribute-condition="assertion.repository_owner == 'yatharth230703'" \
+  --issuer-uri="https://token.actions.githubusercontent.com"
+
+# Allow only the specific GitHub repo to impersonate the CI service account.
+gcloud iam service-accounts add-iam-policy-binding "$SA_EMAIL" \
+  --project="$PROJECT" \
+  --role="roles/iam.workloadIdentityUser" \
+  --member="principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${GH_REPO}"
+
+# Print the values you'll need for GitHub.
+echo "GCP_WIF_PROVIDER: projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/providers/${PROVIDER}"
+echo "GCP_DEPLOY_SA:    $SA_EMAIL"
+```
+
+## 3. GitHub repo variables
+
+Go to GitHub → your repo → **Settings → Secrets and variables → Actions →
+Variables tab → New repository variable** and add:
+
+| Name | Value |
+|---|---|
+| `GCP_WIF_PROVIDER` | `projects/1033037451036/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
+| `GCP_DEPLOY_SA` | `linkedin-bot-ci@optimum-beach-489223-h7.iam.gserviceaccount.com` |
+
+These are **variables**, not secrets — they're not sensitive (only the GitHub
+repo whose OIDC subject matches `repository == yatharth230703/Linkedin-OUtreach-V2`
+can use them to authenticate, enforced by the WIF provider's attribute
+condition).
 
 ## 2. Apply Terraform
 
@@ -196,3 +244,5 @@ Deliberately ephemeral, recreated on every container start:
 - `/app/Linkedin_cloud_bot_attio/playwright_bots/user_data_*` — Chromium profile dirs (wiped on every login by `_wipe_profile()`)
 - `/tmp/*` — anything Playwright/Chromium scratch space
 - The container's writable layer outside `/app/state`
+
+

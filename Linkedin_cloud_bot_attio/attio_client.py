@@ -16,8 +16,26 @@ load_dotenv()
 # ---------------------------------------------------------------------------
 # Key selection helpers
 # ---------------------------------------------------------------------------
+#
+# Strict per-account routing — mirrors the proxy geo routing in
+# login_credentials.get_proxy_password_for_account():
+#
+#   account slug         | env var       | proxy geo
+#   ---------------------+---------------+----------------
+#   yatharth_bisht       | ATTIO_API     | Delhi, India
+#   maurice              | ATTIO_API_ALT | Hamburg, Germany
+#   leon                 | ATTIO_API_ALT | Hamburg, Germany
+#
+# There is intentionally NO fallback. If the env var for the account is
+# missing or empty, get_attio_client() raises — better a loud failure than
+# silently writing leads to the wrong workspace.
 
-YATHARTH_SLUGS = {"yatharth_bisht", "yatharth bisht", "yatharth"}
+def _slugify_account(account_name: str) -> str:
+    """Filesystem-safe slug for an account name. Mirrors state_paths.slugify."""
+    if not account_name:
+        return ""
+    return account_name.strip().lower().replace(" ", "_")
+
 
 # Module-level active account — set once per process via set_active_account()
 _active_account: str = ""
@@ -31,14 +49,22 @@ def set_active_account(account_name: str):
     _client_instances.clear()
 
 
-def _is_yatharth(account_name: str) -> bool:
-    return account_name.strip().lower() in YATHARTH_SLUGS
+def _attio_env_var_for_account(account_name: str) -> str:
+    """Return the env var NAME (not value) the given account uses for Attio."""
+    slug = _slugify_account(account_name)
+    if slug == "yatharth_bisht":
+        return "ATTIO_API"
+    if slug in ("maurice", "leon"):
+        return "ATTIO_API_ALT"
+    # Unknown account — fall back to default. Caller will see a clear error
+    # if the resulting env var is empty.
+    return "ATTIO_API"
 
 
 def _pick_attio_key(account_name: str) -> str:
-    if _is_yatharth(account_name):
-        return os.getenv("ATTIO_API", "")
-    return os.getenv("ATTIO_API_ALT", "") or os.getenv("ATTIO_API", "")
+    """Strictly resolve the Attio API key for an account. No silent fallback."""
+    env_var = _attio_env_var_for_account(account_name)
+    return os.getenv(env_var, "")
 
 
 # ---------------------------------------------------------------------------
@@ -52,11 +78,20 @@ def get_attio_client(account_name: str = ""):
     Falls back to _active_account if no account_name provided."""
     global _client_instances
     effective_account = account_name or _active_account
-    api_key = _pick_attio_key(effective_account)
+    env_var = _attio_env_var_for_account(effective_account)
+    api_key = os.getenv(env_var, "")
     if not api_key:
-        raise RuntimeError("No ATTIO_API key available")
+        raise RuntimeError(
+            f"Attio key routing failure: account='{effective_account}' "
+            f"expects env var '{env_var}' but it is empty or unset. "
+            f"Check Secret Manager and the container env."
+        )
     if api_key not in _client_instances:
-        _client_instances[api_key] = AttioClient(api_key=api_key)
+        client = AttioClient(api_key=api_key)
+        client._account_name = effective_account
+        client._key_source = env_var
+        _client_instances[api_key] = client
+        print(f"   Attio routing: account='{effective_account}' -> env={env_var} (key {api_key[:8]}...)")
     return _client_instances[api_key]
 
 
@@ -75,6 +110,52 @@ class AttioClient:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
+        # Populated by get_attio_client() so error messages can name the source.
+        self._account_name = ""
+        self._key_source = "ATTIO_API"
+
+    def _explain_missing_object(self, slug: str) -> str:
+        """Build a loud, actionable error message when a custom object 404s.
+
+        This usually means the API key in use points to an Attio workspace
+        that doesn't have the bot's custom schema set up. Print everything
+        the operator needs to figure out which key/workspace is wrong.
+        """
+        # Best-effort workspace discovery — list visible objects so the operator
+        # can see what the key DOES have access to.
+        accessible = []
+        workspace_id = "unknown"
+        try:
+            resp = self._get("/objects")
+            if resp.status_code == 200:
+                for obj in resp.json().get("data", []):
+                    accessible.append(obj.get("api_slug", "?"))
+                    if workspace_id == "unknown":
+                        workspace_id = obj.get("id", {}).get("workspace_id", "unknown")
+        except Exception:
+            pass
+
+        return (
+            "\n"
+            "   ============================================================\n"
+            f"   ATTIO 404: object '{slug}' not found.\n"
+            f"   Account:        {self._account_name or '(unset)'}\n"
+            f"   Key source:     env={self._key_source}\n"
+            f"   Workspace ID:   {workspace_id}\n"
+            f"   Accessible objects in this workspace: {accessible or '(none)'}\n"
+            "\n"
+            "   This means the API key in use does NOT belong to a workspace\n"
+            f"   that has '{slug}' set up. Most likely the secret was rotated\n"
+            "   to a key for a different/empty Attio workspace.\n"
+            "\n"
+            "   Fix: verify the secret in Google Secret Manager. The expected\n"
+            "   routing is:\n"
+            "       Yatharth Bisht  -> ATTIO_API\n"
+            "       Maurice / Leon  -> ATTIO_API_ALT\n"
+            "   Each key must point to a workspace containing the\n"
+            "   'bot_inputs' and 'leads_sources' custom objects.\n"
+            "   ============================================================\n"
+        )
 
     # ------------------------------------------------------------------
     # Low-level HTTP helpers with rate-limit handling
@@ -144,6 +225,8 @@ class AttioClient:
             f"/objects/{self.BOT_INPUTS_SLUG}/records/query",
             payload,
         )
+        if resp.status_code == 404:
+            print(self._explain_missing_object(self.BOT_INPUTS_SLUG))
         resp.raise_for_status()
 
         results = []
@@ -191,6 +274,8 @@ class AttioClient:
                 f"/objects/{self.LEADS_SOURCES_SLUG}/records/query",
                 payload,
             )
+            if resp.status_code == 404:
+                print(self._explain_missing_object(self.LEADS_SOURCES_SLUG))
             resp.raise_for_status()
             data = resp.json().get("data", [])
             if data:

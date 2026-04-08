@@ -21,17 +21,37 @@ def _account_slug(account_name):
     return account_name.strip().lower().replace(" ", "_") if account_name else ""
 
 
+# iproyal sticky-session ID — generated once per Python process, reused for
+# every proxy request in this run. Same process → same exit IP for the entire
+# bot run (~10 minute lifetime on iproyal's side, refreshed by usage).
+#
+# This is CRITICAL for LinkedIn: without a sticky session, iproyal rotates the
+# residential exit IP on every TCP connection, which breaks LinkedIn's session
+# continuity and causes ERR_TOO_MANY_REDIRECTS on profile views (LinkedIn binds
+# the session token to the originating IP for sensitive endpoints).
+import secrets as _secrets
+_PROXY_SESSION_ID = _secrets.token_hex(8)  # 16 chars, e.g. "a1b2c3d4e5f60718"
+
+
 def get_proxy_password_for_account(account_name=""):
-    """Build the full proxy password with geo-suffix based on account."""
+    """Build the full proxy password with geo-suffix and sticky session."""
     base = os.getenv("PROXY_PASSWORD_BASE", os.getenv("PROXY_PASSWORD", ""))
     slug = _account_slug(account_name)
+
     if slug == "yatharth_bisht":
-        return base + "_country-in_city-delhi"
+        geo = "_country-in_city-delhi"
     elif slug in ("maurice", "leon"):
-        return base + "_country-de_city-hamburg"
-    # Fallback: use raw PROXY_PASSWORD if set, otherwise base with no suffix
-    raw = os.getenv("PROXY_PASSWORD", "")
-    return raw if raw else base
+        geo = "_country-de_city-hamburg"
+    else:
+        # Unknown account: use raw PROXY_PASSWORD if explicitly set, else base.
+        raw = os.getenv("PROXY_PASSWORD", "")
+        return raw if raw else base
+
+    # Append sticky session suffix so every request in this process exits via
+    # the same residential IP. The session ID is stable per-process (regenerated
+    # on each new orchestrator run) which gives us session continuity within a
+    # run AND IP rotation between runs.
+    return f"{base}{geo}_session-{_PROXY_SESSION_ID}"
 
 
 class PlaywrightDriver:
@@ -528,22 +548,26 @@ def check_if_logged_in(page, account_name="", _redirect_recovery=False):
             print("   Browser/page is dead — cannot recover here, signalling caller.")
             raise BrowserDeadError(str(e))
 
-        # Redirect loop recovery: clear cookies and re-inject only essentials
+        # Redirect loop recovery: clear cookies and re-inject only persistent
+        # auth tokens (li_at, li_rm). Letting LinkedIn re-mint the session-bound
+        # cookies on the next navigation usually breaks the loop.
         if "err_too_many_redirects" in err_str and not _redirect_recovery:
-            print(f"   REDIRECT LOOP detected — attempting recovery with essential cookies only (account='{account_name}')...")
+            print(f"   REDIRECT LOOP detected — recovery: dropping all cookies and re-injecting persistent auth only (account='{account_name}')...")
             try:
-                # Access driver via page's context
                 context = page.context
                 context.clear_cookies()
 
-                # Re-inject only essential auth cookies from the correct per-account file
                 cookies = _get_extension_cookies(account_name)
                 if cookies:
-                    essential = [c for c in cookies if c["name"] in _AUTH_COOKIES or c["name"] in _ROUTING_COOKIES]
-                    pw_cookies = [_convert_cookie_for_playwright(c) for c in essential]
+                    persistent = [c for c in cookies if c["name"] in _PERSISTENT_AUTH_COOKIES]
+                    pw_cookies = [_convert_cookie_for_playwright(c) for c in persistent]
                     if pw_cookies:
                         context.add_cookies(pw_cookies)
-                        print(f"   Re-injected {len(pw_cookies)} essential cookies only")
+                        print(
+                            f"   Re-injected {len(pw_cookies)} persistent cookies "
+                            f"({sorted(c['name'] for c in persistent)}). "
+                            "LinkedIn will mint fresh session cookies on retry."
+                        )
 
                     human_pause(2, 3)
                     return check_if_logged_in(page, account_name=account_name, _redirect_recovery=True)
@@ -865,11 +889,29 @@ def _wipe_profile(account_name=""):
     print("   Fresh profile directory ready.")
 
 
-# Auth-critical cookies that need domain broadened to .linkedin.com
+# Auth-critical cookies that need domain broadened to .linkedin.com.
+# These are recognized by LinkedIn's auth/edge layer; we normalize their
+# domain to broaden scope, but only a SUBSET (see _PERSISTENT_AUTH_COOKIES)
+# is actually injected into the bot's browser.
 _AUTH_COOKIES = {"li_at", "li_rm", "JSESSIONID", "liap", "li_mc"}
+
 # Routing cookies that LinkedIn's edge proxy reads — must also be on .linkedin.com
 # scope, otherwise login can fall into a redirect loop.
 _ROUTING_COOKIES = {"lidc", "bcookie", "bscookie"}
+
+# THE ONLY cookies we copy from the user's personal browser into the bot.
+# These are device-agnostic, persistent auth tokens — sharing them across
+# devices is multi-device-safe (just like phone + laptop). Everything else
+# (JSESSIONID, liap, lidc, bcookie, bscookie, li_mc) is session-bound and
+# would cause LinkedIn to detect a session conflict and log out one side.
+#
+# Sequence at bot startup:
+#   1. Inject only li_at + li_rm
+#   2. Navigate to linkedin.com (via check_if_logged_in)
+#   3. LinkedIn server: "valid li_at, no JSESSIONID — must be a new device"
+#      → issues fresh JSESSIONID, liap, lidc, bcookie, bscookie via Set-Cookie
+#   4. Bot now has its own independent session, user's Mac browser untouched.
+_PERSISTENT_AUTH_COOKIES = {"li_at", "li_rm"}
 
 
 def _convert_cookie_for_playwright(cookie):
@@ -903,45 +945,69 @@ def _convert_cookie_for_playwright(cookie):
     return c
 
 
-def inject_extension_cookies(driver):
+def inject_extension_cookies(driver, account_name=""):
+    """Inject ONLY the persistent auth cookies (li_at, li_rm) into the browser.
+
+    Why only these two: see _PERSISTENT_AUTH_COOKIES docstring above. tl;dr —
+    sharing JSESSIONID/liap/etc with the user's personal browser triggers
+    LinkedIn session-conflict detection and logs them out. li_at + li_rm are
+    device-agnostic; LinkedIn will mint a fresh per-device session for the bot
+    on its first navigation, exactly like a new phone login.
+
+    Returns True if at least li_at was successfully injected.
     """
-    If a cookies file exists in the state dir, inject those cookies into the running browser.
-    Returns True if cookies were injected.
-    """
-    cookies = _get_extension_cookies()
+    cookies = _get_extension_cookies(account_name)
     if not cookies:
+        print("   No extension cookies file found — nothing to inject.")
         return False
 
     try:
         context = driver.context
 
-        print(f"   Injecting {len(cookies)} extension cookies into browser...")
+        # Filter to ONLY the device-agnostic persistent auth cookies.
+        persistent = [c for c in cookies if c["name"] in _PERSISTENT_AUTH_COOKIES]
+        skipped_session_bound = [c["name"] for c in cookies if c["name"] not in _PERSISTENT_AUTH_COOKIES]
 
-        # Clear all existing cookies first
+        if not persistent:
+            print(
+                f"   ERROR: None of the {len(cookies)} synced cookies are persistent auth tokens "
+                f"(expected one of {sorted(_PERSISTENT_AUTH_COOKIES)}). "
+                "Re-sync via the extension while logged into LinkedIn."
+            )
+            return False
+
+        print(
+            f"   Injecting {len(persistent)} persistent auth cookies "
+            f"({sorted(c['name'] for c in persistent)}) — multi-device-safe mode."
+        )
+        if skipped_session_bound:
+            print(
+                f"   Intentionally NOT injecting {len(skipped_session_bound)} session-bound cookies "
+                "(JSESSIONID/liap/lidc/bcookie/etc). LinkedIn will mint fresh ones on first navigation, "
+                "preserving the user's other browser sessions."
+            )
+
+        # Clear any existing cookies first so we start from a clean slate.
         context.clear_cookies()
 
-        # Convert and inject
         playwright_cookies = []
-        injected = 0
-        for cookie in cookies:
+        for cookie in persistent:
             try:
                 playwright_cookies.append(_convert_cookie_for_playwright(cookie))
-                injected += 1
             except Exception as e:
                 print(f"     Skipped cookie '{cookie.get('name', '?')}': {e}")
 
         if playwright_cookies:
             context.add_cookies(playwright_cookies)
 
-        print(f"   Injected {injected}/{len(cookies)} cookies.")
-
-        # Readback verification
+        # Readback verification — confirm li_at actually landed.
         stored = context.cookies()
-        auth_stored = [c["name"] for c in stored if c["name"] in _AUTH_COOKIES]
-        print(f"   Readback: {len(stored)} cookies in context, auth cookies present: {auth_stored}")
+        names = sorted(c["name"] for c in stored)
+        print(f"   Readback: {len(stored)} cookies in context: {names}")
 
-        if "li_at" not in auth_stored:
-            print("   WARNING: li_at not found in readback! Login will likely fail.")
+        if "li_at" not in names:
+            print("   WARNING: li_at not found in readback after injection! Login will fail.")
+            return False
 
         return True
 
@@ -950,18 +1016,22 @@ def inject_extension_cookies(driver):
         return False
 
 
-def _inject_essential_cookies_only(driver):
-    """Fallback: clear everything and inject only essential auth cookies."""
-    cookies = _get_extension_cookies()
+def _inject_essential_cookies_only(driver, account_name=""):
+    """Fallback: clear everything and inject ONLY persistent auth cookies.
+
+    Identical filter to inject_extension_cookies() — kept as a separate
+    function only for the explicit semantics of "this is the recovery path".
+    """
+    cookies = _get_extension_cookies(account_name)
     if not cookies:
         return False
     try:
         context = driver.context
         context.clear_cookies()
 
-        essential = [c for c in cookies if c["name"] in _AUTH_COOKIES]
+        persistent = [c for c in cookies if c["name"] in _PERSISTENT_AUTH_COOKIES]
         playwright_cookies = []
-        for cookie in essential:
+        for cookie in persistent:
             try:
                 playwright_cookies.append(_convert_cookie_for_playwright(cookie))
             except Exception:
@@ -969,7 +1039,10 @@ def _inject_essential_cookies_only(driver):
 
         if playwright_cookies:
             context.add_cookies(playwright_cookies)
-            print(f"   Essential-only injection: {len(playwright_cookies)} auth cookies injected")
+            print(
+                f"   Essential-only injection: {len(playwright_cookies)} persistent auth cookies "
+                f"({sorted(c['name'] for c in persistent)})"
+            )
         return bool(playwright_cookies)
     except Exception as e:
         print(f"   Essential cookie injection failed: {e}")
@@ -1044,11 +1117,15 @@ def linkedin_login(suspicious_otp=None, account_name=""):
     page = driver.page
 
     try:
-        # If extension cookies exist, inject them into context (no navigation needed)
+        # If extension cookies exist, inject ONLY the persistent auth tokens
+        # (li_at, li_rm). LinkedIn will mint a fresh session for this device on
+        # the upcoming navigation, leaving the user's other browser sessions
+        # untouched. See _PERSISTENT_AUTH_COOKIES for the rationale.
         if ext_cookies:
-            inject_extension_cookies(driver)
+            inject_extension_cookies(driver, account_name=account_name)
 
-        # Check if logged in (this navigates to linkedin.com)
+        # Check if logged in (this navigates to linkedin.com — LinkedIn will
+        # validate li_at and Set-Cookie back the rest of the session state).
         if check_if_logged_in(page, account_name=account_name):
             # Now that we're on LinkedIn, inject browser storage
             if ext_cookies:

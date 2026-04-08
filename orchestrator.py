@@ -81,6 +81,13 @@ class LinkedInBotOrchestrator:
             self.MAX_INITIAL_DELAY_MINUTES = 30  # 0-30min random delay in cloud
             self.logger.info("☁️ CLOUD MODE ENABLED - Skipping user presence checks, 0-30min initial delay")
 
+        # Per-account override: yatharth_bisht (campaign manager) skips the
+        # randomized initial delay entirely so manual Run-Bot tests are instant.
+        # Maurice/Leon still get the randomized delay to look human.
+        if slugify(account_name) == "yatharth_bisht":
+            self.MAX_INITIAL_DELAY_MINUTES = 0
+            self.logger.info("⚡ Yatharth Bisht override — initial delay disabled (instant start)")
+
         # Set active account for notification routing
         set_notifier_account(account_name)
 

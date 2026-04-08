@@ -17,10 +17,15 @@ mkdir -p \
     "$STATE_DIR/templates"
 
 # Write environment variables to file so cron jobs can source them.
+#
+# IMPORTANT: every alternative in this regex needs to be the FULL variable name
+# (or end in `_*` via an explicit char class). Patterns like `PROXY_|` will NOT
+# match `PROXY_HOST=` — the `=` in the regex anchors immediately after the
+# alternative, so `PROXY_|` only matches a var literally named `PROXY_`.
 ENV_FILE="/app/.env.cron"
 echo "# Auto-generated env for cron jobs" > "$ENV_FILE"
 echo "export STATE_DIR=$STATE_DIR" >> "$ENV_FILE"
-env | grep -E '^(ATTIO_API|ATTIO_API_ALT|GEMINI_API|APIFY_API|PROXY_|USE_PROXY|CLOUD_MODE|DISPLAY|SLACK_WEBHOOK_URL|SLACK_WEBHOOK_URL_ALT)=' | while read line; do
+env | grep -E '^(ATTIO_API|ATTIO_API_ALT|GEMINI_API_KEY|APIFY_API|PROXY_HOST|PROXY_PORT|PROXY_USERNAME|PROXY_PASSWORD_BASE|PROXY_PASSWORD|USE_PROXY|CLOUD_MODE|DISPLAY|SLACK_WEBHOOK_URL|SLACK_WEBHOOK_URL_ALT)=' | while read -r line; do
     echo "export $line" >> "$ENV_FILE"
 done
 

@@ -1518,16 +1518,13 @@ def _password_login(account_name):
 
         print("   Clicking sign in...")
         human_move_click(page, signin_button)
-        human_pause(6, 10)
+        human_pause(10, 15)  # Wait longer — LinkedIn needs time to redirect to challenge page
         log_action(page, "password_login_submitted")
 
-        # Check if we landed on the feed directly (no 2FA needed)
-        if check_if_logged_in(page, account_name=account_name):
-            print("   Password login successful (no 2FA required)!")
-            log_action(page, "password_login_success_direct")
-            return driver
-
-        # Check for app-based approval challenge (push notification)
+        # Check for app-based approval challenge FIRST — before navigating
+        # anywhere else. check_if_logged_in would navigate to linkedin.com/
+        # which destroys the challenge page. The challenge page is whatever
+        # LinkedIn redirected to after clicking "Sign in".
         if check_linkedin_app_challenge(page):
             print("\n   ============================================")
             print("   LinkedIn sent a push notification to your phone.")
@@ -1563,6 +1560,16 @@ def _password_login(account_name):
                 log_action(page, "password_login_success_app_approved")
                 return driver
 
+        # No app challenge detected — maybe logged in directly, or maybe
+        # LinkedIn showed something else. Check the current URL first.
+        current_url = page.url.lower()
+        print(f"   No app challenge detected. Current URL: {current_url}")
+
+        if "feed" in current_url or "mynetwork" in current_url:
+            print("   Already on feed/mynetwork — login succeeded without 2FA!")
+            log_action(page, "password_login_success_direct")
+            return driver
+
         # Check for suspicious login challenge
         if check_suspicious_login_challenge(page):
             print("   Suspicious login challenge detected after password login.")
@@ -1570,6 +1577,12 @@ def _password_login(account_name):
             log_action(page, "password_login_suspicious_challenge")
             driver.quit()
             return None
+
+        # Last resort: navigate to linkedin.com and check
+        if check_if_logged_in(page, account_name=account_name):
+            print("   Password login successful!")
+            log_action(page, "password_login_success_delayed")
+            return driver
 
         print("   Password login failed — unknown state after credential submission.")
         log_action(page, "password_login_failed_unknown")

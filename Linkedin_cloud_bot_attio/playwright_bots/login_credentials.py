@@ -21,16 +21,23 @@ def _account_slug(account_name):
     return account_name.strip().lower().replace(" ", "_") if account_name else ""
 
 
-# iproyal sticky-session ID — generated once per Python process, reused for
-# every proxy request in this run. Same process → same exit IP for the entire
-# bot run (~10 minute lifetime on iproyal's side, refreshed by usage).
+# iproyal sticky-session ID — pins all proxy requests in one run to the same
+# residential exit IP. Without this, iproyal rotates the IP per-connection,
+# breaking LinkedIn's session continuity.
 #
-# This is CRITICAL for LinkedIn: without a sticky session, iproyal rotates the
-# residential exit IP on every TCP connection, which breaks LinkedIn's session
-# continuity and causes ERR_TOO_MANY_REDIRECTS on profile views (LinkedIn binds
-# the session token to the originating IP for sensitive endpoints).
+# Regenerated via _regenerate_proxy_session() when a login attempt fails
+# (likely because the current IP is flagged by LinkedIn). The next attempt
+# then gets a completely different exit IP.
 import secrets as _secrets
-_PROXY_SESSION_ID = _secrets.token_hex(8)  # 16 chars, e.g. "a1b2c3d4e5f60718"
+_PROXY_SESSION_ID = _secrets.token_hex(8)
+
+
+def _regenerate_proxy_session():
+    """Get a new sticky proxy session ID → next browser launch uses a different exit IP."""
+    global _PROXY_SESSION_ID
+    old = _PROXY_SESSION_ID
+    _PROXY_SESSION_ID = _secrets.token_hex(8)
+    print(f"   Proxy session rotated: {old[:6]}... → {_PROXY_SESSION_ID[:6]}... (new exit IP on next browser launch)")
 
 
 def get_proxy_password_for_account(account_name=""):
@@ -1423,20 +1430,22 @@ def _kill_zombie_chrome_processes():
         print(f"   Cleaned up {killed} zombie chrome/playwright processes")
 
 
-def ensure_linkedin_login(suspicious_otp=None, account_name="", max_attempts=2):
+def ensure_linkedin_login(suspicious_otp=None, account_name="", max_attempts=3):
     """
     Convenience function for other bots to ensure LinkedIn login.
     Returns a PlaywrightDriver instance if login is successful, None otherwise.
 
-    If the underlying browser dies (EPIPE / target closed / etc.) during login,
-    this will clean up zombie processes and retry with a freshly launched browser
-    up to `max_attempts` times. Other failure modes (bad credentials, captcha,
-    etc.) are NOT retried — they'll fail fast on the first attempt.
+    Retries up to `max_attempts` times. Between each retry:
+      - Kills any zombie Chrome / Playwright processes
+      - Rotates the iproyal proxy session ID so the next attempt gets a
+        DIFFERENT residential exit IP (some IPs are flagged by LinkedIn and
+        cause ERR_TOO_MANY_REDIRECTS — rotating usually lands a clean one
+        within 2–3 tries)
 
     Args:
         suspicious_otp: Optional OTP for suspicious login challenge (from argparse)
         account_name: Account name for multi-account support
-        max_attempts: Number of times to attempt login on browser-dead errors
+        max_attempts: Number of login attempts before giving up
     """
     last_err = None
     for attempt in range(1, max_attempts + 1):
@@ -1444,32 +1453,28 @@ def ensure_linkedin_login(suspicious_otp=None, account_name="", max_attempts=2):
             driver = linkedin_login(suspicious_otp=suspicious_otp, account_name=account_name)
             if driver:
                 return driver
-            # linkedin_login returned None — likely a non-recoverable login failure
-            # (bad cookies, captcha, etc.). Don't retry.
-            return None
+
+            # linkedin_login returned None — login failed (redirect loop,
+            # bad cookies, captcha, etc.). Retry with a different proxy IP
+            # in case the current one is flagged.
+            last_err = "linkedin_login returned None"
+            print(f"   Login failed on attempt {attempt}/{max_attempts} (returned None)")
+
         except BrowserDeadError as e:
             last_err = e
             print(f"   Browser died during login attempt {attempt}/{max_attempts}: {e}")
-            if attempt < max_attempts:
-                _kill_zombie_chrome_processes()
-                wait = 5 * attempt
-                print(f"   Waiting {wait}s before relaunching with a fresh browser...")
-                time.sleep(wait)
-                continue
+
         except Exception as e:
-            err = str(e).lower()
-            if _is_browser_dead_error(err):
-                last_err = e
-                print(f"   Browser-dead error on attempt {attempt}/{max_attempts}: {e}")
-                if attempt < max_attempts:
-                    _kill_zombie_chrome_processes()
-                    wait = 5 * attempt
-                    print(f"   Waiting {wait}s before relaunching with a fresh browser...")
-                    time.sleep(wait)
-                    continue
-            # Anything else: fail fast
-            print(f"   Login failed with non-recoverable error: {e}")
-            return None
+            last_err = e
+            print(f"   Login error on attempt {attempt}/{max_attempts}: {e}")
+
+        # ── Prepare for next attempt ──
+        if attempt < max_attempts:
+            _kill_zombie_chrome_processes()
+            _regenerate_proxy_session()
+            wait = 5 * attempt
+            print(f"   Waiting {wait}s before retrying with new proxy IP...")
+            time.sleep(wait)
 
     print(f"   Login failed after {max_attempts} attempts. Last error: {last_err}")
     return None

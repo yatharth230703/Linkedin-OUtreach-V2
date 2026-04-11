@@ -25,8 +25,13 @@ mkdir -p \
 ENV_FILE="/app/.env.cron"
 echo "# Auto-generated env for cron jobs" > "$ENV_FILE"
 echo "export STATE_DIR=$STATE_DIR" >> "$ENV_FILE"
+# Use printf %q to shell-escape values. This is critical because passwords
+# and other secrets can contain ", ', (, ), spaces, etc. — writing them
+# unquoted to .env.cron would break bash parsing of all subsequent lines.
 env | grep -E '^(ATTIO_API|ATTIO_API_ALT|GEMINI_API_KEY|APIFY_API|PROXY_HOST|PROXY_PORT|PROXY_USERNAME|PROXY_PASSWORD_BASE|PROXY_PASSWORD|USE_PROXY|CLOUD_MODE|DISPLAY|SLACK_WEBHOOK_URL|SLACK_WEBHOOK_URL_ALT|YATH_LINKEDIN_EMAIL|YATH_LINKEDIN_PASSWORD|MAURICE_LINKEDIN_EMAIL|MAURICE_LINKEDIN_PASSWORD|LEON_LINKEDIN_EMAIL|LEON_LINKEDIN_PASSWORD)=' | while read -r line; do
-    echo "export $line" >> "$ENV_FILE"
+    key="${line%%=*}"
+    val="${line#*=}"
+    printf 'export %s=%q\n' "$key" "$val" >> "$ENV_FILE"
 done
 
 # Start virtual display for headful Chromium.

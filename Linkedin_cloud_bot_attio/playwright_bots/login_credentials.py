@@ -1446,6 +1446,22 @@ def _password_login(account_name):
     page = driver.page
 
     try:
+        # CRITICAL: clear ALL cookies so we arrive at /login as a completely
+        # anonymous visitor. Cookie injection is what causes the redirect loop
+        # on dirty proxy IPs — without cookies, LinkedIn serves /login normally.
+        context = page.context
+        context.clear_cookies()
+        print("   Cleared all cookies for clean password login.")
+
+        # Reset the page from any dirty state left by the proxy validation
+        # that runs inside setup_playwright_browser (httpbin/robots.txt checks
+        # can leave pending navigations that collide with our /login goto).
+        try:
+            page.goto("about:blank", wait_until="load", timeout=5000)
+        except Exception:
+            pass
+        time.sleep(1)
+
         # Navigate to login page
         print("   Going to LinkedIn login page...")
         _safe_goto(page, "https://www.linkedin.com/login", timeout=60000)

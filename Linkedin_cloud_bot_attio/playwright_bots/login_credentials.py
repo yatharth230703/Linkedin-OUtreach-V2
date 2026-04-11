@@ -566,14 +566,13 @@ def check_if_logged_in(page, account_name="", _redirect_recovery=False):
 
                 cookies = _get_extension_cookies(account_name)
                 if cookies:
-                    persistent = [c for c in cookies if c["name"] in _PERSISTENT_AUTH_COOKIES]
-                    pw_cookies = [_convert_cookie_for_playwright(c) for c in persistent]
+                    safe = [c for c in cookies if c["name"] not in _COOKIES_TO_SKIP]
+                    pw_cookies = [_convert_cookie_for_playwright(c) for c in safe]
                     if pw_cookies:
                         context.add_cookies(pw_cookies)
                         print(
-                            f"   Re-injected {len(pw_cookies)} persistent cookies "
-                            f"({sorted(c['name'] for c in persistent)}). "
-                            "LinkedIn will mint fresh session cookies on retry."
+                            f"   Re-injected {len(pw_cookies)} cookies (all except JSESSIONID). "
+                            "LinkedIn will mint a fresh JSESSIONID on retry."
                         )
 
                     human_pause(2, 3)
@@ -906,19 +905,18 @@ _AUTH_COOKIES = {"li_at", "li_rm", "JSESSIONID", "liap", "li_mc"}
 # scope, otherwise login can fall into a redirect loop.
 _ROUTING_COOKIES = {"lidc", "bcookie", "bscookie"}
 
-# THE ONLY cookies we copy from the user's personal browser into the bot.
-# These are device-agnostic, persistent auth tokens — sharing them across
-# devices is multi-device-safe (just like phone + laptop). Everything else
-# (JSESSIONID, liap, lidc, bcookie, bscookie, li_mc) is session-bound and
-# would cause LinkedIn to detect a session conflict and log out one side.
+# Cookies to SKIP when injecting from the user's browser into the bot.
+# JSESSIONID is the only strictly single-client session token — sharing it
+# across the user's browser and the bot causes LinkedIn to detect a session
+# conflict and log out one side. All other cookies (li_at, li_rm, liap, lidc,
+# bcookie, bscookie, li_mc, etc.) are either device-agnostic or harmless to
+# share — and LinkedIn's edge routing actually NEEDS lidc/bcookie to avoid
+# falling into a generic redirect path that causes ERR_TOO_MANY_REDIRECTS.
 #
-# Sequence at bot startup:
-#   1. Inject only li_at + li_rm
-#   2. Navigate to linkedin.com (via check_if_logged_in)
-#   3. LinkedIn server: "valid li_at, no JSESSIONID — must be a new device"
-#      → issues fresh JSESSIONID, liap, lidc, bcookie, bscookie via Set-Cookie
-#   4. Bot now has its own independent session, user's Mac browser untouched.
-_PERSISTENT_AUTH_COOKIES = {"li_at", "li_rm"}
+# Result: the bot gets the full cookie set minus JSESSIONID. LinkedIn sees
+# a valid session with proper routing hints and mints a fresh JSESSIONID for
+# the bot. The user's browser keeps its own JSESSIONID untouched.
+_COOKIES_TO_SKIP = {"JSESSIONID"}
 
 
 def _convert_cookie_for_playwright(cookie):
@@ -953,13 +951,13 @@ def _convert_cookie_for_playwright(cookie):
 
 
 def inject_extension_cookies(driver, account_name=""):
-    """Inject ONLY the persistent auth cookies (li_at, li_rm) into the browser.
+    """Inject all cookies EXCEPT JSESSIONID from the user's browser into the bot.
 
-    Why only these two: see _PERSISTENT_AUTH_COOKIES docstring above. tl;dr —
-    sharing JSESSIONID/liap/etc with the user's personal browser triggers
-    LinkedIn session-conflict detection and logs them out. li_at + li_rm are
-    device-agnostic; LinkedIn will mint a fresh per-device session for the bot
-    on its first navigation, exactly like a new phone login.
+    JSESSIONID is the only strictly single-client token — sharing it causes
+    LinkedIn to detect a session conflict and log the user out. Everything
+    else (li_at, li_rm, liap, lidc, bcookie, bscookie, li_mc, etc.) is safe
+    to share and actually NEEDED by LinkedIn's edge for proper routing.
+    LinkedIn will mint a fresh JSESSIONID for the bot on its first navigation.
 
     Returns True if at least li_at was successfully injected.
     """
@@ -971,34 +969,27 @@ def inject_extension_cookies(driver, account_name=""):
     try:
         context = driver.context
 
-        # Filter to ONLY the device-agnostic persistent auth cookies.
-        persistent = [c for c in cookies if c["name"] in _PERSISTENT_AUTH_COOKIES]
-        skipped_session_bound = [c["name"] for c in cookies if c["name"] not in _PERSISTENT_AUTH_COOKIES]
+        to_inject = [c for c in cookies if c["name"] not in _COOKIES_TO_SKIP]
+        skipped = [c["name"] for c in cookies if c["name"] in _COOKIES_TO_SKIP]
 
-        if not persistent:
+        if not any(c["name"] == "li_at" for c in to_inject):
             print(
-                f"   ERROR: None of the {len(cookies)} synced cookies are persistent auth tokens "
-                f"(expected one of {sorted(_PERSISTENT_AUTH_COOKIES)}). "
+                f"   ERROR: li_at not found in {len(cookies)} synced cookies. "
                 "Re-sync via the extension while logged into LinkedIn."
             )
             return False
 
-        print(
-            f"   Injecting {len(persistent)} persistent auth cookies "
-            f"({sorted(c['name'] for c in persistent)}) — multi-device-safe mode."
-        )
-        if skipped_session_bound:
+        print(f"   Injecting {len(to_inject)}/{len(cookies)} extension cookies into browser...")
+        if skipped:
             print(
-                f"   Intentionally NOT injecting {len(skipped_session_bound)} session-bound cookies "
-                "(JSESSIONID/liap/lidc/bcookie/etc). LinkedIn will mint fresh ones on first navigation, "
-                "preserving the user's other browser sessions."
+                f"   Skipping {skipped} to avoid session conflicts "
+                "(LinkedIn will mint a fresh JSESSIONID on first navigation)."
             )
 
-        # Clear any existing cookies first so we start from a clean slate.
         context.clear_cookies()
 
         playwright_cookies = []
-        for cookie in persistent:
+        for cookie in to_inject:
             try:
                 playwright_cookies.append(_convert_cookie_for_playwright(cookie))
             except Exception as e:
@@ -1007,12 +998,11 @@ def inject_extension_cookies(driver, account_name=""):
         if playwright_cookies:
             context.add_cookies(playwright_cookies)
 
-        # Readback verification — confirm li_at actually landed.
         stored = context.cookies()
-        names = sorted(c["name"] for c in stored)
-        print(f"   Readback: {len(stored)} cookies in context: {names}")
+        auth_stored = [c["name"] for c in stored if c["name"] in _AUTH_COOKIES]
+        print(f"   Readback: {len(stored)} cookies in context, auth cookies present: {auth_stored}")
 
-        if "li_at" not in names:
+        if "li_at" not in auth_stored:
             print("   WARNING: li_at not found in readback after injection! Login will fail.")
             return False
 
@@ -1024,11 +1014,7 @@ def inject_extension_cookies(driver, account_name=""):
 
 
 def _inject_essential_cookies_only(driver, account_name=""):
-    """Fallback: clear everything and inject ONLY persistent auth cookies.
-
-    Identical filter to inject_extension_cookies() — kept as a separate
-    function only for the explicit semantics of "this is the recovery path".
-    """
+    """Fallback: clear everything and re-inject all cookies except JSESSIONID."""
     cookies = _get_extension_cookies(account_name)
     if not cookies:
         return False
@@ -1036,9 +1022,9 @@ def _inject_essential_cookies_only(driver, account_name=""):
         context = driver.context
         context.clear_cookies()
 
-        persistent = [c for c in cookies if c["name"] in _PERSISTENT_AUTH_COOKIES]
+        safe = [c for c in cookies if c["name"] not in _COOKIES_TO_SKIP]
         playwright_cookies = []
-        for cookie in persistent:
+        for cookie in safe:
             try:
                 playwright_cookies.append(_convert_cookie_for_playwright(cookie))
             except Exception:
@@ -1046,10 +1032,7 @@ def _inject_essential_cookies_only(driver, account_name=""):
 
         if playwright_cookies:
             context.add_cookies(playwright_cookies)
-            print(
-                f"   Essential-only injection: {len(playwright_cookies)} persistent auth cookies "
-                f"({sorted(c['name'] for c in persistent)})"
-            )
+            print(f"   Essential injection: {len(playwright_cookies)} cookies (all except JSESSIONID)")
         return bool(playwright_cookies)
     except Exception as e:
         print(f"   Essential cookie injection failed: {e}")
@@ -1409,6 +1392,190 @@ def linkedin_login(suspicious_otp=None, account_name=""):
         return None
 
 
+def _get_linkedin_credentials(account_name):
+    """Look up LinkedIn email + password from env vars for a given account.
+
+    Naming convention in Secret Manager / env:
+        yatharth_bisht  →  YATH_LINKEDIN_EMAIL, YATH_LINKEDIN_PASSWORD
+        maurice         →  MAURICE_LINKEDIN_EMAIL, MAURICE_LINKEDIN_PASSWORD
+        leon            →  LEON_LINKEDIN_EMAIL, LEON_LINKEDIN_PASSWORD
+
+    Returns (email, password) or (None, None) if not configured.
+    """
+    slug = _account_slug(account_name)
+    prefix_map = {
+        "yatharth_bisht": "YATH",
+        "maurice": "MAURICE",
+        "leon": "LEON",
+    }
+    prefix = prefix_map.get(slug)
+    if not prefix:
+        return None, None
+    email = os.getenv(f"{prefix}_LINKEDIN_EMAIL", "").strip()
+    password = os.getenv(f"{prefix}_LINKEDIN_PASSWORD", "").strip()
+    if email and password:
+        return email, password
+    return None, None
+
+
+def _password_login(account_name):
+    """Fallback login using email + password + app-approve notification.
+
+    Used when cookie-based login fails after all proxy IP rotations are
+    exhausted. Reads credentials from env vars (sourced from Secret Manager).
+    After submitting credentials, waits up to 5 minutes for the user to
+    approve the push notification on their LinkedIn mobile app.
+
+    Returns a PlaywrightDriver on success, None on failure.
+    """
+    email, password = _get_linkedin_credentials(account_name)
+    if not email or not password:
+        print(f"   No LinkedIn credentials configured for '{account_name}' — cannot fall back to password login.")
+        print(f"   Expected env vars: <PREFIX>_LINKEDIN_EMAIL, <PREFIX>_LINKEDIN_PASSWORD")
+        return None
+
+    print(f"\n   ========== PASSWORD LOGIN FALLBACK ==========")
+    print(f"   Cookie login exhausted. Attempting password login for '{account_name}'...")
+    print(f"   Email: {email[:5]}...{email[-10:]}")
+
+    _wipe_profile(account_name)
+    driver = setup_playwright_browser(account_name)
+    if not driver:
+        return None
+
+    page = driver.page
+
+    try:
+        # Navigate to login page
+        print("   Going to LinkedIn login page...")
+        _safe_goto(page, "https://www.linkedin.com/login", timeout=60000)
+        human_pause(4, 7)
+        log_action(page, "password_login_page_loaded")
+
+        # Fill email
+        print("   Finding email field...")
+        email_element = find_element_with_fallback(
+            page,
+            "/html/body/div[1]/main/div[2]/div[1]/form/div[1]/input",
+            "#username",
+            "email input field"
+        )
+        if not email_element:
+            print("   Could not find email field on login page")
+            log_action(page, "password_login_email_field_not_found")
+            driver.quit()
+            return None
+
+        print("   Entering email...")
+        human_type(page, email_element, email)
+
+        # Fill password
+        print("   Finding password field...")
+        password_element = find_element_with_fallback(
+            page,
+            "/html/body/div[1]/main/div[2]/div[1]/form/div[2]/input",
+            "#password",
+            "password input field"
+        )
+        if not password_element:
+            print("   Could not find password field on login page")
+            log_action(page, "password_login_password_field_not_found")
+            driver.quit()
+            return None
+
+        print("   Entering password...")
+        human_type(page, password_element, password)
+
+        # Click sign in
+        print("   Finding sign in button...")
+        signin_button = find_element_with_fallback(
+            page,
+            "/html/body/div[1]/main/div[2]/div[1]/form/div[4]/button",
+            "#organic-div > form > div.login__form_action_container > button",
+            "sign in button"
+        )
+        if not signin_button:
+            print("   Could not find sign in button")
+            log_action(page, "password_login_signin_not_found")
+            driver.quit()
+            return None
+
+        print("   Clicking sign in...")
+        human_move_click(page, signin_button)
+        human_pause(6, 10)
+        log_action(page, "password_login_submitted")
+
+        # Check if we landed on the feed directly (no 2FA needed)
+        if check_if_logged_in(page, account_name=account_name):
+            print("   Password login successful (no 2FA required)!")
+            log_action(page, "password_login_success_direct")
+            return driver
+
+        # Check for app-based approval challenge (push notification)
+        if check_linkedin_app_challenge(page):
+            print("\n   ============================================")
+            print("   LinkedIn sent a push notification to your phone.")
+            print("   Open your LinkedIn app and tap APPROVE.")
+            print("   Waiting up to 5 minutes...")
+            print("   ============================================")
+            log_action(page, "password_login_app_challenge")
+
+            max_wait = 300  # 5 minutes
+            interval = 5
+            for elapsed in range(0, max_wait, interval):
+                human_pause(interval - 0.5, interval + 0.5)
+                print(f"   Waiting for approval... ({elapsed + interval}s / {max_wait}s)")
+
+                if not check_linkedin_app_challenge(page):
+                    print("   App challenge cleared!")
+                    break
+
+                current_url = page.url.lower()
+                if "feed" in current_url:
+                    print("   Redirected to feed — login approved!")
+                    break
+            else:
+                print("   Timed out waiting for app approval (5 minutes).")
+                log_action(page, "password_login_app_challenge_timeout")
+                driver.quit()
+                return None
+
+            # Final verification
+            human_pause(3, 5)
+            if check_if_logged_in(page, account_name=account_name):
+                print("   Password login successful after app approval!")
+                log_action(page, "password_login_success_app_approved")
+                return driver
+
+        # Check for suspicious login challenge
+        if check_suspicious_login_challenge(page):
+            print("   Suspicious login challenge detected after password login.")
+            print("   This requires email/SMS verification — cannot proceed automatically.")
+            log_action(page, "password_login_suspicious_challenge")
+            driver.quit()
+            return None
+
+        print("   Password login failed — unknown state after credential submission.")
+        log_action(page, "password_login_failed_unknown")
+        driver.quit()
+        return None
+
+    except BrowserDeadError:
+        try:
+            driver.quit()
+        except Exception:
+            pass
+        raise
+    except Exception as e:
+        print(f"   Password login error: {e}")
+        log_action(page, "password_login_error")
+        try:
+            driver.quit()
+        except Exception:
+            pass
+        return None
+
+
 def _kill_zombie_chrome_processes():
     """Best-effort cleanup of orphaned Chromium / Playwright processes after a crash."""
     try:
@@ -1476,7 +1643,27 @@ def ensure_linkedin_login(suspicious_otp=None, account_name="", max_attempts=3):
             print(f"   Waiting {wait}s before retrying with new proxy IP...")
             time.sleep(wait)
 
-    print(f"   Login failed after {max_attempts} attempts. Last error: {last_err}")
+    print(f"   Cookie login failed after {max_attempts} attempts. Last error: {last_err}")
+
+    # ── Final fallback: password + app-approve login ──
+    # This works even on flagged proxy IPs because LinkedIn's /login endpoint
+    # is designed to accept connections from anywhere (people travel, use VPNs).
+    # The session is born on the current proxy IP, so subsequent navigation
+    # to profiles/mynetwork won't hit redirect loops.
+    print("   Attempting password login as final fallback...")
+    try:
+        _kill_zombie_chrome_processes()
+        _regenerate_proxy_session()
+        time.sleep(3)
+        driver = _password_login(account_name)
+        if driver:
+            return driver
+    except BrowserDeadError:
+        pass
+    except Exception as e:
+        print(f"   Password login fallback failed: {e}")
+
+    print("   All login methods exhausted. Cannot establish LinkedIn session.")
     return None
 
 

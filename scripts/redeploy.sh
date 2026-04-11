@@ -55,6 +55,11 @@ PREV_IMAGE="$(sudo docker inspect linkedin-bot --format='{{.Config.Image}}' 2>/d
 log_line INFO "previous_image=$PREV_IMAGE"
 
 # Use the shared launcher to actually swap the container.
+# Clean up old Docker images before pulling the new one to avoid disk-full.
+# Each image is ~2.3 GB; the 30 GB boot disk fills up after ~10 deploys.
+log_line INFO "Pruning old Docker images..."
+sudo docker image prune -a -f --filter "until=24h" >/dev/null 2>&1 || true
+
 log_line INFO "Calling run_container.sh"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 sudo IMAGE="$IMAGE_TAG" MOUNT_POINT="$MOUNT_POINT" "$SCRIPT_DIR/run_container.sh" 2>&1 | tee -a "$DEPLOY_LOG"

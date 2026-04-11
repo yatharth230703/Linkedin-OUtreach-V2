@@ -1577,18 +1577,39 @@ def _password_login(account_name):
 
 
 def _kill_zombie_chrome_processes():
-    """Best-effort cleanup of orphaned Chromium / Playwright processes after a crash."""
+    """Best-effort cleanup of orphaned Chromium / Playwright processes after a crash.
+
+    IMPORTANT: excludes the current process and its parent to avoid killing
+    ourselves. The bot script path contains 'playwright_bots/' which would
+    match the naive 'playwright in cmdline' check and cause SIGKILL (exit -9).
+    """
     try:
         import psutil
     except ImportError:
         return
+
+    my_pid = os.getpid()
+    my_ppid = os.getppid()
     killed = 0
-    for proc in psutil.process_iter(["name", "cmdline"]):
+    for proc in psutil.process_iter(["pid", "name", "cmdline"]):
         try:
+            pid = proc.info.get("pid")
+            # Never kill ourselves or our parent (orchestrator).
+            if pid in (my_pid, my_ppid):
+                continue
+
             name = (proc.info.get("name") or "").lower()
-            cmdline = " ".join(proc.info.get("cmdline") or []).lower()
-            if any(k in name for k in ("chrome", "chromium", "playwright")) or \
-               "playwright" in cmdline or "chromium" in cmdline:
+            cmdline_parts = proc.info.get("cmdline") or []
+            cmdline = " ".join(cmdline_parts).lower()
+
+            # Only kill actual browser / driver processes, not Python scripts
+            # that happen to live under a directory named "playwright_bots".
+            is_browser = any(k in name for k in ("chrome", "chromium"))
+            is_driver = name in ("node", "node.js") and "playwright" in cmdline
+            # Avoid matching our own Python process whose path includes "playwright_bots/"
+            is_python = name.startswith("python")
+
+            if (is_browser or is_driver) and not is_python:
                 proc.kill()
                 killed += 1
         except (psutil.NoSuchProcess, psutil.AccessDenied):

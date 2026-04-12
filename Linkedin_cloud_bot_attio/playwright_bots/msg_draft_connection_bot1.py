@@ -85,6 +85,17 @@ def check_if_exists(url):
 
 
 def scrape_profile_data(page):
+    """Extract profile data using layout-agnostic signals.
+
+    LinkedIn's profile DOM uses hashed CSS classes that rotate every deploy and
+    lazy-loads sections via React/SDUI.  We avoid class names entirely and rely
+    on signals that are stable across redesigns:
+
+      - full_name  → <title> tag ("Name | LinkedIn")
+      - headline   → JS: first substantial <p> near the profile <h2>
+      - about      → componentkey suffix "About" (SDUI section identifier)
+      - experience → componentkey suffix "Experience"
+    """
     profile_data = {
         "full_name": "Unknown",
         "headline": "",
@@ -92,33 +103,57 @@ def scrape_profile_data(page):
         "experience": ""
     }
 
-    try:
-        name_elem = page.locator("h1").first
-        if name_elem.is_visible():
-            profile_data["full_name"] = name_elem.inner_text().strip()
-    except: pass
+    # ── Name from <title> (most stable signal) ──────────────────────────
+    title_name = _extract_name_from_title(page.title())
+    if title_name:
+        profile_data["full_name"] = title_name
 
+    # ── Headline via JS (find text near the profile name heading) ────────
     try:
-        headline_elem = page.locator("xpath=//div[contains(@class, 'text-body-medium')]").first
-        if headline_elem.is_visible():
-            profile_data["headline"] = headline_elem.inner_text().strip()
-    except: pass
+        headline = page.evaluate("""() => {
+            const titleName = document.title.split(' | ')[0].trim();
+            if (!titleName) return '';
+            // Find the heading (h1–h3) whose text matches the title name
+            for (const tag of ['h1', 'h2', 'h3']) {
+                for (const el of document.querySelectorAll(tag)) {
+                    if (el.textContent.trim() === titleName) {
+                        // Walk up to the nearest container, then scan <p> siblings
+                        let container = el.closest('[componentkey]')
+                                     || el.parentElement?.parentElement?.parentElement?.parentElement;
+                        if (!container) continue;
+                        for (const p of container.querySelectorAll('p')) {
+                            const t = p.textContent.trim();
+                            // Skip degree indicators (· 1st, · 2nd, · 3rd) and short junk
+                            if (t && t.length > 5 && !t.startsWith('·') && t !== titleName) {
+                                return t;
+                            }
+                        }
+                    }
+                }
+            }
+            return '';
+        }""")
+        if headline:
+            profile_data["headline"] = headline
+    except Exception:
+        pass
 
-    try:
-        about_section = page.locator("#about")
-        if about_section.count() > 0:
-            ancestor_section = about_section.locator("xpath=./ancestor::section")
-            if ancestor_section.count() > 0:
-                profile_data["about"] = ancestor_section.first.inner_text()
-    except: pass
-
-    try:
-        exp_section = page.locator("#experience")
-        if exp_section.count() > 0:
-            ancestor_section = exp_section.locator("xpath=./ancestor::section")
-            if ancestor_section.count() > 0:
-                profile_data["experience"] = ancestor_section.first.inner_text()
-    except: pass
+    # ── About & Experience via SDUI componentkey sections ────────────────
+    # LinkedIn's Server-Driven UI marks sections with componentkey attributes
+    # ending in "About", "Experience", etc.  These are lazily loaded — content
+    # appears only after the section scrolls into view.
+    for section_name, key in [("about", "About"), ("experience", "Experience")]:
+        try:
+            loc = page.locator(f'[componentkey$="{key}"]').first
+            if loc.count() > 0:
+                # Scroll the section into view to trigger lazy rendering
+                loc.scroll_into_view_if_needed(timeout=3000)
+                human_pause(1, 2)
+                text = loc.inner_text(timeout=5000).strip()
+                if text and len(text) > 10:
+                    profile_data[section_name] = text
+        except Exception:
+            pass
 
     return profile_data
 
@@ -187,173 +222,474 @@ def save_lead_to_db(url, data, posts_data, outreach_msg, followup_msg_1, followu
 
 
 class LinkedInInteractionManager:
-    def __init__(self, page):
-        self.page = page
+    """Interact with LinkedIn profile action buttons (Connect, Message, More).
 
-    def _is_element_present(self, xpath):
+    LinkedIn's profile DOM changes frequently — element types rotate between
+    <button> and <a>, CSS classes are hashed per-deploy, and absolute XPaths
+    break on every layout tweak.  All selectors here use signals that are
+    stable across redesigns:
+
+      - aria-label patterns  (accessibility contract, rarely changes)
+      - href substrings      (API endpoints: custom-invite, messaging/compose)
+      - visible text         (user-facing strings: Connect, Message, Pending)
+
+    Selectors are tag-agnostic (no button-vs-a assumptions) and layered
+    (try multiple strategies, first match wins).
+    """
+
+    def __init__(self, page, vanity_name="", profile_name=""):
+        self.page = page
+        # vanity_name: the slug from the URL (e.g. "viveksingh013")
+        # profile_name: full name from title (e.g. "Vivek Singh")
+        self.vanity_name = vanity_name
+        self.profile_name = profile_name
+
+    def _find_visible(self, *selectors):
+        """Return the first visible element matching any of the selectors, or None."""
+        for sel in selectors:
+            try:
+                loc = self.page.locator(sel)
+                for i in range(loc.count()):
+                    el = loc.nth(i)
+                    if el.is_visible():
+                        return el
+            except Exception:
+                pass
+        return None
+
+    def dismiss_popups(self):
+        """Dismiss LinkedIn overlay popups that block profile interaction.
+
+        LinkedIn shows various promotional overlays (Sales Navigator upsell,
+        Premium promos, cookie consent, etc.) that sit on top of the profile
+        action buttons. If not dismissed, clicks land on the overlay instead
+        of the intended button — silently failing.
+
+        Called automatically before any interaction method.
+        """
+        # Each entry: (description, close-button selectors)
+        popups = [
+            ("Sales Navigator / Premium promo", [
+                # The X / dismiss button on promo modals
+                '[aria-label="Dismiss"]',
+                '[aria-label="Schließen"]',
+                'button[aria-label="Close"]',
+                # Generic modal close icons (SVG close icon inside a button)
+                '[data-test-modal-close-btn]',
+            ]),
+            ("Try Premium banner", [
+                # Floating "Try Premium for AED 0" / "Try Premium for $0" bar
+                # that intercepts pointer events over profile action buttons.
+                # It's an <a> inside a <div> overlay — remove it from the DOM.
+                'a:has-text("Try Premium")',
+                'a:has-text("Premium for")',
+            ]),
+            ("Cookie consent banner", [
+                'button:has-text("Accept")',
+                'button:has-text("Akzeptieren")',
+                'button:has-text("Accept & Close")',
+            ]),
+            ("Generic overlay close", [
+                # Catch-all: any visible close/dismiss button in a dialog/overlay
+                '[role="dialog"] button[aria-label="Dismiss"]',
+                '[role="dialog"] button[aria-label="Close"]',
+                '[role="alertdialog"] button[aria-label="Dismiss"]',
+            ]),
+        ]
+        for desc, selectors in popups:
+            btn = self._find_visible(*selectors)
+            if btn:
+                try:
+                    if "Premium" in desc:
+                        # Don't click Premium links (navigates away). The blocker
+                        # is a <div> ancestor that intercepts pointer events even
+                        # after the <a> itself is hidden. Walk up a few levels and
+                        # disable pointer-events on the overlay container so clicks
+                        # pass through to the profile action buttons underneath.
+                        btn.evaluate("""el => {
+                            let node = el;
+                            for (let i = 0; i < 5 && node.parentElement; i++) {
+                                node = node.parentElement;
+                                if (node.tagName === 'MAIN' || node.tagName === 'BODY') break;
+                            }
+                            node.style.pointerEvents = 'none';
+                            node.style.display = 'none';
+                        }""")
+                    else:
+                        btn.click(timeout=2000)
+                    human_pause(0.5, 1)
+                    print(f"      Dismissed popup: {desc}")
+                except Exception:
+                    pass
+
+        # Also press Escape as a catch-all for modals that have keyboard dismiss
         try:
-            return self.page.locator(f"xpath={xpath}").count() > 0
-        except:
-            return False
+            self.page.keyboard.press("Escape")
+            human_pause(0.3, 0.5)
+        except Exception:
+            pass
+
+    def _connect_selectors(self):
+        """Build Connect button selectors scoped to THIS profile only.
+
+        The page has Connect buttons for OTHER people (sidebar "More profiles
+        for you", "People who follow X" section, etc.).  We ONLY match the
+        Connect button for the current lead by requiring the vanityName in
+        the href or the profile name in the aria-label.  No broad fallbacks.
+        """
+        scoped = []
+        if self.vanity_name:
+            scoped.append(f'[href*="custom-invite/?vanityName={self.vanity_name}"]')
+        if self.profile_name:
+            scoped.append(f'[aria-label*="{self.profile_name}"][aria-label$="to connect"]')
+        return scoped
 
     def get_connection_status(self):
+        """Determine relationship: CONNECTED, NOT_CONNECTED, PENDING, or UNKNOWN.
+
+        LinkedIn profiles come in two layouts:
+          - Direct Connect:   [Connect] [Message] [⋯]  (Connect is primary)
+          - Follow-first:     [Follow] [Message] [⋯]   (Connect is in ⋯ dropdown)
+
+        Both are NOT_CONNECTED.  We detect them differently:
+          - Direct: scoped Connect button/link is visible
+          - Follow-first: Follow button is visible (Connect hidden in ⋯ menu)
         """
-        Determines if the user is CONNECTED, NOT_CONNECTED, or PENDING.
-        """
-        # 1. Check for "Pending" button (English or German)
-        if (self._is_element_present("//button[contains(., 'Pending')]") or
-            self._is_element_present("//button[contains(., 'Ausstehend')]")):
+        self.dismiss_popups()
+
+        # 1. Pending
+        if self._find_visible(
+            'main [aria-label*="Pending"]',
+            'main [aria-label*="Ausstehend"]',
+            'main :is(button, a):has-text("Pending")',
+        ):
             return "PENDING"
 
-        # 2. Check for Visible "Connect" button (English or German)
-        if (self._is_element_present("//button[.//span[text()='Connect']]") or
-            self._is_element_present("//button[.//span[text()='Vernetzen']]")):
+        # 2. Direct Connect visible (scoped to this profile)
+        if self._find_visible(*self._connect_selectors()):
             return "NOT_CONNECTED"
 
-        # 3. Check for "Message" button
-        has_message_btn = (self._is_element_present("//button[starts-with(@aria-label, 'Message')]") or
-                           self._is_element_present("//button[starts-with(@aria-label, 'Nachricht')]"))
+        # 3. Follow-first layout: Follow button visible → Connect is in ⋯ menu
+        if self._find_visible(
+            'main button:has-text("Follow")',
+            'main a:has-text("Follow")',
+        ):
+            return "NOT_CONNECTED"
 
-        if has_message_btn:
+        # 4. Message only (no Connect, no Follow) → already connected
+        if self._find_visible(
+            '[href*="/messaging/compose/"]',
+            '[aria-label^="Message"]',
+            '[aria-label^="Nachricht"]',
+        ):
             return "CONNECTED"
 
         return "UNKNOWN"
 
-    def send_connection_request(self):
+    def _click_connect_element(self, el):
+        """Click a Connect element using escalating strategies.
+
+        Bezier curve first (stealth), then Playwright native click,
+        then JS click (bypasses overlays like the Premium banner).
         """
-        Handles both Visible and Hidden 'Connect' buttons + 'Send without note'.
+        # Try Bezier (human-like)
+        human_move_click(self.page, el)
+        human_pause(2, 3)
+
+        # Check if it actually worked (Premium banner might have intercepted)
+        if not self._find_visible(*self._connect_selectors()):
+            return True  # Connect button gone → click worked
+
+        # Bezier was intercepted — try native Playwright click
+        self.dismiss_popups()
+        human_pause(0.5, 1)
+        el_retry = self._find_visible(*self._connect_selectors())
+        if not el_retry:
+            return True  # Gone after popup dismiss
+
+        try:
+            el_retry.click(timeout=5000)
+            return True
+        except Exception:
+            pass
+
+        # Last resort: JS click
+        try:
+            el_retry.evaluate("el => el.click()")
+            return True
+        except Exception:
+            return False
+
+    def send_connection_request(self):
+        """Send a connection request to the current profile.
+
+        Two paths depending on profile layout:
+          Path A — Direct Connect: the Connect button/link is visible in the
+                   profile header (scoped to this profile's vanityName to avoid
+                   clicking sidebar recommendation Connect buttons).
+          Path B — Three-dot menu (⋯): Connect is hidden inside the overflow
+                   menu. Click ⋯ → find "Connect" in the dropdown → click it.
+
+        After either path, handles the 'Send without a note' modal and verifies
+        the connection actually went through.
         """
         print("      Attempting to connect...")
 
-        # Scenario A: Try to find visible "Connect" button using dynamic XPath
-        connect_found = False
-        for i in range(3, 8):
+        # ── Path A: Direct Connect button (scoped to this profile) ───────
+        connect_el = self._find_visible(*self._connect_selectors())
+        if connect_el:
+            print("      Found direct Connect button.")
+            self._click_connect_element(connect_el)
+            human_pause(2, 3)
+            self._handle_send_modal()
+            return self._verify_connection_sent()
+
+        # ── Path B: Connect hidden in ⋯ (three-dot) menu ────────────────
+        # On follow-first profiles, the layout is [Follow] [Message] [⋯]
+        # and Connect lives inside the ⋯ dropdown.
+        print("      Connect not directly visible. Opening ⋯ menu...")
+
+        # The ⋯ button has aria-label="More" — find the first one inside
+        # the main profile area (not activity section etc.)
+        more_el = self._find_visible(
+            'main [aria-label="More"]',
+            'main [aria-label="Mehr"]',
+            '[aria-label="More"]',
+            '[aria-label="Mehr"]',
+        )
+        if not more_el:
+            print("      No ⋯ button found.")
+            return False
+
+        human_move_click(self.page, more_el)
+        human_pause(2, 3)
+
+        # The dropdown is dynamically injected after clicking ⋯.
+        # Items are typically <div> or <span> elements — not consistent tags.
+        # Use broad text matching since the dropdown is the only new popup.
+        # Exclude sidebar Connect buttons which are <a> tags with aria-label.
+        dropdown_connect = self._find_visible(
+            # ARIA roles (if LinkedIn uses them)
+            '[role="menuitem"]:has-text("Connect")',
+            '[role="menuitem"]:has-text("Vernetzen")',
+            '[role="option"]:has-text("Connect")',
+            # Plain text in dropdown items (div/span/li)
+            'li:has-text("Connect")',
+            'li:has-text("Vernetzen")',
+            'div:text-is("Connect")',
+            'div:text-is("Vernetzen")',
+            'span:text-is("Connect")',
+            'span:text-is("Vernetzen")',
+        )
+        if not dropdown_connect:
+            print("      'Connect' not found in ⋯ dropdown.")
+            # Close the dropdown by pressing Escape
             try:
-                connect_xpath = f"xpath=/html/body/div[{i}]/div[3]/div/div/div[2]/div/div/main/section[1]/div[2]/div[3]/div/button"
-                connect_click = self.page.locator(connect_xpath)
-                if connect_click.count() > 0 and connect_click.first.is_visible():
-                    text = connect_click.first.inner_text().strip()
-                    if text in ["Connect", "Vernetzen"]:
-                        human_move_click(self.page, connect_click.first)
-                        human_pause(3, 5)
-                        connect_found = True
-                        break
+                self.page.keyboard.press("Escape")
             except Exception:
-                continue
+                pass
+            return False
 
-        if not connect_found:
-            # Scenario B: Hidden inside "More" button
-            print("      'Connect' hidden. Checking 'More' menu...")
-
-            more_found = False
-            for i in range(3, 8):
-                try:
-                    more_xpath = f"xpath=/html/body/div[{i}]/div[3]/div/div/div[2]/div/div/main/section[1]/div[2]/div[3]/div/div[2]/button"
-                    more_button = self.page.locator(more_xpath)
-                    if more_button.count() > 0 and more_button.first.is_visible():
-                        text = more_button.first.inner_text().strip()
-                        if text in ["More", "Mehr"]:
-                            human_move_click(self.page, more_button.first)
-                            human_pause(3, 4)
-                            more_found = True
-                            break
-                except Exception:
-                    continue
-
-            if not more_found:
-                print("      No 'More' button found.")
+        print("      Found 'Connect' in ⋯ dropdown — clicking...")
+        try:
+            dropdown_connect.click(timeout=5000)
+        except Exception:
+            try:
+                dropdown_connect.evaluate("el => el.click()")
+            except Exception:
+                print("      Failed to click dropdown Connect.")
                 return False
 
-            # Find and click "Connect" in dropdown (English or German)
-            connect_in_dropdown = False
-            for i in range(3, 8):
-                try:
-                    more_connect_xpath = f"xpath=/html/body/div[{i}]/div[3]/div/div/div[2]/div/div/main/section[1]/div[2]/div[3]/div/div[2]/div/div/ul/li[3]/div"
-                    connect_click = self.page.locator(more_connect_xpath)
-                    if connect_click.count() > 0 and connect_click.first.is_visible():
-                        text = connect_click.first.inner_text().strip()
-                        if text in ["Connect", "Vernetzen"]:
-                            human_move_click(self.page, connect_click.first)
-                            human_pause(3, 5)
-                            connect_in_dropdown = True
-                            break
-                except Exception:
-                    continue
+        human_pause(3, 5)
+        self._handle_send_modal()
+        return self._verify_connection_sent()
 
-            if not connect_in_dropdown:
-                print("      Could not find 'Connect' in More dropdown.")
-                return False
-
-        # Handle "Add a Note" Modal - Send without Note (English and German)
+    def _handle_send_modal(self):
+        """Handle the 'Add a note' / 'Send without a note' modal after clicking Connect."""
         human_pause(1, 2)
 
-        # Try exact XPath first
-        try:
-            send_btn = self.page.locator("xpath=/html/body/div[4]/div/div/div[3]/button[2]")
-            if send_btn.count() > 0 and send_btn.first.is_visible():
-                text = send_btn.first.inner_text().strip()
-                if text in ["Send without a note", "Ohne Notiz senden"]:
-                    human_move_click(self.page, send_btn.first)
-                    human_pause(3, 4)
-                    print("      Connection request sent (No Note).")
-                    return True
-        except Exception:
-            # Fallback selectors
-            send_no_note_selectors = [
-                "xpath=//button[@aria-label='Send without a note']",
-                "xpath=//button[@aria-label='Ohne Notiz senden']",
-                "xpath=//button[contains(text(), 'Send without a note')]",
-                "xpath=//button[contains(text(), 'Ohne Notiz senden')]"
-            ]
+        # The modal has a "Send without a note" button (or German equivalent).
+        # Try aria-label first, then visible text, then broad fallback.
+        send_el = self._find_visible(
+            '[aria-label="Send without a note"]',
+            '[aria-label="Ohne Notiz senden"]',
+            'button:has-text("Send without a note")',
+            'button:has-text("Ohne Notiz senden")',
+            '[aria-label="Send now"]',
+            '[aria-label="Jetzt senden"]',
+            'button:has-text("Send now")',
+            'button:has-text("Jetzt senden")',
+        )
+        if send_el:
+            human_move_click(self.page, send_el)
+            human_pause(3, 4)
+            print("      Clicked 'Send without a note'.")
+            return True
 
-            for selector in send_no_note_selectors:
-                try:
-                    btn = self.page.locator(selector)
-                    if btn.count() > 0 and btn.first.is_visible():
-                        human_move_click(self.page, btn.first)
-                        print("      Connection request sent (No Note).")
-                        return True
-                except:
-                    continue
-
-        # Also try alternative selectors for German interface
-        alternative_selectors = [
-            "xpath=//button[contains(text(), 'Nachricht hinzufügen')]",
-            "xpath=//button[contains(text(), 'Ohne Notiz senden')]",
-            "xpath=/html/body/div[3]/div/div/div[3]/button[2]",
-            "xpath=/html/body/div[5]/div/div/div[3]/button[2]"
-        ]
-
-        for selector in alternative_selectors:
-            try:
-                elements = self.page.locator(selector)
-                if elements.count() > 0:
-                    for i in range(elements.count()):
-                        elem = elements.nth(i)
-                        if elem.is_visible():
-                            text = elem.inner_text().strip()
-                            if text in ["Send without a note", "Ohne Notiz senden"]:
-                                human_move_click(self.page, elem)
-                                print("      Connection request sent (No Note) - Alternative method.")
-                                return True
-            except:
-                continue
-
-        print("      No modal appeared. Assuming request sent.")
+        # No modal appeared — might mean direct send or click was intercepted
+        print("      No 'Send' modal appeared.")
         return True
+
+    def _verify_connection_sent(self):
+        """Check that the Connect button is gone and Pending/Withdraw appeared.
+
+        If Connect is still visible, the click was intercepted by a popup
+        or overlay and the request was NOT actually sent.
+        """
+        human_pause(1, 2)
+
+        # If Pending or Withdraw is now visible, the request went through
+        if self._find_visible(
+            '[aria-label*="Pending"]',
+            '[aria-label*="Ausstehend"]',
+            ':is(button, a):has-text("Pending")',
+            ':is(button, a):has-text("Ausstehend")',
+            '[aria-label*="Withdraw"]',
+            ':is(button, a):has-text("Withdraw")',
+        ):
+            print("      ✓ Connection request verified (status changed to Pending).")
+            return True
+
+        # If Connect button is still visible, the click didn't go through
+        still_connect = self._find_visible(*self._connect_selectors())
+        if still_connect:
+            print("      ✗ Connect button still visible — click was intercepted!")
+
+            # Dump a screenshot so we can see what's blocking
+            try:
+                from state_paths import LOGS_DIR
+                debug_dir = os.path.join(LOGS_DIR, "profile_debug")
+                os.makedirs(debug_dir, exist_ok=True)
+                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+                self.page.screenshot(path=os.path.join(debug_dir, f"{ts}_connect_blocked.png"))
+                print(f"      [debug] screenshot → {debug_dir}/{ts}_connect_blocked.png")
+            except Exception:
+                pass
+
+            print("      Retrying: dismiss popups → Playwright native click...")
+            self.dismiss_popups()
+            human_pause(1, 2)
+
+            # Retry with escalating click strategies
+            connect_el = self._find_visible(*self._connect_selectors())
+            if connect_el:
+                # Strategy 1: Playwright native .click() — throws if covered
+                try:
+                    connect_el.click(timeout=5000)
+                    print("      Playwright .click() succeeded.")
+                except Exception as e:
+                    print(f"      Playwright .click() failed: {e}")
+                    # Strategy 2: JS-level click — bypasses all overlays
+                    try:
+                        connect_el.evaluate("el => el.click()")
+                        print("      JS el.click() succeeded.")
+                    except Exception as e2:
+                        print(f"      JS click also failed: {e2}")
+
+                human_pause(3, 5)
+                self._handle_send_modal()
+                human_pause(1, 2)
+
+                # Check again
+                if self._find_visible(
+                    '[aria-label*="Pending"]',
+                    ':is(button, a):has-text("Pending")',
+                    '[aria-label*="Withdraw"]',
+                ):
+                    print("      ✓ Connection request verified on retry.")
+                    return True
+                else:
+                    print("      ✗ Connection request failed even after retry.")
+                    return False
+            else:
+                # Connect button disappeared after popup dismiss — might have gone through
+                print("      Connect button gone after popup dismiss — likely sent.")
+                return True
+
+        # Connect button gone but no Pending visible — ambiguous but likely sent
+        print("      Connect button no longer visible — assuming request sent.")
+        return True
+
+
+def _dump_profile_debug(page, url, tag):
+    """Dump page state when profile detection fails — URL, title, h1 contents,
+    HTML snippet, and a screenshot. Lands in <STATE_DIR>/logs/profile_debug/."""
+    try:
+        from state_paths import LOGS_DIR
+        debug_dir = os.path.join(LOGS_DIR, "profile_debug")
+        os.makedirs(debug_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        slug = url.rstrip("/").split("/")[-1][:40]
+        base = os.path.join(debug_dir, f"{ts}_{slug}_{tag}")
+
+        meta = {
+            "requested_url": url,
+            "current_url": page.url,
+            "title": page.title(),
+            "h1_count": page.locator("h1").count(),
+            "h1_texts": [],
+            "main_count": page.locator("main").count(),
+        }
+        try:
+            for i in range(min(meta["h1_count"], 5)):
+                meta["h1_texts"].append(page.locator("h1").nth(i).inner_text(timeout=1000))
+        except Exception as e:
+            meta["h1_texts_err"] = str(e)
+
+        with open(base + ".json", "w") as f:
+            json.dump(meta, f, indent=2)
+        try:
+            page.screenshot(path=base + ".png", full_page=False)
+        except Exception:
+            pass
+        try:
+            with open(base + ".html", "w") as f:
+                f.write(page.content()[:200_000])
+        except Exception:
+            pass
+        print(f"      [debug] dumped profile state → {base}.{{json,png,html}}")
+    except Exception as e:
+        print(f"      [debug] dump failed: {e}")
+
+
+def _extract_name_from_title(title):
+    """Extract profile name from a page title like 'Vansh Dhawan | LinkedIn'.
+
+    Returns the name string or None if the title doesn't look like a profile.
+    Rejects known non-profile titles (404 pages, auth walls, generic pages).
+    """
+    if not title or "|" not in title:
+        return None
+    name = title.rsplit("|", 1)[0].strip()
+    # Reject empty, too-short, or generic/error page titles
+    reject = {"linkedin", "page not found", "sign in", "security verification",
+              "something went wrong", ""}
+    if name.lower() in reject or len(name) < 2:
+        return None
+    return name
 
 
 def is_profile_accessible(page, url, max_retries=2):
     """
     Check if the LinkedIn profile URL is accessible (not 404 or deleted).
     Returns True if accessible, False if 404/not found.
+
+    Detection strategy (layered, most-stable first):
+      1. URL checks — did we land on /in/<slug>, not /404 or a redirect?
+      2. Page title — "Name | LinkedIn" is the most stable signal; it powers
+         SEO, social sharing, and browser tabs. Available before JS hydrates.
+      3. DOM fallback — try heading tags (h1/h2) and aria-label patterns.
+         LinkedIn's DOM uses hashed CSS classes that rotate every deploy, so
+         we never rely on class names.
+      4. Debug dump — on final failure, write screenshot + HTML + metadata
+         so the next investigation starts with data, not guesswork.
     """
     for attempt in range(max_retries):
         try:
             print(f"      Checking profile accessibility (attempt {attempt + 1}/{max_retries})...")
 
             _safe_goto(page, url, timeout=60000)
-            human_pause(6, 10)
+            human_pause(3, 5)
 
             current_url = page.url.lower()
             original_url = url.lower()
@@ -363,6 +699,7 @@ def is_profile_accessible(page, url, max_retries=2):
             except:
                 original_profile_id = None
 
+            # ── Layer 1: URL checks ──────────────────────────────────────
             if '/404' in current_url or 'page-not-found' in current_url:
                 print(f"      Redirected to 404 page: {current_url}")
                 return False
@@ -380,36 +717,43 @@ def is_profile_accessible(page, url, max_retries=2):
                 except:
                     pass
 
-            # Verify profile loaded by finding name element
-            try:
-                human_pause(2, 3)
-                name_elem = page.locator("h1").first
-                if name_elem.is_visible():
-                    profile_name = name_elem.inner_text().strip()
-                    if profile_name and len(profile_name.strip()) >= 2:
-                        print(f"      Profile accessible - found name: {profile_name}")
-                        return True
-                    else:
-                        if attempt < max_retries - 1:
-                            print(f"      Name element empty, retrying...")
-                            continue
-                        else:
-                            print(f"      Name element empty after {max_retries} attempts")
-                            return False
-                else:
-                    if attempt < max_retries - 1:
-                        print(f"      Name element not visible, retrying...")
-                        continue
-                    else:
-                        return False
+            # ── Layer 2: page title (most stable signal) ─────────────────
+            title = page.title()
+            title_name = _extract_name_from_title(title)
+            if title_name:
+                print(f"      Profile accessible (title) - found name: {title_name}")
+                return True
 
-            except Exception:
-                if attempt < max_retries - 1:
-                    print(f"      Could not find profile name element, retrying...")
-                    continue
-                else:
-                    print(f"      No profile name found after {max_retries} attempts")
-                    return False
+            # ── Layer 3: DOM fallback — headings + aria-label ────────────
+            # LinkedIn has moved from h1 → h2 before; try all headings.
+            # Also check aria-label which contains "Name Verified Profile".
+            for selector, label in [
+                ("h1", "h1"),
+                ("h2", "h2"),
+                ('[aria-label*="Verified Profile"]', "aria-label"),
+            ]:
+                try:
+                    loc = page.locator(selector).first
+                    loc.wait_for(state="visible", timeout=5000)
+                    if selector.startswith("[aria"):
+                        text = loc.get_attribute("aria-label") or ""
+                    else:
+                        text = loc.inner_text()
+                    text = text.strip()
+                    if text and len(text) >= 2:
+                        print(f"      Profile accessible ({label}) - found: {text[:60]}")
+                        return True
+                except Exception:
+                    pass
+
+            # ── All layers failed ────────────────────────────────────────
+            if attempt < max_retries - 1:
+                print(f"      No profile signal found (title={title!r}), retrying...")
+                continue
+            else:
+                print(f"      Profile detection failed after {max_retries} attempts (title={title!r})")
+                _dump_profile_debug(page, url, f"allfail_a{attempt+1}")
+                return False
 
         except Exception as e:
             if attempt < max_retries - 1:
@@ -418,6 +762,7 @@ def is_profile_accessible(page, url, max_retries=2):
                 continue
             else:
                 print(f"      Error checking profile accessibility after {max_retries} attempts: {e}")
+                _dump_profile_debug(page, url, f"error_a{attempt+1}")
                 return False
 
     return False
@@ -544,7 +889,9 @@ def main():
                 client.delete_bot_input(record_id)
                 continue
 
-            li_manager = LinkedInInteractionManager(page)
+            # Extract vanity name from URL for scoped selectors
+            vanity = url.rstrip("/").split("/in/")[-1].split("?")[0] if "/in/" in url else ""
+            li_manager = LinkedInInteractionManager(page, vanity_name=vanity)
 
             # PHASE 0: CHECK IF PROFILE IS ACCESSIBLE
             if not is_profile_accessible(page, url):
@@ -590,6 +937,8 @@ def main():
                 human_pause(2, 3)
 
                 # PHASE 2: INTERACTION
+                # Now that we know the profile name, set it for scoped selectors
+                li_manager.profile_name = profile_data["full_name"]
                 print("      Checking Connection Status...")
                 status = li_manager.get_connection_status()
                 print(f"      Status: {status}")

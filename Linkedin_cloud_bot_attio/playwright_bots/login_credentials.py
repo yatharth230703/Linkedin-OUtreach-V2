@@ -276,23 +276,34 @@ def human_type(page, element, text, typing_delay=0.1):
     human_pause(0.5, 1.0)
 
 
-def find_element_with_fallback(page, xpath, css_selector, element_name):
-    """Find element using XPath first, then CSS selector as fallback"""
-    try:
-        element = page.locator(f"xpath={xpath}")
-        if element.count() > 0 and element.first.is_visible():
-            print(f"   Found {element_name} using XPath")
-            return element.first
-    except:
-        pass
+def find_element_with_fallback(page, xpath, css_selector, element_name, extra_selectors=None):
+    """Find element using multiple strategies (XPath → CSS → extras → label).
 
-    try:
-        element = page.locator(css_selector)
-        if element.count() > 0 and element.first.is_visible():
-            print(f"   Found {element_name} using CSS selector")
-            return element.first
-    except:
-        pass
+    LinkedIn's login page now uses React-generated IDs (:r0:, :r1:) and hashed
+    CSS classes.  The old #username / #password selectors no longer exist.
+    extra_selectors lets callers pass additional robust selectors.
+    """
+    strategies = [
+        (f"xpath={xpath}", "XPath"),
+        (css_selector, "CSS selector"),
+    ]
+    if extra_selectors:
+        for sel in extra_selectors:
+            strategies.append((sel, sel[:40]))
+
+    for selector, label in strategies:
+        try:
+            element = page.locator(selector)
+            count = element.count()
+            if count > 0:
+                # Try all matches — the first might be in a hidden duplicate form
+                for i in range(count):
+                    el = element.nth(i)
+                    if el.is_visible():
+                        print(f"   Found {element_name} using {label}")
+                        return el
+        except:
+            pass
 
     print(f"   Could not find {element_name}")
     return None
@@ -738,11 +749,17 @@ def setup_playwright_browser(account_name=""):
             page = context.new_page()
 
         # Apply playwright-stealth (v2.0.2 API)
-        stealth = Stealth()
-        stealth.apply_stealth_sync(context)
+        # Can be disabled via DISABLE_STEALTH=true for debugging — helps
+        # isolate whether stealth scripts interfere with element detection.
+        if os.getenv("DISABLE_STEALTH", "").lower() != "true":
+            stealth = Stealth()
+            stealth.apply_stealth_sync(context)
+        else:
+            print("   STEALTH DISABLED (DISABLE_STEALTH=true)")
 
         # Deep stealth injection - same CDP scripts as original
-        page.add_init_script("""
+        if os.getenv("DISABLE_STEALTH", "").lower() != "true":
+            page.add_init_script("""
             // Overwrite WebGL Renderer
             const getParameter = WebGLRenderingContext.prototype.getParameter;
             WebGLRenderingContext.prototype.getParameter = function(parameter) {
@@ -805,22 +822,22 @@ def setup_playwright_browser(account_name=""):
             });
         """)
 
-        # WebRTC handling via page context
-        context.add_init_script("""
-            // WebRTC leak prevention
-            if (window.RTCPeerConnection) {
-                const origRTC = window.RTCPeerConnection;
-                window.RTCPeerConnection = function(...args) {
-                    if (args[0] && args[0].iceServers) {
-                        args[0].iceServers = [];
-                    }
-                    return new origRTC(...args);
-                };
-                window.RTCPeerConnection.prototype = origRTC.prototype;
-            }
-        """)
+            # WebRTC handling via page context
+            context.add_init_script("""
+                // WebRTC leak prevention
+                if (window.RTCPeerConnection) {
+                    const origRTC = window.RTCPeerConnection;
+                    window.RTCPeerConnection = function(...args) {
+                        if (args[0] && args[0].iceServers) {
+                            args[0].iceServers = [];
+                        }
+                        return new origRTC(...args);
+                    };
+                    window.RTCPeerConnection.prototype = origRTC.prototype;
+                }
+            """)
 
-        print("   Playwright browser setup complete with advanced stealth")
+        print(f"   Playwright browser setup complete {'(stealth DISABLED)' if os.getenv('DISABLE_STEALTH', '').lower() == 'true' else 'with advanced stealth'}")
 
         # Create wrapper - context acts as both browser and context for persistent context
         driver = PlaywrightDriver(pw, context, context, page)
@@ -1469,13 +1486,30 @@ def _password_login(account_name):
         log_action(page, "password_login_page_loaded")
 
         # Fill email
+        # LinkedIn's login page now uses React-generated IDs and hashed classes.
+        # Stable signals: label text "Email or phone", input type="text",
+        # and autocomplete attributes.
         print("   Finding email field...")
         email_element = find_element_with_fallback(
             page,
             "/html/body/div[1]/main/div[2]/div[1]/form/div[1]/input",
             "#username",
-            "email input field"
+            "email input field",
+            extra_selectors=[
+                'input[autocomplete="username"]',
+                'label:has-text("Email") + div input[type="text"]',
+                'input[type="text"]:visible',
+            ]
         )
+        # Last resort: Playwright's get_by_label
+        if not email_element:
+            try:
+                el = page.get_by_label("Email or phone")
+                if el.count() > 0 and el.first.is_visible():
+                    email_element = el.first
+                    print("   Found email input field using label text")
+            except:
+                pass
         if not email_element:
             print("   Could not find email field on login page")
             log_action(page, "password_login_email_field_not_found")
@@ -1491,8 +1525,19 @@ def _password_login(account_name):
             page,
             "/html/body/div[1]/main/div[2]/div[1]/form/div[2]/input",
             "#password",
-            "password input field"
+            "password input field",
+            extra_selectors=[
+                'input[autocomplete="current-password"]',
+            ]
         )
+        if not password_element:
+            try:
+                el = page.get_by_label("Password")
+                if el.count() > 0 and el.first.is_visible():
+                    password_element = el.first
+                    print("   Found password input field using label text")
+            except:
+                pass
         if not password_element:
             print("   Could not find password field on login page")
             log_action(page, "password_login_password_field_not_found")
@@ -1508,8 +1553,24 @@ def _password_login(account_name):
             page,
             "/html/body/div[1]/main/div[2]/div[1]/form/div[4]/button",
             "#organic-div > form > div.login__form_action_container > button",
-            "sign in button"
+            "sign in button",
+            extra_selectors=[
+                'button[type="submit"]',
+                'button:text-is("Sign in")',
+            ]
         )
+        # Last resort: Playwright's get_by_role for the sign-in button
+        if not signin_button:
+            try:
+                el = page.get_by_role("button", name="Sign in", exact=True)
+                if el.count() > 0:
+                    for i in range(el.count()):
+                        if el.nth(i).is_visible():
+                            signin_button = el.nth(i)
+                            print("   Found sign in button using role+name")
+                            break
+            except:
+                pass
         if not signin_button:
             print("   Could not find sign in button")
             log_action(page, "password_login_signin_not_found")
@@ -1664,6 +1725,18 @@ def ensure_linkedin_login(suspicious_otp=None, account_name="", max_attempts=3):
         account_name: Account name for multi-account support
         max_attempts: Number of login attempts before giving up
     """
+    # If SKIP_COOKIE_LOGIN is set, go straight to password login.
+    # Cookie login fails on all iproyal IPs (redirect loop caused by injected
+    # cookies). Password login works because it starts with a clean browser.
+    if os.getenv("SKIP_COOKIE_LOGIN", "").lower() == "true":
+        print("   SKIP_COOKIE_LOGIN=true — skipping cookie login, going straight to password.")
+        _regenerate_proxy_session()
+        driver = _password_login(account_name)
+        if driver:
+            return driver
+        print("   Password login failed.")
+        return None
+
     last_err = None
     for attempt in range(1, max_attempts + 1):
         try:

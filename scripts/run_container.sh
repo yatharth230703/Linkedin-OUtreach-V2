@@ -79,6 +79,7 @@ docker run -d \
     -e YATH_LINKEDIN_EMAIL="$YATH_LINKEDIN_EMAIL" \
     -e YATH_LINKEDIN_PASSWORD="$YATH_LINKEDIN_PASSWORD" \
     -e CLOUD_MODE=true \
+    -e SKIP_COOKIE_LOGIN=true \
     "$IMAGE"
 
 echo "Container linkedin-bot started."

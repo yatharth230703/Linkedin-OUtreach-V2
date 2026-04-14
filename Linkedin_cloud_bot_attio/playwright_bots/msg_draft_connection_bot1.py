@@ -389,35 +389,46 @@ class LinkedInInteractionManager:
     def _click_connect_element(self, el):
         """Click a Connect element using escalating strategies.
 
-        Bezier curve first (stealth), then Playwright native click,
-        then JS click (bypasses overlays like the Premium banner).
+        Order:
+          1. Playwright native .click() — does actionability checks (visible,
+             stable, NOT covered by another element). If an overlay (Premium
+             banner) is on top, this will throw an explicit error rather than
+             silently clicking the wrong thing.
+          2. Dismiss popups + retry native click.
+          3. JS .click() — bypasses overlays entirely.
+
+        We DON'T use Bezier first anymore because it blindly clicks coordinates
+        without checking what's actually at those coordinates — this caused
+        false-success when the Premium banner covered the Connect button.
         """
-        # Try Bezier (human-like)
-        human_move_click(self.page, el)
-        human_pause(2, 3)
+        # Strategy 1: Native Playwright click with actionability checks
+        try:
+            el.click(timeout=5000)
+            human_pause(2, 3)
+            return True
+        except Exception as e:
+            print(f"      Native click failed (likely intercepted): {str(e)[:120]}")
 
-        # Check if it actually worked (Premium banner might have intercepted)
-        if not self._find_visible(*self._connect_selectors()):
-            return True  # Connect button gone → click worked
-
-        # Bezier was intercepted — try native Playwright click
+        # Strategy 2: Dismiss popups, retry native click
         self.dismiss_popups()
         human_pause(0.5, 1)
         el_retry = self._find_visible(*self._connect_selectors())
-        if not el_retry:
-            return True  # Gone after popup dismiss
+        if el_retry:
+            try:
+                el_retry.click(timeout=5000)
+                human_pause(2, 3)
+                return True
+            except Exception as e:
+                print(f"      Native click after popup dismiss failed: {str(e)[:120]}")
 
+        # Strategy 3: JS click — bypasses all overlays
         try:
-            el_retry.click(timeout=5000)
+            target = el_retry if el_retry else el
+            target.evaluate("el => el.click()")
+            human_pause(2, 3)
             return True
-        except Exception:
-            pass
-
-        # Last resort: JS click
-        try:
-            el_retry.evaluate("el => el.click()")
-            return True
-        except Exception:
+        except Exception as e:
+            print(f"      JS click failed: {str(e)[:120]}")
             return False
 
     def send_connection_request(self):
@@ -531,29 +542,36 @@ class LinkedInInteractionManager:
         return True
 
     def _verify_connection_sent(self):
-        """Check that the Connect button is gone and Pending/Withdraw appeared.
+        """Strict verification — REQUIRES the profile name in the aria-label.
 
-        Verification is SCOPED to this profile — sidebar widgets ("My Network",
-        "Pending invitations" notification dot, etc.) often have "Pending" text
-        unrelated to this profile.  Without scoping, we get false positives.
+        LinkedIn's profile page contains many "Pending"/"Withdraw" elements
+        unrelated to the current lead:
+          - "More profiles for you" sidebar (inside <main>) with Connect/Pending
+            buttons for OTHER recommended people
+          - Sidebar widgets (notifications, My Network)
+          - Activity feed posts mentioning "pending" anything
+
+        The ONLY reliable signal that the request to THIS person went through
+        is an aria-label containing both the profile name AND Pending/Withdraw,
+        e.g. "Pending, click to withdraw invitation sent to Kushal Singh Soni".
+        If we can't find that, treat the click as failed.
         """
         human_pause(1, 2)
 
-        # Build scoped Pending selectors — only count "Pending" elements that
-        # belong to THIS profile (by name in aria-label, or inside main).
-        pending_selectors = []
-        if self.profile_name:
-            pending_selectors.append(f'[aria-label*="{self.profile_name}"][aria-label*="Pending"]')
-            pending_selectors.append(f'[aria-label*="{self.profile_name}"][aria-label*="Withdraw"]')
-        # Withdraw button only appears on profiles where the request was just sent
-        pending_selectors.extend([
-            'main button[aria-label*="Withdraw"]',
-            'main button:has-text("Withdraw")',
-            'main button[aria-label*="Pending"]',
-        ])
+        if not self.profile_name:
+            # No profile name → can't verify safely. Assume failure to be safe.
+            print("      ⚠️  No profile name available for verification — assuming click failed.")
+            return False
 
-        if self._find_visible(*pending_selectors):
-            print("      ✓ Connection request verified (status changed to Pending).")
+        # Match aria-label that contains BOTH this profile's name AND
+        # the Pending/Withdraw word. LinkedIn's actual aria-labels are like:
+        #   "Pending, click to withdraw invitation sent to Kushal Singh Soni"
+        if self._find_visible(
+            f'[aria-label*="{self.profile_name}"][aria-label*="Pending"]',
+            f'[aria-label*="{self.profile_name}"][aria-label*="Withdraw"]',
+            f'[aria-label*="{self.profile_name}"][aria-label*="withdraw"]',
+        ):
+            print(f"      ✓ Connection request verified — found Pending for {self.profile_name}.")
             return True
 
         # If Connect button is still visible, the click didn't go through

@@ -358,12 +358,24 @@ class LinkedInInteractionManager:
         """
         self.dismiss_popups()
 
-        # 1. Pending
-        if self._find_visible(
-            'main [aria-label*="Pending"]',
-            'main [aria-label*="Ausstehend"]',
-            'main :is(button, a):has-text("Pending")',
-        ):
+        # 1. Pending — STRICT: require profile name in aria-label.
+        # Previously we used `main [aria-label*="Pending"]` which false-fired
+        # on "People you may know" / "Others viewed" sidebar cards that live
+        # inside <main>. That made the bot silently skip real NOT_CONNECTED
+        # leads as PENDING (e.g. Leon Brunner). Only the profile's OWN Pending
+        # button carries the profile name in aria-label.
+        pending_selectors = []
+        if self.profile_name:
+            pending_selectors.extend([
+                f'[aria-label*="{self.profile_name}"][aria-label*="Pending"]',
+                f'[aria-label*="{self.profile_name}"][aria-label*="Withdraw"]',
+                f'[aria-label*="{self.profile_name}"][aria-label*="withdraw"]',
+            ])
+        if self.vanity_name:
+            # The Withdraw endpoint contains the vanityName just like the
+            # Connect endpoint does — scope by that too.
+            pending_selectors.append(f'[href*="{self.vanity_name}"][aria-label*="Pending"]')
+        if pending_selectors and self._find_visible(*pending_selectors):
             return "PENDING"
 
         # 2. Direct Connect visible (scoped to this profile)

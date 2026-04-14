@@ -238,6 +238,91 @@ def _pause(a, b):
     time.sleep(random.uniform(a, b))
 
 
+def verify_recipient_in_overlay(page, expected_name):
+    """Confirm the open message overlay/dialog is for `expected_name`.
+
+    LinkedIn shows the recipient's name in the conversation header. If our
+    Message button click opened the WRONG conversation (e.g. because the
+    legacy XPath resolved to a different card), this check fails and the
+    caller must abort rather than type into the wrong thread.
+
+    Returns True only if we find VISIBLE text matching expected_name inside
+    what looks like a conversation header — strict and narrow on purpose.
+    """
+    selectors = [
+        # Dialog/modal with explicit conversation label
+        f'[aria-label*="Conversation with {expected_name}"]',
+        f'[aria-label*="{expected_name}"][aria-label*="conversation" i]',
+        f'[aria-label*="{expected_name}"][aria-label*="gespräch" i]',
+        # Common LinkedIn overlay container holding the recipient's name
+        # (class names are hashed but role + heading are stable)
+        f'[role="dialog"] h2:has-text("{expected_name}")',
+        f'[role="dialog"] h3:has-text("{expected_name}")',
+        f'[role="dialog"] header :text-is("{expected_name}")',
+        # Messaging overlay (bottom-right) uses header with the name
+        f'header :text-is("{expected_name}")',
+    ]
+    for sel in selectors:
+        try:
+            loc = page.locator(sel)
+            for i in range(loc.count()):
+                if loc.nth(i).is_visible():
+                    return True
+        except Exception:
+            pass
+    return False
+
+
+def close_all_message_overlays(page):
+    """Force-close any open message overlays/dialogs.
+
+    LinkedIn's bottom-right messaging lets multiple conversations stay open
+    as stacked overlays. If we leave one open, subsequent "Message" clicks
+    may leak text into it. This closes them ALL via every known mechanism.
+    """
+    # Press Escape multiple times — closes most overlays
+    for _ in range(3):
+        try:
+            page.keyboard.press("Escape")
+        except Exception:
+            pass
+        _pause(0.2, 0.4)
+
+    # Click any visible Close/Dismiss button in messaging overlays
+    close_selectors = [
+        'button[aria-label="Close your conversation"]',
+        'button[aria-label="Schließen Sie Ihr Gespräch"]',
+        'button[aria-label*="Close conversation" i]',
+        'button[aria-label*="close" i][aria-label*="conversation" i]',
+        '[role="dialog"] button[aria-label="Close"]',
+        '[role="dialog"] button[aria-label="Dismiss"]',
+        '.msg-overlay-bubble-header__control--close-btn',
+    ]
+    for sel in close_selectors:
+        try:
+            loc = page.locator(sel)
+            for i in range(loc.count()):
+                el = loc.nth(i)
+                if el.is_visible():
+                    try:
+                        el.click(timeout=1500)
+                    except Exception:
+                        try:
+                            el.evaluate("el => el.click()")
+                        except Exception:
+                            pass
+                    _pause(0.2, 0.4)
+        except Exception:
+            pass
+
+    # Final: click on the body (not on any dialog) to defocus
+    try:
+        page.locator("body").first.click(position={"x": 5, "y": 5}, timeout=1000)
+    except Exception:
+        pass
+    _pause(0.3, 0.6)
+
+
 def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=8):
     """Send a message in an already-open conversation, with verification.
 
@@ -257,6 +342,14 @@ def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=
         lead_name: for logging
         verify_timeout_s: how long to poll for the new message to appear
     """
+    # ── 0. Verify the OPEN conversation is for the expected recipient ──
+    # This is the single most important safety check: if our Message-button
+    # click opened the wrong thread (e.g. legacy XPath resolved wrong, or
+    # a persistent overlay from a previous lead), we must NEVER type here.
+    if not verify_recipient_in_overlay(page, lead_name):
+        print(f"      🚫 [{lead_name}] open conversation does NOT show '{lead_name}' — refusing to send")
+        return "FAILED_WRONG_RECIPIENT"
+
     # ── 1. Locate textbox and focus it ────────────────────────────
     textbox = _find_message_textbox(page)
     if not textbox:
@@ -305,7 +398,10 @@ def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=
         print(f"      ✗ [{lead_name}] typing failed: {str(e)[:100]}")
         return "FAILED_TYPING"
 
-    # Quick sanity check: did any text actually land in the textbox?
+    # HARD CHECK: did typing actually land in the textbox?
+    # If the textbox is empty after typing, focus went to void — we MUST NOT
+    # click Send because (a) nothing will send in this thread, OR (b) the
+    # text went into a different open overlay. Either way: abort, don't send.
     try:
         typed_ok = page.evaluate(
             "() => { const a = document.activeElement; "
@@ -313,8 +409,10 @@ def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=
         )
     except Exception:
         typed_ok = True  # can't tell → assume OK
+
     if not typed_ok:
-        print(f"      ⚠️ [{lead_name}] textbox appears empty after typing — focus likely lost")
+        print(f"      🚫 [{lead_name}] textbox is EMPTY after typing — focus lost, aborting send")
+        return "FAILED_TYPING_VOID"
 
     _pause(1.0, 2.0)
 
@@ -345,35 +443,27 @@ def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=
             return "FAILED_SEND_KEY"
 
     # ── 5. Verify the message actually went through ───────────────
-    # Signals of success:
-    #   a) thread message count increased
-    #   b) textbox is empty (LinkedIn clears it on successful send)
-    #   c) a fresh element contains (part of) our message text
+    # Only accept STRONG signals — a new rendered message in the thread.
+    # We removed the "textbox_cleared" fallback because it false-fired when
+    # focus was lost and the textbox was empty to begin with.
     deadline = time.time() + verify_timeout_s
     snippet = (message_text or "")[:40].strip()
     success_signal = None
     while time.time() < deadline:
+        # Signal A: thread message count increased (strongest)
         after_count = _count_thread_messages(page)
         if after_count > before_count:
             success_signal = f"message_count {before_count}→{after_count}"
             break
 
-        # Textbox empty?
-        try:
-            empty = page.evaluate(
-                "() => { const a = document.activeElement; "
-                "if (!a) return false; return (a.innerText || '').trim().length === 0; }"
-            )
-        except Exception:
-            empty = False
-        if empty:
-            success_signal = "textbox_cleared"
-            break
-
-        # Our text appears in the thread?
-        if snippet and len(snippet) >= 5:
+        # Signal B: a rendered element in the thread contains our text
+        if snippet and len(snippet) >= 10:
             try:
-                appears = page.locator(f':text("{snippet}")').count() > 0
+                # Scope to dialog/overlay — don't match sidebar or page text
+                appears = page.locator(
+                    f'[role="dialog"] :text("{snippet}"), '
+                    f'.msg-s-message-list__event :text("{snippet}")'
+                ).count() > 0
                 if appears:
                     success_signal = "text_visible_in_thread"
                     break

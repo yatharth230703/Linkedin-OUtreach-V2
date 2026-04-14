@@ -288,14 +288,28 @@ def message_relay(page, message_text, lead_name):
         human_pause(2, 3)
         close_dialog_safely(page, lead_name)
 
-        # Only report success on verified send
-        return True if result == "SENT" else False
+        if result == "SENT":
+            return True
+
+        # Loud failure — notify so we're never silent about a skipped lead
+        try:
+            from notifier import notify_error
+            notify_error(f"Message NOT sent to {lead_name} — reason: {result}")
+        except Exception:
+            pass
+        print(f"   ❌ [{lead_name}] send failed ({result}) — DB status will NOT be updated")
+        return False
 
     except Exception as e:
         print(f"   Error in message relay for {lead_name}: {e}")
         import traceback
         traceback.print_exc()
         close_dialog_safely(page, lead_name)
+        try:
+            from notifier import notify_error
+            notify_error(f"Message exception for {lead_name}: {str(e)[:200]}")
+        except Exception:
+            pass
         return False
 
 
@@ -470,29 +484,23 @@ def message_all_leads(page, leads_to_message):
                                         #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[3]/div/div[2]/div/div/a
                                         #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[5]/div/div[2]/div/div/a
 
-            # Robust tag-agnostic lookup scoped by BOTH name AND headline
-            # (prevents wrong-click when two connections share a name).
-            # Falls back to legacy absolute XPath only if scoped lookup fails.
-            from playwright_bots.robust_messaging import find_message_button_for, lead_identity_hash
+            # Force-close any lingering message overlays before opening a
+            # new conversation — otherwise typing can leak into the wrong thread.
+            from playwright_bots.robust_messaging import (
+                find_message_button_for, lead_identity_hash, close_all_message_overlays
+            )
+            close_all_message_overlays(page)
+
             lead_hash = lead_identity_hash(name, lead_data.get('headline', ''))
             print(f"   Lead identity: {name} [{lead_hash}]")
             message_button_el = find_message_button_for(
                 page, name, lead_headline=lead_data.get('headline', ''))
 
+            # NO legacy XPath fallback — it demonstrably resolves to the wrong
+            # element on current LinkedIn and caused messages to be sent to
+            # random people. If scoped lookup fails, SKIP this lead.
             if not message_button_el:
-                message_button_xpath = f"xpath=/html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{k}]/div/div[2]/div/div/a"
-                try:
-                    legacy = page.locator(message_button_xpath)
-                    if legacy.count() > 0:
-                        label = legacy.first.get_attribute("aria-label") or legacy.first.inner_text()
-                        if any(kw in label.lower() for kw in ["message", "nachricht"]):
-                            message_button_el = legacy.first
-                            print(f"   Using legacy XPath fallback for {name}")
-                except Exception:
-                    pass
-
-            if not message_button_el:
-                print(f"   Message button not found for {name} (tried aria-label + name scoping, card walkup, legacy XPath)")
+                print(f"   ⚠️ [{name}] message button not found via name+headline scoping — SKIPPING lead to avoid wrong-recipient send")
                 failed_messages += 1
                 continue
 

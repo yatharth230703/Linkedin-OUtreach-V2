@@ -533,20 +533,26 @@ class LinkedInInteractionManager:
     def _verify_connection_sent(self):
         """Check that the Connect button is gone and Pending/Withdraw appeared.
 
-        If Connect is still visible, the click was intercepted by a popup
-        or overlay and the request was NOT actually sent.
+        Verification is SCOPED to this profile — sidebar widgets ("My Network",
+        "Pending invitations" notification dot, etc.) often have "Pending" text
+        unrelated to this profile.  Without scoping, we get false positives.
         """
         human_pause(1, 2)
 
-        # If Pending or Withdraw is now visible, the request went through
-        if self._find_visible(
-            '[aria-label*="Pending"]',
-            '[aria-label*="Ausstehend"]',
-            ':is(button, a):has-text("Pending")',
-            ':is(button, a):has-text("Ausstehend")',
-            '[aria-label*="Withdraw"]',
-            ':is(button, a):has-text("Withdraw")',
-        ):
+        # Build scoped Pending selectors — only count "Pending" elements that
+        # belong to THIS profile (by name in aria-label, or inside main).
+        pending_selectors = []
+        if self.profile_name:
+            pending_selectors.append(f'[aria-label*="{self.profile_name}"][aria-label*="Pending"]')
+            pending_selectors.append(f'[aria-label*="{self.profile_name}"][aria-label*="Withdraw"]')
+        # Withdraw button only appears on profiles where the request was just sent
+        pending_selectors.extend([
+            'main button[aria-label*="Withdraw"]',
+            'main button:has-text("Withdraw")',
+            'main button[aria-label*="Pending"]',
+        ])
+
+        if self._find_visible(*pending_selectors):
             print("      ✓ Connection request verified (status changed to Pending).")
             return True
 
@@ -669,6 +675,31 @@ def _extract_name_from_title(title):
     return name
 
 
+class SessionFailureError(Exception):
+    """Raised when LinkedIn invalidates our session mid-run.
+
+    Triggered by ERR_TOO_MANY_REDIRECTS, ERR_TUNNEL_CONNECTION_FAILED, or
+    repeated network errors — these mean the session/proxy is broken, NOT
+    that the profile doesn't exist. Caller must abort the run to preserve
+    leads (don't mark them as FAULTY URL and don't delete from bot_inputs).
+    """
+
+
+_SESSION_ERROR_PATTERNS = (
+    "err_too_many_redirects",
+    "err_tunnel_connection_failed",
+    "err_proxy_connection_failed",
+    "err_connection_reset",
+    "net::err_aborted",
+)
+
+
+def _is_session_error(err_str):
+    """Return True if the error string looks like a session/proxy failure."""
+    s = err_str.lower()
+    return any(p in s for p in _SESSION_ERROR_PATTERNS)
+
+
 def is_profile_accessible(page, url, max_retries=2):
     """
     Check if the LinkedIn profile URL is accessible (not 404 or deleted).
@@ -756,6 +787,13 @@ def is_profile_accessible(page, url, max_retries=2):
                 return False
 
         except Exception as e:
+            err_str = str(e)
+            # Session/proxy failures should NOT be treated as faulty URLs.
+            # Bail out immediately so the caller can preserve the lead.
+            if _is_session_error(err_str):
+                print(f"      🛑 Session/proxy error detected: {err_str[:120]}")
+                raise SessionFailureError(err_str)
+
             if attempt < max_retries - 1:
                 print(f"      Error on attempt {attempt + 1}: {e}, retrying...")
                 human_pause(2, 3)
@@ -894,7 +932,20 @@ def main():
             li_manager = LinkedInInteractionManager(page, vanity_name=vanity)
 
             # PHASE 0: CHECK IF PROFILE IS ACCESSIBLE
-            if not is_profile_accessible(page, url):
+            try:
+                accessible = is_profile_accessible(page, url)
+            except SessionFailureError as sf:
+                # LinkedIn invalidated our session (redirect loops, tunnel
+                # failures). Do NOT mark this lead as faulty — the lead is
+                # fine, our session is broken. Abort the run; the lead stays
+                # in bot_inputs for the next cron tick to retry with a fresh
+                # session (cookies/proxy session will be regenerated).
+                print(f"   🛑 Session failure mid-run: {sf}")
+                print(f"   Aborting run to preserve remaining {len(bot_input_leads) - count} leads.")
+                notify_error(account_name, f"Session invalidated mid-run after {count} successful leads. Lead preserved: {url}")
+                return
+
+            if not accessible:
                 print(f"      Profile not accessible (404 or deleted): {url}")
                 handle_faulty_url(url, bot_input_record_id=record_id, lead_manager=account_name)
                 count += 1

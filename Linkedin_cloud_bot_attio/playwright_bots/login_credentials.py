@@ -723,11 +723,23 @@ def setup_playwright_browser(account_name=""):
 
         # Use persistent context for session persistence (like Chrome's user-data-dir)
         is_cloud = os.getenv("CLOUD_MODE", "").lower() == "true"
+
+        # Match timezone to the proxy geo. Mismatched timezone (browser=UTC,
+        # IP=India) is a clear bot signal LinkedIn uses for risk scoring.
+        slug = _account_slug(account_name)
+        if slug == "yatharth_bisht":
+            tz_id = "Asia/Kolkata"
+        elif slug in ("maurice", "leon"):
+            tz_id = "Europe/Berlin"
+        else:
+            tz_id = "Asia/Kolkata"
+
         context_options = {
             "user_data_dir": user_data_path,
             "viewport": {"width": 1920, "height": 1080},
             "user_agent": user_agent,
             "locale": "en-US",
+            "timezone_id": tz_id,
             "ignore_https_errors": True,
             "args": launch_args,
             "headless": False,

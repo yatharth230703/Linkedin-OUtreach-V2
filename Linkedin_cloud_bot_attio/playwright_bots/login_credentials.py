@@ -975,6 +975,76 @@ def _get_extension_cookies(account_name=""):
     return None
 
 
+def _persist_cookies_after_login(driver, account_name=""):
+    """Save the browser context's current cookies to disk.
+
+    Called after EVERY successful login (cookie-based or password) so that
+    the next cron tick can skip login entirely via cookie injection.
+
+    Paired with the persisted proxy session ID (same account), this gives
+    cookies ↔ IP binding. LinkedIn's risk engine accepts us because:
+      - Cookies match a known session
+      - Session's originating IP matches current request's IP
+
+    Writes BOTH cookies (auth) and browser_storage (localStorage/sessionStorage
+    — LinkedIn stashes some tokens there).
+    """
+    import json as _json
+    import sys as _sys
+    try:
+        _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if _root not in _sys.path:
+            _sys.path.insert(0, _root)
+        from state_paths import cookies_path as _cookies_path, storage_path as _storage_path
+
+        slug = _account_slug(account_name)
+        cookies_file = _cookies_path(slug) if slug else _cookies_path()
+        storage_file = _storage_path(slug) if slug else _storage_path()
+
+        context = driver.context if hasattr(driver, "context") else None
+        if not context:
+            print(f"   ⚠️ Cannot persist cookies: no browser context on driver")
+            return
+
+        # Collect cookies from the Playwright context
+        pw_cookies = context.cookies()
+        if not pw_cookies:
+            print(f"   ⚠️ No cookies to persist (context returned empty)")
+            return
+
+        # Convert Playwright cookie format → the on-disk format we read later.
+        # Playwright uses 'expires' (seconds float), our reader expects 'expirationDate'.
+        disk_cookies = []
+        for c in pw_cookies:
+            d = dict(c)
+            if "expires" in d and "expirationDate" not in d:
+                d["expirationDate"] = d["expires"]
+            disk_cookies.append(d)
+
+        os.makedirs(os.path.dirname(cookies_file), exist_ok=True)
+        with open(cookies_file, "w") as f:
+            _json.dump(disk_cookies, f, indent=2)
+
+        # Persist localStorage/sessionStorage too (via a page eval if we have one)
+        page = getattr(driver, "page", None)
+        if page:
+            try:
+                storage = page.evaluate("""() => ({
+                    localStorage: Object.fromEntries(Object.keys(localStorage).map(k => [k, localStorage.getItem(k)])),
+                    sessionStorage: Object.fromEntries(Object.keys(sessionStorage).map(k => [k, sessionStorage.getItem(k)]))
+                })""")
+                with open(storage_file, "w") as f:
+                    _json.dump(storage, f, indent=2)
+            except Exception as e:
+                print(f"   ⚠️ Could not persist browser_storage: {e}")
+
+        has_li_at = any(c.get("name") == "li_at" for c in disk_cookies)
+        print(f"   💾 Persisted {len(disk_cookies)} cookies → {os.path.basename(cookies_file)} (li_at={'yes' if has_li_at else 'no'})")
+    except Exception as e:
+        # Never let persistence failure break the login flow
+        print(f"   ⚠️ Cookie persistence failed silently: {e}")
+
+
 def _wipe_profile(account_name=""):
     """Always wipe user data dir for a clean start with extension cookies."""
     import shutil
@@ -1216,6 +1286,8 @@ def linkedin_login(suspicious_otp=None, account_name=""):
                 _inject_browser_storage(page, account_name)
             print("   User is already logged in! Skipping login process.")
             log_action(page, "already_logged_in")
+            # Re-persist — LinkedIn may have rotated JSESSIONID / added cookies
+            _persist_cookies_after_login(driver, account_name)
             return driver
 
         # Not logged in, proceed with login
@@ -1696,6 +1768,7 @@ def _password_login(account_name):
             if check_if_logged_in(page, account_name=account_name):
                 print("   Password login successful after app approval!")
                 log_action(page, "password_login_success_app_approved")
+                _persist_cookies_after_login(driver, account_name)
                 return driver
 
         # No app challenge detected — maybe logged in directly, or maybe
@@ -1706,6 +1779,7 @@ def _password_login(account_name):
         if "feed" in current_url or "mynetwork" in current_url:
             print("   Already on feed/mynetwork — login succeeded without 2FA!")
             log_action(page, "password_login_success_direct")
+            _persist_cookies_after_login(driver, account_name)
             return driver
 
         # ── Mid-redirect detection (CRITICAL: don't interrupt the redirect chain) ──
@@ -1734,6 +1808,7 @@ def _password_login(account_name):
                 if "feed" in settled_url or "mynetwork" in settled_url:
                     print("   ✓ Redirect chain completed → /feed — login succeeded!")
                     log_action(page, "password_login_success_redirect")
+                    _persist_cookies_after_login(driver, account_name)
                     return driver
                 # If we get redirected to logout / landing page, login failed
                 if any(s in settled_url for s in ("/login", "logout", "uas/login")) and "flagship-web" not in settled_url:
@@ -1754,6 +1829,7 @@ def _password_login(account_name):
         if check_if_logged_in(page, account_name=account_name):
             print("   Password login successful!")
             log_action(page, "password_login_success_delayed")
+            _persist_cookies_after_login(driver, account_name)
             return driver
 
         print("   Password login failed — unknown state after credential submission.")

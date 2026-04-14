@@ -270,41 +270,31 @@ def scrape_all_connections_brute(page, lead_manager=""):
 
 def message_relay(page, message_text, lead_name):
     """
-    Handle the actual messaging process after message button is clicked.
-    Types message and sends using Ctrl+Enter, then closes dialog with Escape.
+    Send an initial message after the conversation dialog has been opened.
+
+    Uses robust_messaging.send_message_in_open_thread which:
+      - Explicitly focuses the textbox (no more void-typing)
+      - Prefers clicking the Send button over Ctrl+Enter
+      - VERIFIES the send by watching the thread message count / textbox clearing
+      - Returns a specific failure reason instead of silent-success
     """
     try:
         print(f"   Starting message relay for {lead_name}")
-
         human_pause(3, 4)
 
-        print(f"      Typing message via keyboard...")
+        from playwright_bots.robust_messaging import send_message_in_open_thread
+        result = send_message_in_open_thread(page, message_text, lead_name)
 
-        # Type the message with human-like character delays
-        for char in message_text:
-            page.keyboard.type(char, delay=0)
-            if random.random() < 0.1:
-                time.sleep(random.uniform(0.05, 0.15))
-
-        print(f"      Message typed for {lead_name}")
         human_pause(2, 3)
-
-        # Send message using Ctrl+Enter
-        print(f"      Sending message via Ctrl+Enter...")
-        page.keyboard.press("Control+Enter")
-
-        print(f"      Message sent to {lead_name}")
-        human_pause(2, 3)
-
         close_dialog_safely(page, lead_name)
 
-        return True
+        # Only report success on verified send
+        return True if result == "SENT" else False
 
     except Exception as e:
         print(f"   Error in message relay for {lead_name}: {e}")
         import traceback
         traceback.print_exc()
-
         close_dialog_safely(page, lead_name)
         return False
 
@@ -480,27 +470,41 @@ def message_all_leads(page, leads_to_message):
                                         #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[3]/div/div[2]/div/div/a
                                         #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[5]/div/div[2]/div/div/a
 
-            message_button_xpath = f"xpath=/html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{k}]/div/div[2]/div/div/a"
+            # Robust tag-agnostic lookup scoped by BOTH name AND headline
+            # (prevents wrong-click when two connections share a name).
+            # Falls back to legacy absolute XPath only if scoped lookup fails.
+            from playwright_bots.robust_messaging import find_message_button_for, lead_identity_hash
+            lead_hash = lead_identity_hash(name, lead_data.get('headline', ''))
+            print(f"   Lead identity: {name} [{lead_hash}]")
+            message_button_el = find_message_button_for(
+                page, name, lead_headline=lead_data.get('headline', ''))
+
+            if not message_button_el:
+                message_button_xpath = f"xpath=/html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{k}]/div/div[2]/div/div/a"
+                try:
+                    legacy = page.locator(message_button_xpath)
+                    if legacy.count() > 0:
+                        label = legacy.first.get_attribute("aria-label") or legacy.first.inner_text()
+                        if any(kw in label.lower() for kw in ["message", "nachricht"]):
+                            message_button_el = legacy.first
+                            print(f"   Using legacy XPath fallback for {name}")
+                except Exception:
+                    pass
+
+            if not message_button_el:
+                print(f"   Message button not found for {name} (tried aria-label + name scoping, card walkup, legacy XPath)")
+                failed_messages += 1
+                continue
 
             try:
-                message_button = page.locator(message_button_xpath)
-                if message_button.count() == 0:
-                    print(f"   Message button not found for {name}")
-                    failed_messages += 1
-                    continue
-
-                # Verify it's a message button (English or German)
-                button_text = message_button.first.get_attribute("aria-label") or message_button.first.inner_text()
-                if not any(keyword in button_text.lower() for keyword in ["message", "nachricht"]):
-                    print(f"   Button found but not a message button: {button_text}")
-                    failed_messages += 1
-                    continue
-
-                message_button.first.scroll_into_view_if_needed()
+                message_button_el.scroll_into_view_if_needed()
                 human_scroll(page)
                 human_pause(1, 2)
 
-                human_move_click(page, message_button.first)
+                try:
+                    message_button_el.click(timeout=5000)
+                except Exception:
+                    human_move_click(page, message_button_el)
                 human_pause(3, 4)
 
                 success = send_message_to_lead(page, lead_data)

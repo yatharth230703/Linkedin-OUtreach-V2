@@ -1708,6 +1708,40 @@ def _password_login(account_name):
             log_action(page, "password_login_success_direct")
             return driver
 
+        # ── Mid-redirect detection (CRITICAL: don't interrupt the redirect chain) ──
+        # When LinkedIn recognizes a device and skips 2FA, the URL goes through:
+        #   /login → /flagship-web/login/?recognizedevice=... → /feed/
+        # If we navigate elsewhere before the chain completes, the redirect
+        # ABORTS and our check_if_logged_in returns False even though login
+        # succeeded. So: detect mid-redirect and WAIT for URL to settle.
+        is_mid_redirect = (
+            "recognizedevice" in current_url
+            or "flagship-web/login" in current_url
+            or "checkpoint/lg/login-submit" in current_url
+        )
+        if is_mid_redirect:
+            print("   Mid-redirect detected (recognizedevice/flagship-web). Waiting up to 30s for URL to settle...")
+            settled_url = current_url
+            for i in range(30):
+                time.sleep(1)
+                try:
+                    new_url = page.url.lower()
+                except Exception:
+                    new_url = settled_url
+                if new_url != settled_url:
+                    print(f"   URL changed: {settled_url[:80]} → {new_url[:80]}")
+                    settled_url = new_url
+                if "feed" in settled_url or "mynetwork" in settled_url:
+                    print("   ✓ Redirect chain completed → /feed — login succeeded!")
+                    log_action(page, "password_login_success_redirect")
+                    return driver
+                # If we get redirected to logout / landing page, login failed
+                if any(s in settled_url for s in ("/login", "logout", "uas/login")) and "flagship-web" not in settled_url:
+                    if i > 5:  # give it some time before bailing
+                        print(f"   ✗ Bounced back to login page — login failed")
+                        break
+            current_url = settled_url
+
         # Check for suspicious login challenge
         if check_suspicious_login_challenge(page):
             print("   Suspicious login challenge detected after password login.")

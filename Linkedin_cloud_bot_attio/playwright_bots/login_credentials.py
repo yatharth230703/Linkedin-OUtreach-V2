@@ -25,19 +25,87 @@ def _account_slug(account_name):
 # residential exit IP. Without this, iproyal rotates the IP per-connection,
 # breaking LinkedIn's session continuity.
 #
-# Regenerated via _regenerate_proxy_session() when a login attempt fails
-# (likely because the current IP is flagged by LinkedIn). The next attempt
-# then gets a completely different exit IP.
+# CRITICAL: persisted to disk PER ACCOUNT. LinkedIn binds session cookies to
+# the IP they were minted from. If we save cookies on IP A then reload them
+# from IP B, LinkedIn's risk engine flags the account ("session hijacked")
+# and forces re-login. By persisting the session ID alongside cookies, every
+# run for a given account uses the SAME exit IP for the lifetime of those
+# cookies — no IP-cookie mismatch, no risk flag.
+#
+# Regenerated only when:
+#   - login fails outright (current IP is dead/flagged) → caller invokes
+#     _regenerate_proxy_session()
+#   - cookies are wiped (fresh start) → next session ID will be new
 import secrets as _secrets
-_PROXY_SESSION_ID = _secrets.token_hex(8)
 
 
-def _regenerate_proxy_session():
-    """Get a new sticky proxy session ID → next browser launch uses a different exit IP."""
-    global _PROXY_SESSION_ID
-    old = _PROXY_SESSION_ID
-    _PROXY_SESSION_ID = _secrets.token_hex(8)
-    print(f"   Proxy session rotated: {old[:6]}... → {_PROXY_SESSION_ID[:6]}... (new exit IP on next browser launch)")
+def _proxy_session_path(account_name=""):
+    """Disk path for the persisted proxy session ID, per account."""
+    try:
+        # state_paths is at project root, importable from playwright_bots
+        import sys as _sys
+        _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if _root not in _sys.path:
+            _sys.path.insert(0, _root)
+        from state_paths import COOKIES_DIR, slugify
+        slug = slugify(account_name)
+        name = f"proxy_session_{slug}.txt" if slug else "proxy_session.txt"
+        return os.path.join(COOKIES_DIR, name)
+    except Exception:
+        return None
+
+
+def _load_or_create_proxy_session(account_name=""):
+    """Load persisted proxy session ID from disk, or create a new one."""
+    path = _proxy_session_path(account_name)
+    if path and os.path.exists(path):
+        try:
+            with open(path, "r") as f:
+                sid = f.read().strip()
+                if sid and len(sid) >= 8:
+                    return sid
+        except Exception:
+            pass
+    # No persisted session — create one and save it
+    sid = _secrets.token_hex(8)
+    if path:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                f.write(sid)
+        except Exception:
+            pass
+    return sid
+
+
+# Per-account session cache (in-memory, populated lazily)
+_PROXY_SESSION_BY_ACCOUNT = {}
+
+
+def _get_proxy_session_id(account_name=""):
+    if account_name not in _PROXY_SESSION_BY_ACCOUNT:
+        _PROXY_SESSION_BY_ACCOUNT[account_name] = _load_or_create_proxy_session(account_name)
+    return _PROXY_SESSION_BY_ACCOUNT[account_name]
+
+
+def _regenerate_proxy_session(account_name=""):
+    """Mint a fresh proxy session ID and persist it.
+
+    Use only when the current IP is dead/flagged — this will force re-login
+    (cookies bound to the old IP won't work with the new IP).
+    """
+    old = _PROXY_SESSION_BY_ACCOUNT.get(account_name, "")
+    new = _secrets.token_hex(8)
+    _PROXY_SESSION_BY_ACCOUNT[account_name] = new
+    path = _proxy_session_path(account_name)
+    if path:
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w") as f:
+                f.write(new)
+        except Exception:
+            pass
+    print(f"   Proxy session rotated: {old[:6]}... → {new[:6]}... (account={account_name!r})")
 
 
 def get_proxy_password_for_account(account_name=""):
@@ -54,11 +122,8 @@ def get_proxy_password_for_account(account_name=""):
         raw = os.getenv("PROXY_PASSWORD", "")
         return raw if raw else base
 
-    # Append sticky session suffix so every request in this process exits via
-    # the same residential IP. The session ID is stable per-process (regenerated
-    # on each new orchestrator run) which gives us session continuity within a
-    # run AND IP rotation between runs.
-    return f"{base}{geo}_session-{_PROXY_SESSION_ID}"
+    sid = _get_proxy_session_id(account_name)
+    return f"{base}{geo}_session-{sid}"
 
 
 class PlaywrightDriver:
@@ -1742,7 +1807,11 @@ def ensure_linkedin_login(suspicious_otp=None, account_name="", max_attempts=3):
     # cookies). Password login works because it starts with a clean browser.
     if os.getenv("SKIP_COOKIE_LOGIN", "").lower() == "true":
         print("   SKIP_COOKIE_LOGIN=true — skipping cookie login, going straight to password.")
-        _regenerate_proxy_session()
+        # DO NOT regenerate proxy session here. The persisted session ID will
+        # be used; the new cookies from this login will be paired with it.
+        # Regenerating would create an IP-cookie mismatch on the NEXT run.
+        sid = _get_proxy_session_id(account_name)
+        print(f"   Using persisted proxy session: {sid[:6]}...")
         driver = _password_login(account_name)
         if driver:
             return driver
@@ -1773,7 +1842,7 @@ def ensure_linkedin_login(suspicious_otp=None, account_name="", max_attempts=3):
         # ── Prepare for next attempt ──
         if attempt < max_attempts:
             _kill_zombie_chrome_processes()
-            _regenerate_proxy_session()
+            _regenerate_proxy_session(account_name)
             wait = 5 * attempt
             print(f"   Waiting {wait}s before retrying with new proxy IP...")
             time.sleep(wait)
@@ -1788,7 +1857,7 @@ def ensure_linkedin_login(suspicious_otp=None, account_name="", max_attempts=3):
     print("   Attempting password login as final fallback...")
     try:
         _kill_zombie_chrome_processes()
-        _regenerate_proxy_session()
+        _regenerate_proxy_session(account_name)
         time.sleep(3)
         driver = _password_login(account_name)
         if driver:

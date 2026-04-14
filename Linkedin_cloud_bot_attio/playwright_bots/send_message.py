@@ -558,6 +558,16 @@ def main():
     print("   LinkedIn session established. Starting messaging bot...")
     page = driver.page
 
+    # ── DIAGNOSTIC: fingerprint baseline ──────────────────────────────
+    try:
+        from playwright_bots.fingerprint_diagnostics import safe_capture as _diag_capture
+        _proxy_geo = "IN" if "yatharth" in account_name.lower() else (
+            "DE" if any(n in account_name.lower() for n in ("maurice", "leon")) else None)
+        _diag_capture(page, account_name=account_name, checkpoint="msg_post_login",
+                      proxy_geo=_proxy_geo)
+    except Exception:
+        pass
+
     try:
         print("   Opening LinkedIn...")
         _safe_goto(page, "https://www.linkedin.com/", timeout=60000)

@@ -25,6 +25,7 @@ from playwright_bots.login_credentials import (
     PlaywrightDriver,
     _safe_goto,
 )
+from playwright_bots.fingerprint_diagnostics import safe_capture as _diag_capture
 
 load_dotenv()
 
@@ -431,6 +432,17 @@ class LinkedInInteractionManager:
             print(f"      JS click failed: {str(e)[:120]}")
             return False
 
+    def _diag(self, checkpoint):
+        """Wrapper to call fingerprint diagnostics with the right account/geo."""
+        try:
+            from playwright_bots.fingerprint_diagnostics import safe_capture
+            geo = "IN"  # default; could be parameterised per profile in future
+            safe_capture(self.page, account_name="",
+                         checkpoint=f"connect_{checkpoint}_{self.vanity_name or 'unknown'}",
+                         proxy_geo=geo)
+        except Exception:
+            pass
+
     def send_connection_request(self):
         """Send a connection request to the current profile.
 
@@ -445,6 +457,7 @@ class LinkedInInteractionManager:
         the connection actually went through.
         """
         print("      Attempting to connect...")
+        self._diag("pre_click")
 
         # ── Path A: Direct Connect button (scoped to this profile) ───────
         connect_el = self._find_visible(*self._connect_selectors())
@@ -578,6 +591,7 @@ class LinkedInInteractionManager:
         still_connect = self._find_visible(*self._connect_selectors())
         if still_connect:
             print("      ✗ Connect button still visible — click was intercepted!")
+            self._diag("verify_failed")
 
             # Dump a screenshot so we can see what's blocking
             try:
@@ -885,11 +899,22 @@ def main():
     print("   LinkedIn session established. Starting bot operations...")
     page = driver.page
 
+    # ── DIAGNOSTIC: capture fingerprint baseline right after login ───
+    # Determines proxy_geo from the account name (Yatharth=IN, Maurice/Leon=DE)
+    _proxy_geo = "IN" if "yatharth" in account_name.lower() else (
+        "DE" if any(n in account_name.lower() for n in ("maurice", "leon")) else None)
+    _diag_capture(page, account_name=account_name, checkpoint="post_login",
+                  proxy_geo=_proxy_geo)
+
     try:
         print("   Opening LinkedIn...")
         _safe_goto(page, "https://www.linkedin.com/", timeout=60000)
         log_action(page, "linkedin_homepage")
         human_pause(4, 7)
+
+        # Capture again on the homepage so we can see what LinkedIn sees on a real page
+        _diag_capture(page, account_name=account_name, checkpoint="on_feed",
+                      proxy_geo=_proxy_geo)
 
         print("   Session Active. Ready to start automation.")
         human_scroll(page)

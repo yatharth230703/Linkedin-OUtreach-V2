@@ -296,6 +296,7 @@ def scrape_all_connections_for_followup(page, lead_manager=""):
             'message_2_draft': lead_db_data['message_2_draft'],
             'status': lead_db_data['status'],
             'last_contacted_at': lead_db_data['last_contacted_at'],
+            'linkedin_url': lead_db_data.get('linkedin_url', ''),
             'validation_result': validation_result
         }
 
@@ -858,36 +859,31 @@ def message_all_followup_leads(page, leads_to_message):
 
             k = lead_data['position_k']
 
-            # Force-close any lingering message overlays before opening a
-            # new conversation — otherwise typing can leak into the wrong thread.
+            # IMPORTANT: same fix as send_message.py — don't click the
+            # connections-page Message button (opens "New message" pinned to
+            # the last thread). Navigate to the lead's profile instead.
             from playwright_bots.robust_messaging import (
-                find_message_button_for, lead_identity_hash, close_all_message_overlays
+                lead_identity_hash, open_conversation_via_profile
             )
-            close_all_message_overlays(page)
-
             lead_hash = lead_identity_hash(name, lead_data.get('headline', ''))
             print(f"   Lead identity: {name} [{lead_hash}]")
-            message_button_el = find_message_button_for(
-                page, name, lead_headline=lead_data.get('headline', ''))
 
-            # NO legacy XPath fallback — caused messages to go to wrong people.
-            # If scoped lookup fails, SKIP the lead rather than risk mis-sending.
-            if not message_button_el:
-                print(f"   ⚠️ [{name}] message button not found via name+headline scoping — SKIPPING lead to avoid wrong-recipient send")
+            profile_url = lead_data.get('linkedin_url', '')
+            if not profile_url:
+                print(f"   ⚠️ [{name}] no linkedin_url in Attio record — SKIPPING")
+                failed_messages += 1
+                continue
+
+            opened = open_conversation_via_profile(
+                page, profile_url, name, lead_headline=lead_data.get('headline', '')
+            )
+            if not opened:
+                print(f"   ⚠️ [{name}] could not open conversation via profile — SKIPPING to avoid wrong-recipient send")
                 failed_messages += 1
                 continue
 
             try:
-                message_button_el.scroll_into_view_if_needed()
-                human_scroll(page)
                 human_pause(1, 2)
-
-                try:
-                    message_button_el.click(timeout=5000)
-                except Exception:
-                    # Fall back to human_move_click if native click fails
-                    human_move_click(page, message_button_el)
-                human_pause(3, 4)
 
                 result = send_followup_to_lead(page, lead_data)
 

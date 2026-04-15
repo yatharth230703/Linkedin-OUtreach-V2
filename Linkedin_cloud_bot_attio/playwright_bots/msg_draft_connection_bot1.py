@@ -1061,6 +1061,20 @@ def main():
                     if sent:
                         db_status_update = "PENDING"
                         notify_connection_sent(profile_data["full_name"], account_name)
+                    else:
+                        # Connect click failed (intercepted, couldn't resolve, etc.)
+                        # DO NOT silently drop the lead: notify + keep in bot_inputs
+                        # so it can be retried on the next run.
+                        db_status_update = "CONNECT_FAILED"
+                        print(f"      ❌ Connection request NOT sent for {profile_data['full_name']}")
+                        try:
+                            notify_error(
+                                f"Connection NOT sent to {profile_data['full_name']} — click failed/intercepted. "
+                                f"Lead kept in bot_inputs for retry.",
+                                account_name,
+                            )
+                        except Exception:
+                            pass
 
                 elif status == "PENDING":
                     print("      Invite pending. Skipping.")
@@ -1075,8 +1089,12 @@ def main():
                     prompt_template=template_name,
                 )
 
-                # PHASE 4: CLEANUP - delete from bot_inputs
-                client.delete_bot_input(record_id)
+                # PHASE 4: CLEANUP — only delete bot_input on definitive outcomes.
+                # On CONNECT_FAILED we KEEP the record so the next run retries.
+                if db_status_update != "CONNECT_FAILED":
+                    client.delete_bot_input(record_id)
+                else:
+                    print(f"      ⏸ Leaving bot_input {record_id} in place for retry on next run")
 
                 count += 1
 

@@ -237,6 +237,7 @@ def scrape_all_connections_brute(page, lead_manager=""):
             'contacted': False,
             'message_1_draft': lead_db_data['message_1_draft'],
             'status': lead_db_data['status'],
+            'linkedin_url': lead_db_data.get('linkedin_url', ''),
             'validation_result': validation_result
         }
 
@@ -484,36 +485,36 @@ def message_all_leads(page, leads_to_message):
                                         #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[3]/div/div[2]/div/div/a
                                         #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[5]/div/div[2]/div/div/a
 
-            # Force-close any lingering message overlays before opening a
-            # new conversation — otherwise typing can leak into the wrong thread.
+            # IMPORTANT: do NOT click the "Message" button on the connections
+            # page. LinkedIn changed its behaviour — that click opens a
+            # "New message" composer pinned to the last-opened thread (e.g.
+            # Leon Brunner) instead of the target's thread. Messages would
+            # be sent to the wrong person.
+            #
+            # Instead: navigate to the lead's PROFILE and click Message from
+            # there. That opens a direct conversation with the correct person.
             from playwright_bots.robust_messaging import (
-                find_message_button_for, lead_identity_hash, close_all_message_overlays
+                lead_identity_hash, open_conversation_via_profile
             )
-            close_all_message_overlays(page)
-
             lead_hash = lead_identity_hash(name, lead_data.get('headline', ''))
             print(f"   Lead identity: {name} [{lead_hash}]")
-            message_button_el = find_message_button_for(
-                page, name, lead_headline=lead_data.get('headline', ''))
 
-            # NO legacy XPath fallback — it demonstrably resolves to the wrong
-            # element on current LinkedIn and caused messages to be sent to
-            # random people. If scoped lookup fails, SKIP this lead.
-            if not message_button_el:
-                print(f"   ⚠️ [{name}] message button not found via name+headline scoping — SKIPPING lead to avoid wrong-recipient send")
+            profile_url = lead_data.get('linkedin_url', '')
+            if not profile_url:
+                print(f"   ⚠️ [{name}] no linkedin_url in Attio record — SKIPPING")
+                failed_messages += 1
+                continue
+
+            opened = open_conversation_via_profile(
+                page, profile_url, name, lead_headline=lead_data.get('headline', '')
+            )
+            if not opened:
+                print(f"   ⚠️ [{name}] could not open conversation via profile — SKIPPING to avoid wrong-recipient send")
                 failed_messages += 1
                 continue
 
             try:
-                message_button_el.scroll_into_view_if_needed()
-                human_scroll(page)
                 human_pause(1, 2)
-
-                try:
-                    message_button_el.click(timeout=5000)
-                except Exception:
-                    human_move_click(page, message_button_el)
-                human_pause(3, 4)
 
                 success = send_message_to_lead(page, lead_data)
 

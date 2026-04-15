@@ -435,6 +435,99 @@ def verify_recipient_in_overlay(page, expected_name):
         return False
 
 
+def open_conversation_via_profile(page, profile_url, lead_name, lead_headline=None, timeout_s=15):
+    """Open a direct conversation with `lead_name` by navigating to their
+    LinkedIn profile and clicking the profile-level Message button.
+
+    Why this exists: the Message button on /mynetwork/invite-connect/connections/
+    does NOT open a direct conversation — it opens a "New message" composer
+    that's pinned to whatever thread was last open (e.g. Leon Brunner).
+    Clicking Message on the target's PROFILE opens their specific thread.
+
+    Returns True on success (conversation with the right person is open),
+    False otherwise. Caller should then call send_message_in_open_thread().
+    """
+    if not profile_url:
+        print(f"   ⚠️ [{lead_name}] no profile URL available — cannot open conversation")
+        return False
+
+    # Normalise URL (accept both full URLs and vanity slugs)
+    if not profile_url.startswith("http"):
+        profile_url = f"https://www.linkedin.com/in/{profile_url.strip('/')}/"
+
+    # Close any existing overlays first — they can intercept clicks / confuse navigation
+    close_all_message_overlays(page)
+
+    try:
+        page.goto(profile_url, wait_until="domcontentloaded", timeout=60000)
+    except Exception as e:
+        print(f"   ⚠️ [{lead_name}] failed to navigate to {profile_url}: {str(e)[:120]}")
+        return False
+
+    _pause(3, 5)  # let React hydrate
+
+    # Dismiss any popups (Premium banner, Sales Navigator promo) that might cover the Message button
+    try:
+        page.keyboard.press("Escape")
+    except Exception:
+        pass
+    try:
+        # Programmatically hide known blocking overlays so our click can reach Message
+        page.evaluate("""() => {
+            // Hide 'Try Premium' floating banner if present
+            document.querySelectorAll('a').forEach(a => {
+                const t = (a.innerText || '').toLowerCase();
+                if (t.includes('try premium')) {
+                    let n = a;
+                    for (let i = 0; i < 5 && n.parentElement; i++) {
+                        n = n.parentElement;
+                        if (n.tagName === 'MAIN' || n.tagName === 'BODY') break;
+                    }
+                    n.style.display = 'none';
+                    n.style.pointerEvents = 'none';
+                }
+            });
+        }""")
+    except Exception:
+        pass
+
+    # Find the profile-level Message button — it's an <a href="/messaging/compose/...">
+    # OR a <button aria-label*="Message {name}">. Scope to main to exclude sidebar.
+    name_attr = lead_name.replace('"', '').strip()
+    selectors = [
+        f'main a[href*="/messaging/compose/"][aria-label*="{name_attr}"]',
+        f'main a[aria-label^="Message"][aria-label*="{name_attr}"]',
+        'main a[href*="/messaging/compose/"]',
+        'main a[aria-label^="Message"]',
+        'main button[aria-label^="Message"]',
+    ]
+    msg_btn = _visible_first(page, *selectors)
+    if not msg_btn:
+        print(f"   ⚠️ [{lead_name}] Message button not found on profile page")
+        return False
+
+    try:
+        msg_btn.click(timeout=5000)
+    except Exception:
+        try:
+            msg_btn.evaluate("el => el.click()")
+        except Exception as e:
+            print(f"   ⚠️ [{lead_name}] Message button click failed: {str(e)[:120]}")
+            return False
+
+    # Wait for the conversation overlay to open AND show the correct recipient.
+    # verify_recipient_in_overlay polls the shadow DOM for the lead's name.
+    deadline = time.time() + timeout_s
+    while time.time() < deadline:
+        if verify_recipient_in_overlay(page, lead_name):
+            print(f"   ✓ [{lead_name}] conversation opened from profile")
+            return True
+        time.sleep(0.5)
+
+    print(f"   ⚠️ [{lead_name}] conversation did not verify recipient within {timeout_s}s after profile Message click")
+    return False
+
+
 def close_all_message_overlays(page):
     """Force-close any open message overlays/dialogs.
 

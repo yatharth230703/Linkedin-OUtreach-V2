@@ -391,6 +391,7 @@ class AttioClient:
                 "headline": self._extract_value(values, "headline").strip(),
                 "status": status,
                 "message_1_draft": self._extract_value(values, "message_1_draft").strip(),
+                "linkedin_url": self._extract_value(values, "linkedin_url").strip(),
             }
 
             if status == "first message sent":
@@ -468,6 +469,7 @@ class AttioClient:
                 "message_4_draft": self._extract_value(values, "message_4_draft").strip(),
                 "message_5_draft": self._extract_value(values, "message_5_draft").strip(),
                 "last_contacted_at": last_contacted,
+                "linkedin_url": self._extract_value(values, "linkedin_url").strip(),
             }
 
         return leads_data

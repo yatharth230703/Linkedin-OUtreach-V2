@@ -15,6 +15,7 @@ Exposes:
 from __future__ import annotations
 
 import hashlib
+import os
 import random
 import re
 import time
@@ -169,44 +170,161 @@ def find_message_button_for(page, lead_name, lead_headline=None):
 def _find_message_textbox(page):
     """Find the open message composer's textbox.
 
-    LinkedIn's message composer is a contenteditable div (not <textarea>).
-    Stable signals:
-      - role="textbox"
-      - contenteditable="true"
-      - aria-label containing "message" / "write"
+    First tries Playwright locators (light DOM + auto-pierced open shadow),
+    then falls back to explicit shadow-DOM walk via JS for the LinkedIn
+    `#interop-outlet` shadow root.
     """
-    return _visible_first(
+    el = _visible_first(
         page,
         '[role="textbox"][aria-label*="message" i]',
         '[role="textbox"][aria-label*="nachricht" i]',
-        '[role="textbox"][contenteditable="true"]',
         'div[contenteditable="true"][aria-label*="message" i]',
         'div[contenteditable="true"][aria-label*="write" i]',
         'div[contenteditable="true"][aria-label*="nachricht" i]',
-        # Last resort: any contenteditable inside a visible dialog/overlay
         '[role="dialog"] div[contenteditable="true"]',
-        'form div[contenteditable="true"]',
     )
+    if el:
+        return el
+
+    # Shadow DOM fallback — find the textbox inside #interop-outlet.
+    # Strict: every candidate selector REQUIRES an aria-label confirming this
+    # is a message composer (not a search box, comment field, or post editor).
+    # Generic `div[contenteditable="true"]` is intentionally NOT included.
+    try:
+        handle = page.evaluate_handle("""
+        () => {
+            const host = document.querySelector('#interop-outlet');
+            if (!host || !host.shadowRoot) return null;
+            const root = host.shadowRoot;
+            const candidates = [
+                '[role="textbox"][aria-label*="message" i]',
+                '[role="textbox"][aria-label*="nachricht" i]',
+                '[role="textbox"][aria-label*="write" i]',
+                'div[contenteditable="true"][aria-label*="message" i]',
+                'div[contenteditable="true"][aria-label*="write" i]',
+                'div[contenteditable="true"][aria-label*="nachricht" i]',
+            ];
+            for (const sel of candidates) {
+                const els = root.querySelectorAll(sel);
+                for (const e of els) {
+                    const r = e.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) return e;
+                }
+            }
+            return null;
+        }
+        """)
+        if handle:
+            elem = handle.as_element()
+            if elem:
+                return elem
+    except Exception:
+        pass
+    return None
 
 
 def _find_send_button(page):
     """Find the Send button for the open message composer.
 
-    Stable signals:
-      - aria-label="Send"
-      - button with text "Send" (exact, to avoid "Send invitation" etc.)
-      - type="submit" inside an active dialog
+    Same shadow-aware strategy as `_find_message_textbox`.
     """
-    return _visible_first(
+    el = _visible_first(
         page,
         'button[aria-label="Send"]',
         'button[aria-label="Senden"]',
         'button[aria-label*="Send" i]:not([aria-label*="invitation" i]):not([aria-label*="note" i])',
-        # Strict text match to avoid "Send without a note", "Send invitation"
         'button:text-is("Send")',
         'button:text-is("Senden")',
         '[role="dialog"] button[type="submit"]',
     )
+    if el:
+        return el
+
+    try:
+        handle = page.evaluate_handle("""
+        () => {
+            const host = document.querySelector('#interop-outlet');
+            if (!host || !host.shadowRoot) return null;
+            const root = host.shadowRoot;
+            const candidates = [
+                'button[aria-label="Send"]',
+                'button[aria-label="Senden"]',
+                'button[type="submit"]',
+            ];
+            for (const sel of candidates) {
+                const els = root.querySelectorAll(sel);
+                for (const e of els) {
+                    if (e.disabled) continue;
+                    const r = e.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) return e;
+                }
+            }
+            // Text-based fallback
+            const allBtns = root.querySelectorAll('button');
+            for (const b of allBtns) {
+                if (b.disabled) continue;
+                const t = (b.innerText || b.textContent || '').trim();
+                if (t === 'Send' || t === 'Senden') {
+                    const r = b.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) return b;
+                }
+            }
+            return null;
+        }
+        """)
+        if handle:
+            elem = handle.as_element()
+            if elem:
+                return elem
+    except Exception:
+        pass
+    return None
+
+
+def _dump_overlay_diagnostic(page, lead_name, tag):
+    """Dump a screenshot + the shadow-root HTML when something fails so we
+    can see exactly what's on screen at the failure moment.
+    """
+    try:
+        import sys as _sys, json as _json
+        _root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        if _root not in _sys.path:
+            _sys.path.insert(0, _root)
+        from state_paths import LOGS_DIR
+        from datetime import datetime
+        debug_dir = os.path.join(LOGS_DIR, "messaging_debug")
+        os.makedirs(debug_dir, exist_ok=True)
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        slug = re.sub(r"[^a-z0-9]+", "_", (lead_name or "unknown").lower())[:30]
+        base = os.path.join(debug_dir, f"{ts}_{slug}_{tag}")
+        try:
+            page.screenshot(path=base + ".png", full_page=False)
+        except Exception:
+            pass
+        try:
+            shadow_html = page.evaluate("""
+            () => {
+                const host = document.querySelector('#interop-outlet');
+                if (!host || !host.shadowRoot) return null;
+                return host.shadowRoot.innerHTML;
+            }
+            """)
+            if shadow_html:
+                with open(base + "_shadow.html", "w") as f:
+                    f.write(shadow_html[:300_000])
+        except Exception:
+            pass
+        try:
+            with open(base + "_meta.json", "w") as f:
+                _json.dump({
+                    "lead": lead_name, "tag": tag, "url": page.url,
+                    "title": page.title(),
+                }, f, indent=2)
+        except Exception:
+            pass
+        print(f"      [debug] dumped overlay state → {base}.{{png,_shadow.html,_meta.json}}")
+    except Exception as e:
+        print(f"      [debug] dump failed: {e}")
 
 
 def _count_thread_messages(page):
@@ -239,38 +357,82 @@ def _pause(a, b):
 
 
 def verify_recipient_in_overlay(page, expected_name):
-    """Confirm the open message overlay/dialog is for `expected_name`.
+    """Confirm the open message overlay shows the expected recipient.
 
-    LinkedIn shows the recipient's name in the conversation header. If our
-    Message button click opened the WRONG conversation (e.g. because the
-    legacy XPath resolved to a different card), this check fails and the
-    caller must abort rather than type into the wrong thread.
+    Robust strategy — uses ZERO LinkedIn-specific class names:
+      1. Find the active message TEXTBOX (using only HTML/ARIA standards:
+         `role="textbox"`, `contenteditable="true"`, `aria-label*="message"`).
+      2. Walk UP to find the textbox's overlay container — by definition, any
+         overlay containing a message textbox IS a conversation overlay.
+      3. Check that container's text + aria-labels + profile links for the
+         recipient's name. The conversation header MUST contain the recipient.
 
-    Returns True only if we find VISIBLE text matching expected_name inside
-    what looks like a conversation header — strict and narrow on purpose.
+    This works because of an invariant: a message composer is ALWAYS inside
+    a UI region that identifies its recipient — that's a UX requirement, not
+    a CSS implementation detail. As long as LinkedIn keeps putting recipient
+    info near the textbox (which they MUST for usability), this won't break.
     """
-    selectors = [
-        # Dialog/modal with explicit conversation label
-        f'[aria-label*="Conversation with {expected_name}"]',
-        f'[aria-label*="{expected_name}"][aria-label*="conversation" i]',
-        f'[aria-label*="{expected_name}"][aria-label*="gespräch" i]',
-        # Common LinkedIn overlay container holding the recipient's name
-        # (class names are hashed but role + heading are stable)
-        f'[role="dialog"] h2:has-text("{expected_name}")',
-        f'[role="dialog"] h3:has-text("{expected_name}")',
-        f'[role="dialog"] header :text-is("{expected_name}")',
-        # Messaging overlay (bottom-right) uses header with the name
-        f'header :text-is("{expected_name}")',
-    ]
-    for sel in selectors:
-        try:
-            loc = page.locator(sel)
-            for i in range(loc.count()):
-                if loc.nth(i).is_visible():
-                    return True
-        except Exception:
-            pass
-    return False
+    lower_name = (expected_name or "").strip().lower()
+    if not lower_name:
+        return False
+
+    js = """
+    (lower) => {
+        // Helper: gather all "candidate textboxes" from light + shadow DOMs
+        const collect = (root) => {
+            const out = [];
+            const sels = [
+                '[role="textbox"][aria-label*="message" i]',
+                '[role="textbox"][aria-label*="nachricht" i]',
+                'div[contenteditable="true"][aria-label*="message" i]',
+                'div[contenteditable="true"][aria-label*="write" i]',
+                'div[contenteditable="true"][aria-label*="nachricht" i]',
+            ];
+            for (const sel of sels) {
+                for (const el of root.querySelectorAll(sel)) {
+                    const r = el.getBoundingClientRect();
+                    if (r.width > 0 && r.height > 0) out.push(el);
+                }
+            }
+            return out;
+        };
+
+        const candidates = collect(document);
+        const host = document.querySelector('#interop-outlet');
+        if (host && host.shadowRoot) candidates.push(...collect(host.shadowRoot));
+
+        // For each visible textbox, walk up its ancestors looking for the
+        // recipient name in: innerText, aria-label, OR href to /in/<slug>.
+        for (const tb of candidates) {
+            let node = tb;
+            for (let depth = 0; depth < 12 && node; depth++) {
+                node = node.parentElement;
+                if (!node) break;
+                const txt = (node.innerText || '').toLowerCase();
+                if (txt.includes(lower)) return true;
+                // Check aria-labels of any descendants
+                for (const el of node.querySelectorAll('[aria-label]')) {
+                    const al = (el.getAttribute('aria-label') || '').toLowerCase();
+                    if (al.includes(lower)) return true;
+                }
+                // Profile links — LinkedIn always puts the recipient's
+                // /in/<vanityName> link in the conversation header
+                for (const a of node.querySelectorAll('a[href*="/in/"]')) {
+                    const al = (a.getAttribute('aria-label') || '').toLowerCase();
+                    const at = (a.innerText || a.textContent || '').toLowerCase();
+                    if (al.includes(lower) || at.includes(lower)) return true;
+                }
+                // Stop at top-level overlay containers (avoid walking too far)
+                if (node.tagName === 'MAIN' || node.tagName === 'BODY') break;
+            }
+        }
+        return false;
+    }
+    """
+    try:
+        return bool(page.evaluate(js, lower_name))
+    except Exception:
+        return False
 
 
 def close_all_message_overlays(page):
@@ -288,15 +450,16 @@ def close_all_message_overlays(page):
             pass
         _pause(0.2, 0.4)
 
-    # Click any visible Close/Dismiss button in messaging overlays
+    # Click any visible Close/Dismiss button in messaging overlays.
+    # All selectors use ARIA labels — no LinkedIn-specific class names.
     close_selectors = [
         'button[aria-label="Close your conversation"]',
         'button[aria-label="Schließen Sie Ihr Gespräch"]',
         'button[aria-label*="Close conversation" i]',
         'button[aria-label*="close" i][aria-label*="conversation" i]',
+        'button[aria-label*="close" i][aria-label*="messaging" i]',
         '[role="dialog"] button[aria-label="Close"]',
         '[role="dialog"] button[aria-label="Dismiss"]',
-        '.msg-overlay-bubble-header__control--close-btn',
     ]
     for sel in close_selectors:
         try:
@@ -343,17 +506,26 @@ def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=
         verify_timeout_s: how long to poll for the new message to appear
     """
     # ── 0. Verify the OPEN conversation is for the expected recipient ──
-    # This is the single most important safety check: if our Message-button
-    # click opened the wrong thread (e.g. legacy XPath resolved wrong, or
-    # a persistent overlay from a previous lead), we must NEVER type here.
-    if not verify_recipient_in_overlay(page, lead_name):
+    # Wait briefly — the messaging overlay is React-rendered and shadow-DOM
+    # injected; it can take a moment to appear after the Message button click.
+    deadline = time.time() + 6
+    recipient_ok = False
+    while time.time() < deadline:
+        if verify_recipient_in_overlay(page, lead_name):
+            recipient_ok = True
+            break
+        time.sleep(0.5)
+
+    if not recipient_ok:
         print(f"      🚫 [{lead_name}] open conversation does NOT show '{lead_name}' — refusing to send")
+        _dump_overlay_diagnostic(page, lead_name, "wrong_recipient")
         return "FAILED_WRONG_RECIPIENT"
 
     # ── 1. Locate textbox and focus it ────────────────────────────
     textbox = _find_message_textbox(page)
     if not textbox:
         print(f"      ✗ [{lead_name}] message textbox not found — cannot send")
+        _dump_overlay_diagnostic(page, lead_name, "no_textbox")
         return "FAILED_NO_TEXTBOX"
 
     try:
@@ -412,6 +584,7 @@ def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=
 
     if not typed_ok:
         print(f"      🚫 [{lead_name}] textbox is EMPTY after typing — focus lost, aborting send")
+        _dump_overlay_diagnostic(page, lead_name, "typing_void")
         return "FAILED_TYPING_VOID"
 
     _pause(1.0, 2.0)

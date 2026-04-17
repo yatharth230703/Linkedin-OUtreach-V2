@@ -98,7 +98,7 @@ def get_attio_leads_data(lead_manager):
 def scroll_to_top(page):
     """Scroll back to the top of the connections page"""
     print("   Scrolling back to top of page...")
-    page.evaluate("document.querySelector('main#workspace').scrollTo(0, 0)")
+    page.evaluate("window.scrollTo(0, 0)")
     human_pause(2, 4)
 
 
@@ -108,15 +108,15 @@ def scroll_to_load_all_connections(page):
     prev_height = 0
     stable_count = 0
     while stable_count < 3:
-        page.evaluate("document.querySelector('main#workspace').scrollBy(0, 800)")
+        page.evaluate("window.scrollBy(0, 800)")
         time.sleep(random.uniform(0.8, 1.5))
-        curr_height = page.evaluate("document.querySelector('main#workspace').scrollHeight")
+        curr_height = page.evaluate("document.documentElement.scrollHeight")
         if curr_height == prev_height:
             stable_count += 1
         else:
             stable_count = 0
         prev_height = curr_height
-    page.evaluate("document.querySelector('main#workspace').scrollTo(0, 0)")
+    page.evaluate("window.scrollTo(0, 0)")
     time.sleep(random.uniform(1.5, 2.5))
     print("   All connections loaded, back at top.")
 

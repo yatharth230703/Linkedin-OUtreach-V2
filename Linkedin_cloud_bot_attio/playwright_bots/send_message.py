@@ -24,6 +24,7 @@ from playwright_bots.login_credentials import (
 from playwright_bots.msg_draft_connection_bot1 import (
     human_scroll,
     human_sleep_with_activity,
+    SessionFailureError,
 )
 from attio_client import get_attio_client, set_active_account
 from notifier import notify_message_sent, notify_error, notify_login_failed
@@ -121,76 +122,141 @@ def scroll_to_load_all_connections(page):
     print("   All connections loaded, back at top.")
 
 
+def _check_page_is_linkedin(page):
+    """Verify the page is actually LinkedIn, not a proxy firewall block page.
+
+    iproyal residential IPs can land behind corporate firewalls (FortiGate,
+    Palo Alto, etc.) that block social media. If we detect a block page,
+    raise SessionFailureError so the run aborts and the proxy session gets
+    regenerated.
+    """
+    try:
+        title = (page.title() or "").lower()
+        body_text = page.evaluate("() => (document.body?.innerText || '').substring(0, 500)") or ""
+        body_lower = body_text.lower()
+
+        block_signals = [
+            "fortigate", "application blocked", "fortinet",
+            "palo alto", "access denied", "web filter",
+            "blocked by", "internet usage policy",
+            "content filtering", "websense",
+        ]
+        for signal in block_signals:
+            if signal in body_lower or signal in title:
+                msg = f"Proxy exit IP is behind a firewall ({signal}). Page is NOT LinkedIn."
+                print(f"   🛑 {msg}")
+                try:
+                    from playwright_bots.login_credentials import log_action
+                    log_action(page, "proxy_blocked")
+                except Exception:
+                    pass
+                raise SessionFailureError(msg)
+    except SessionFailureError:
+        raise
+    except Exception:
+        pass  # Can't check → proceed
+
+
+def _scrape_connections_robust(page):
+    """Scrape connection names + headlines using JS, no XPaths.
+
+    Strategy: find all profile links (`a[href*="/in/"]`) on the connections
+    page. For each, extract the link text (name) and find the nearest
+    headline text in the same card container. Returns parallel lists.
+
+    This is immune to LinkedIn's DOM restructuring because it only relies on:
+      - `a[href*="/in/"]` (profile URL pattern — 15+ years stable)
+      - Ancestor walk to find the card container
+      - Second text element in the card = headline (structural invariant)
+    """
+    result = page.evaluate("""
+    () => {
+        const connections = [];
+        const seen = new Set();
+
+        // Find all profile links on the page — each represents one connection card
+        const links = document.querySelectorAll('a[href*="/in/"]');
+
+        for (const link of links) {
+            const href = link.getAttribute('href') || '';
+            // Only match /in/<slug> links (not /in/edit/, not company links)
+            if (!href.match(/\\/in\\/[\\w-]+\\/?$/)) continue;
+
+            const name = (link.innerText || link.textContent || '').trim();
+            if (!name || name.length < 2 || seen.has(name)) continue;
+
+            // Walk up to find the card container (li, article, or div with
+            // specific structure). Stop at 6 levels to avoid over-walking.
+            let card = link;
+            for (let d = 0; d < 6; d++) {
+                card = card.parentElement;
+                if (!card) break;
+                if (card.tagName === 'LI' || card.tagName === 'ARTICLE') break;
+                // LinkedIn uses div-based cards with "entity-result" or similar role
+                if (card.getAttribute('data-view-name') || card.classList.length > 3) {
+                    // Likely a card container — check if it has more than just the name
+                    const ps = card.querySelectorAll('p, span');
+                    if (ps.length >= 2) break;
+                }
+            }
+            if (!card) continue;
+
+            // Find the headline — it's typically the SECOND substantial text
+            // element in the card (first is the name, second is headline).
+            let headline = '';
+            const textEls = card.querySelectorAll('p, span');
+            for (const el of textEls) {
+                const t = (el.innerText || '').trim();
+                // Skip: the name itself, "Connected on...", timestamps, short text
+                if (!t || t === name || t.length < 5) continue;
+                if (t.toLowerCase().startsWith('connected on')) continue;
+                if (t.match(/^\\d+\\s+(follower|connection)/i)) continue;
+                // Skip "Message" button text
+                if (t === 'Message' || t === 'Nachricht') continue;
+                headline = t;
+                break;
+            }
+
+            seen.add(name);
+            connections.push({ name: name, headline: headline, position: connections.length + 1 });
+        }
+        return connections;
+    }
+    """)
+    return result or []
+
+
 def scrape_all_connections_brute(page, lead_manager=""):
     """
-    Multi-level framework to scrape connections and identify leads to message.
-    Only processes connections that exist in Attio database.
+    Scrape connections and identify leads to message.
+    Uses robust JS-based scraping (no XPaths) with FortiGate/firewall detection.
 
     IMPORTANT: The order of leads_to_message follows the order scraped from LinkedIn
     (top to bottom), NOT the order in Attio.
     """
     print("   Starting connection scraping and lead identification...")
 
+    # Check the page is actually LinkedIn (not a firewall block)
+    _check_page_is_linkedin(page)
+
     attio_leads_data, contacted_leads = get_attio_leads_data(lead_manager)
 
     scroll_to_load_all_connections(page)
 
-    ## Scrape names
-    names_list = []
-    i = 1
-    while i < 90:
-        try:
-                            
-            
-                                # /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[1]. /div/div[1]/div/a/div/p/a
-                                # /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[3]. /div/div[1]/div/a/div/p/a
-                                # /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[5]  /div/div[1]/div/a/div/p/a
-            names_xp = f"xpath=/html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{i}]/div/div[1]/div/a/div/p"
-            name_elem = page.locator(names_xp)
-            if name_elem.count() > 0:
-                names_list.append(name_elem.first.inner_text().strip())
-            else:
-                print(f"   Reached end of names at position {i}")
-                break
-            i += 2
-        except Exception as e:
-            print(f"   Reached end of names at position {i} (exception: {e})")
-            break
+    # Robust JS scraping — no XPaths, no hashed classes
+    scraped = _scrape_connections_robust(page)
+    names_list = [c['name'] for c in scraped]
+    headline_list = [c['headline'] for c in scraped]
 
     print(f"   Found {len(names_list)} names")
     if len(names_list) == 0:
-        print("   ⚠️ XPATH FAILURE: Could not find any connection name elements!")
-        print("   LinkedIn may have changed their DOM structure. XPaths need updating.")
+        print("   ⚠️ Found 0 connections on page!")
+        print("   Possible causes: page didn't load, proxy blocked, or DOM changed")
         try:
-            notify_error("Message Bot XPATH FAILURE: Found 0 connection names on page. LinkedIn DOM may have changed — XPaths need updating.", lead_manager)
+            log_action(page, "scrape_zero_connections")
+            notify_error(f"Message Bot: Found 0 connections on page. Check proxy health + page screenshot.", lead_manager)
         except Exception:
             pass
-    print("*" * 80)
-    human_pause(3, 5)
-
-    ## Scrape headlines
-    headline_list = []
-    j = 1
-    while j < 90:
-        try:
-                                #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[1]. /div/div[1]/div/a/div/div/p
-                                #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[3]. /div/div[1]/div/a/div/div/p
-                                #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[5]. /div/div[1]/div/a/div/div/p
-            headlines_xp = f"xpath=/html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{j}]/div/div[1]/div/a/div/div/p"
-            headline_elem = page.locator(headlines_xp)
-            if headline_elem.count() > 0:
-                headline_list.append(headline_elem.first.inner_text().strip())
-            else:
-                print(f"   Reached end of headlines at position {j}")
-                break
-            j += 2
-        except Exception as e:
-            print(f"   Reached end of headlines at position {j} (exception: {e})")
-            break
-
-    print(f"   Found {len(headline_list)} headlines")
-    if len(headline_list) == 0:
-        print("   ⚠️ XPATH FAILURE: Could not find any connection headline elements!")
     print("*" * 80)
     human_pause(3, 5)
 
@@ -206,7 +272,7 @@ def scrape_all_connections_brute(page, lead_manager=""):
         name = names_list[idx]
         headline = headline_list[idx]
 
-        k = 2 * idx + 1
+        k = idx + 1  # 1-based position (for logging only, not used for XPath)
 
         if name not in attio_leads_data:
             print(f"   Skipping {name} - not found in Attio database")

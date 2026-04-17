@@ -24,6 +24,7 @@ from playwright_bots.login_credentials import (
 from playwright_bots.msg_draft_connection_bot1 import (
     human_scroll,
     human_sleep_with_activity,
+    SessionFailureError,
 )
 from attio_client import get_attio_client, set_active_account
 from notifier import notify_followup_sent, notify_lead_replied, notify_error, notify_login_failed
@@ -189,67 +190,36 @@ def scroll_to_load_all_connections(page):
 
 def scrape_all_connections_for_followup(page, lead_manager=""):
     """
-    Multi-level framework to scrape connections and identify leads needing follow-up.
-    Only processes connections that exist in Attio database and need follow-up.
-    Returns dictionary with connection data and their positions for messaging.
+    Scrape connections and identify leads needing follow-up.
+    Uses robust JS-based scraping (no XPaths) with firewall detection.
 
     IMPORTANT: The order of leads_to_message follows the order scraped from LinkedIn
     (top to bottom), NOT the order in Attio.
     """
     print("   Starting connection scraping and follow-up lead identification...")
 
+    # Reuse the same robust scraper + firewall check from send_message
+    from playwright_bots.send_message import _check_page_is_linkedin, _scrape_connections_robust
+
+    _check_page_is_linkedin(page)
+
     attio_leads_data, eligible_leads = get_attio_followup_leads_data(lead_manager)
 
     scroll_to_load_all_connections(page)
 
-    ## Scrape names
-    names_list = []
-    i = 1
-    while i < 90:
-        try:
-            names_xp = f"xpath= /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{i}]/div/div[1]/div/a/div/p"
-            name_elem = page.locator(names_xp)
-            if name_elem.count() > 0:
-                names_list.append(name_elem.first.inner_text().strip())
-            else:
-                print(f"   Reached end of names at position {i}")
-                break
-            i += 2
-        except Exception as e:
-            print(f"   Reached end of names at position {i} (exception: {e})")
-            break
+    scraped = _scrape_connections_robust(page)
+    names_list = [c['name'] for c in scraped]
+    headline_list = [c['headline'] for c in scraped]
 
     print(f"   Found {len(names_list)} names")
     if len(names_list) == 0:
-        print("   ⚠️ XPATH FAILURE: Could not find any connection name elements!")
-        print("   LinkedIn may have changed their DOM structure. XPaths need updating.")
+        print("   ⚠️ Found 0 connections on page!")
         try:
-            notify_error("Follow-up Bot XPATH FAILURE: Found 0 connection names on page. LinkedIn DOM may have changed — XPaths need updating.", lead_manager)
+            from playwright_bots.login_credentials import log_action
+            log_action(page, "scrape_zero_connections_followup")
+            notify_error(f"Follow-up Bot: Found 0 connections on page. Check proxy health.", lead_manager)
         except Exception:
             pass
-    print("*" * 80)
-    human_pause(3, 5)
-
-    ## Scrape headlines
-    headline_list = []
-    j = 1
-    while j < 90:
-        try:
-            headlines_xp = f"xpath=/html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[{j}]/div/div[1]/div/a/div/div/p"
-            headline_elem = page.locator(headlines_xp)
-            if headline_elem.count() > 0:
-                headline_list.append(headline_elem.first.inner_text().strip())
-            else:
-                print(f"   Reached end of headlines at position {j}")
-                break
-            j += 2
-        except Exception as e:
-            print(f"   Reached end of headlines at position {j} (exception: {e})")
-            break
-
-    print(f"   Found {len(headline_list)} headlines")
-    if len(headline_list) == 0:
-        print("   ⚠️ XPATH FAILURE: Could not find any connection headline elements!")
     print("*" * 80)
     human_pause(3, 5)
 
@@ -266,7 +236,7 @@ def scrape_all_connections_for_followup(page, lead_manager=""):
         name = names_list[idx]
         headline = headline_list[idx]
 
-        k = 2 * idx + 1
+        k = idx + 1  # 1-based position (for logging only)
 
         if name not in attio_leads_data:
             skipped_not_in_db += 1

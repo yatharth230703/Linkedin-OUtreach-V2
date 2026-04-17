@@ -871,6 +871,11 @@ def message_all_followup_leads(page, leads_to_message):
             profile_url = lead_data.get('linkedin_url', '')
             if not profile_url:
                 print(f"   ⚠️ [{name}] no linkedin_url in Attio record — SKIPPING")
+                try:
+                    from notifier import notify_error
+                    notify_error(f"Follow-up skipped for {name} — no linkedin_url in Attio")
+                except Exception:
+                    pass
                 failed_messages += 1
                 continue
 
@@ -879,6 +884,11 @@ def message_all_followup_leads(page, leads_to_message):
             )
             if not opened:
                 print(f"   ⚠️ [{name}] could not open conversation via profile — SKIPPING to avoid wrong-recipient send")
+                try:
+                    from notifier import notify_error
+                    notify_error(f"Follow-up NOT sent to {name} — could not open conversation from profile")
+                except Exception:
+                    pass
                 failed_messages += 1
                 continue
 

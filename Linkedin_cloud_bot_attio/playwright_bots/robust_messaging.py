@@ -168,50 +168,47 @@ def find_message_button_for(page, lead_name, lead_headline=None):
 
 
 def _find_message_textbox(page):
-    """Find the open message composer's textbox.
+    """Find the contenteditable textbox inside the ACTIVE conversation dialog.
 
-    First tries Playwright locators (light DOM + auto-pierced open shadow),
-    then falls back to explicit shadow-DOM walk via JS for the LinkedIn
-    `#interop-outlet` shadow root.
+    LinkedIn's messaging textbox is `div[contenteditable="true"]` inside a
+    `[role="dialog"]` conversation bubble in the #interop-outlet shadow root.
+    It has NO role="textbox" and NO aria-label — just contenteditable + a
+    class like "msg-form__contenteditable".
+
+    Strategy: find the NON-MINIMIZED conversation dialog → find the
+    contenteditable div inside it. This is safe because we only call this
+    AFTER verify_recipient_in_overlay confirmed the right thread is open.
     """
-    el = _visible_first(
-        page,
-        '[role="textbox"][aria-label*="message" i]',
-        '[role="textbox"][aria-label*="nachricht" i]',
-        'div[contenteditable="true"][aria-label*="message" i]',
-        'div[contenteditable="true"][aria-label*="write" i]',
-        'div[contenteditable="true"][aria-label*="nachricht" i]',
-        '[role="dialog"] div[contenteditable="true"]',
-    )
-    if el:
-        return el
-
-    # Shadow DOM fallback — find the textbox inside #interop-outlet.
-    # Strict: every candidate selector REQUIRES an aria-label confirming this
-    # is a message composer (not a search box, comment field, or post editor).
-    # Generic `div[contenteditable="true"]` is intentionally NOT included.
     try:
         handle = page.evaluate_handle("""
         () => {
-            const host = document.querySelector('#interop-outlet');
-            if (!host || !host.shadowRoot) return null;
-            const root = host.shadowRoot;
-            const candidates = [
-                '[role="textbox"][aria-label*="message" i]',
-                '[role="textbox"][aria-label*="nachricht" i]',
-                '[role="textbox"][aria-label*="write" i]',
-                'div[contenteditable="true"][aria-label*="message" i]',
-                'div[contenteditable="true"][aria-label*="write" i]',
-                'div[contenteditable="true"][aria-label*="nachricht" i]',
-            ];
-            for (const sel of candidates) {
-                const els = root.querySelectorAll(sel);
-                for (const e of els) {
-                    const r = e.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0) return e;
+            const findIn = (root) => {
+                // Find active (not minimized) conversation dialogs
+                const dialogs = root.querySelectorAll(
+                    '[role="dialog"][aria-label="Messaging"], ' +
+                    '[role="dialog"][aria-label*="essaging"], ' +
+                    '[data-msg-overlay-conversation-bubble-open]'
+                );
+                for (const dlg of dialogs) {
+                    const min = dlg.getAttribute('data-msg-overlay-conversation-bubble-is-minimized');
+                    if (min === 'true') continue;
+                    // Find the contenteditable textbox inside this dialog
+                    const ce = dlg.querySelector('div[contenteditable="true"]');
+                    if (ce) {
+                        const r = ce.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) return ce;
+                    }
                 }
+                return null;
+            };
+            // Try shadow root first (where LinkedIn puts the overlay)
+            const host = document.querySelector('#interop-outlet');
+            if (host && host.shadowRoot) {
+                const found = findIn(host.shadowRoot);
+                if (found) return found;
             }
-            return null;
+            // Light DOM fallback
+            return findIn(document);
         }
         """)
         if handle:
@@ -224,52 +221,55 @@ def _find_message_textbox(page):
 
 
 def _find_send_button(page):
-    """Find the Send button for the open message composer.
+    """Find the Send button inside the ACTIVE conversation dialog.
 
-    Same shadow-aware strategy as `_find_message_textbox`.
+    LinkedIn's Send button is inside the same [role="dialog"] as the textbox.
+    We scope to the active (non-minimized) dialog to avoid clicking Send in a
+    minimized or stale bubble.
     """
-    el = _visible_first(
-        page,
-        'button[aria-label="Send"]',
-        'button[aria-label="Senden"]',
-        'button[aria-label*="Send" i]:not([aria-label*="invitation" i]):not([aria-label*="note" i])',
-        'button:text-is("Send")',
-        'button:text-is("Senden")',
-        '[role="dialog"] button[type="submit"]',
-    )
-    if el:
-        return el
-
     try:
         handle = page.evaluate_handle("""
         () => {
+            const findIn = (root) => {
+                const dialogs = root.querySelectorAll(
+                    '[role="dialog"][aria-label="Messaging"], ' +
+                    '[role="dialog"][aria-label*="essaging"], ' +
+                    '[data-msg-overlay-conversation-bubble-open]'
+                );
+                for (const dlg of dialogs) {
+                    const min = dlg.getAttribute('data-msg-overlay-conversation-bubble-is-minimized');
+                    if (min === 'true') continue;
+                    // Look for Send button inside this dialog
+                    const sels = [
+                        'button[aria-label="Send"]',
+                        'button[aria-label="Senden"]',
+                        'button[type="submit"]',
+                    ];
+                    for (const sel of sels) {
+                        for (const btn of dlg.querySelectorAll(sel)) {
+                            if (btn.disabled) continue;
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) return btn;
+                        }
+                    }
+                    // Text fallback inside this dialog only
+                    for (const btn of dlg.querySelectorAll('button')) {
+                        if (btn.disabled) continue;
+                        const t = (btn.innerText || btn.textContent || '').trim();
+                        if (t === 'Send' || t === 'Senden') {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) return btn;
+                        }
+                    }
+                }
+                return null;
+            };
             const host = document.querySelector('#interop-outlet');
-            if (!host || !host.shadowRoot) return null;
-            const root = host.shadowRoot;
-            const candidates = [
-                'button[aria-label="Send"]',
-                'button[aria-label="Senden"]',
-                'button[type="submit"]',
-            ];
-            for (const sel of candidates) {
-                const els = root.querySelectorAll(sel);
-                for (const e of els) {
-                    if (e.disabled) continue;
-                    const r = e.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0) return e;
-                }
+            if (host && host.shadowRoot) {
+                const found = findIn(host.shadowRoot);
+                if (found) return found;
             }
-            // Text-based fallback
-            const allBtns = root.querySelectorAll('button');
-            for (const b of allBtns) {
-                if (b.disabled) continue;
-                const t = (b.innerText || b.textContent || '').trim();
-                if (t === 'Send' || t === 'Senden') {
-                    const r = b.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0) return b;
-                }
-            }
-            return null;
+            return findIn(document);
         }
         """)
         if handle:
@@ -301,17 +301,59 @@ def _dump_overlay_diagnostic(page, lead_name, tag):
             page.screenshot(path=base + ".png", full_page=False)
         except Exception:
             pass
+        # Dump FULL page HTML (light DOM) so we can find WHERE the overlay lives
         try:
-            shadow_html = page.evaluate("""
+            full_html = page.content()
+            with open(base + "_fullpage.html", "w") as f:
+                f.write(full_html[:500_000])
+        except Exception:
+            pass
+        # Scan ALL shadow hosts on the page and dump their shadow roots
+        try:
+            shadow_report = page.evaluate("""
             () => {
-                const host = document.querySelector('#interop-outlet');
-                if (!host || !host.shadowRoot) return null;
-                return host.shadowRoot.innerHTML;
+                const hosts = [];
+                const walk = (root, path) => {
+                    for (const el of root.querySelectorAll('*')) {
+                        if (el.shadowRoot) {
+                            const snippet = el.shadowRoot.innerHTML.substring(0, 2000);
+                            hosts.push({
+                                path: path + ' > ' + el.tagName + '#' + (el.id || '(no-id)'),
+                                childCount: el.shadowRoot.childElementCount,
+                                hasTextbox: el.shadowRoot.querySelector('[role="textbox"], [contenteditable="true"]') !== null,
+                                hasMsg: (el.shadowRoot.innerHTML || '').toLowerCase().includes('message'),
+                                snippet: snippet
+                            });
+                            walk(el.shadowRoot, path + ' > SHADOW(' + (el.id || el.tagName) + ')');
+                        }
+                    }
+                };
+                walk(document, 'document');
+                return hosts;
             }
             """)
-            if shadow_html:
-                with open(base + "_shadow.html", "w") as f:
-                    f.write(shadow_html[:300_000])
+            with open(base + "_shadow_hosts.json", "w") as f:
+                _json.dump(shadow_report, f, indent=2, default=str)
+        except Exception:
+            pass
+        # Check for iframes that might contain messaging
+        try:
+            iframe_report = page.evaluate("""
+            () => {
+                const iframes = [];
+                document.querySelectorAll('iframe').forEach(f => {
+                    iframes.push({
+                        src: f.src || '(no src)',
+                        id: f.id || '(no id)',
+                        name: f.name || '(no name)',
+                        visible: f.getBoundingClientRect().width > 0,
+                    });
+                });
+                return iframes;
+            }
+            """)
+            with open(base + "_iframes.json", "w") as f:
+                _json.dump(iframe_report, f, indent=2, default=str)
         except Exception:
             pass
         try:
@@ -378,54 +420,47 @@ def verify_recipient_in_overlay(page, expected_name):
 
     js = """
     (lower) => {
-        // Helper: gather all "candidate textboxes" from light + shadow DOMs
-        const collect = (root) => {
-            const out = [];
-            const sels = [
-                '[role="textbox"][aria-label*="message" i]',
-                '[role="textbox"][aria-label*="nachricht" i]',
-                'div[contenteditable="true"][aria-label*="message" i]',
-                'div[contenteditable="true"][aria-label*="write" i]',
-                'div[contenteditable="true"][aria-label*="nachricht" i]',
-            ];
-            for (const sel of sels) {
-                for (const el of root.querySelectorAll(sel)) {
-                    const r = el.getBoundingClientRect();
-                    if (r.width > 0 && r.height > 0) out.push(el);
+        // LinkedIn renders the messaging overlay inside #interop-outlet's
+        // shadow root. Each conversation bubble is a [role="dialog"] with
+        // aria-label="Messaging". The recipient name is in the <header>
+        // inside the bubble. The textbox is div[contenteditable="true"]
+        // (NO role="textbox", NO aria-label="message" — just contenteditable).
+
+        const checkRoot = (root) => {
+            // Find all ACTIVE (not minimized) conversation bubbles
+            // LinkedIn marks them with data-msg-overlay-conversation-bubble-is-minimized="false"
+            const dialogs = root.querySelectorAll(
+                '[role="dialog"][aria-label="Messaging"], ' +
+                '[role="dialog"][aria-label*="essaging"], ' +
+                '[data-msg-overlay-conversation-bubble-open]'
+            );
+            for (const dlg of dialogs) {
+                // Skip minimized bubbles
+                const min = dlg.getAttribute('data-msg-overlay-conversation-bubble-is-minimized');
+                if (min === 'true') continue;
+
+                // Check if the dialog's header/content contains the recipient name
+                const txt = (dlg.innerText || '').toLowerCase();
+                if (txt.includes(lower)) return true;
+
+                // Also check profile links inside (LinkedIn puts /in/<slug> links in headers)
+                for (const a of dlg.querySelectorAll('a[href*="/in/"]')) {
+                    const at = (a.innerText || a.textContent || '').toLowerCase();
+                    if (at.includes(lower)) return true;
                 }
             }
-            return out;
+            return false;
         };
 
-        const candidates = collect(document);
+        // 1. Shadow root (primary — this is where LinkedIn puts the overlay)
         const host = document.querySelector('#interop-outlet');
-        if (host && host.shadowRoot) candidates.push(...collect(host.shadowRoot));
-
-        // For each visible textbox, walk up its ancestors looking for the
-        // recipient name in: innerText, aria-label, OR href to /in/<slug>.
-        for (const tb of candidates) {
-            let node = tb;
-            for (let depth = 0; depth < 12 && node; depth++) {
-                node = node.parentElement;
-                if (!node) break;
-                const txt = (node.innerText || '').toLowerCase();
-                if (txt.includes(lower)) return true;
-                // Check aria-labels of any descendants
-                for (const el of node.querySelectorAll('[aria-label]')) {
-                    const al = (el.getAttribute('aria-label') || '').toLowerCase();
-                    if (al.includes(lower)) return true;
-                }
-                // Profile links — LinkedIn always puts the recipient's
-                // /in/<vanityName> link in the conversation header
-                for (const a of node.querySelectorAll('a[href*="/in/"]')) {
-                    const al = (a.getAttribute('aria-label') || '').toLowerCase();
-                    const at = (a.innerText || a.textContent || '').toLowerCase();
-                    if (al.includes(lower) || at.includes(lower)) return true;
-                }
-                // Stop at top-level overlay containers (avoid walking too far)
-                if (node.tagName === 'MAIN' || node.tagName === 'BODY') break;
-            }
+        if (host && host.shadowRoot) {
+            if (checkRoot(host.shadowRoot)) return true;
         }
+
+        // 2. Light DOM fallback (full-page messaging or regular dialogs)
+        if (checkRoot(document)) return true;
+
         return false;
     }
     """
@@ -525,6 +560,7 @@ def open_conversation_via_profile(page, profile_url, lead_name, lead_headline=No
         time.sleep(0.5)
 
     print(f"   ⚠️ [{lead_name}] conversation did not verify recipient within {timeout_s}s after profile Message click")
+    _dump_overlay_diagnostic(page, lead_name, "profile_msg_failed")
     return False
 
 

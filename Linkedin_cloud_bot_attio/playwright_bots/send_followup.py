@@ -859,40 +859,62 @@ def message_all_followup_leads(page, leads_to_message):
 
             k = lead_data['position_k']
 
-            # IMPORTANT: same fix as send_message.py — don't click the
-            # connections-page Message button (opens "New message" pinned to
-            # the last thread). Navigate to the lead's profile instead.
+            # Message from the CONNECTIONS PAGE (same page, no navigation).
             from playwright_bots.robust_messaging import (
-                lead_identity_hash, open_conversation_via_profile
+                lead_identity_hash, close_all_message_overlays,
+                find_message_button_for, verify_recipient_in_overlay,
             )
+            close_all_message_overlays(page)
+
             lead_hash = lead_identity_hash(name, lead_data.get('headline', ''))
             print(f"   Lead identity: {name} [{lead_hash}]")
 
-            profile_url = lead_data.get('linkedin_url', '')
-            if not profile_url:
-                print(f"   ⚠️ [{name}] no linkedin_url in Attio record — SKIPPING")
-                try:
-                    from notifier import notify_error
-                    notify_error(f"Follow-up skipped for {name} — no linkedin_url in Attio")
-                except Exception:
-                    pass
-                failed_messages += 1
-                continue
+            message_button_el = find_message_button_for(
+                page, name, lead_headline=lead_data.get('headline', ''))
 
-            opened = open_conversation_via_profile(
-                page, profile_url, name, lead_headline=lead_data.get('headline', '')
-            )
-            if not opened:
-                print(f"   ⚠️ [{name}] could not open conversation via profile — SKIPPING to avoid wrong-recipient send")
+            if not message_button_el:
+                print(f"   ⚠️ [{name}] message button not found — SKIPPING")
                 try:
                     from notifier import notify_error
-                    notify_error(f"Follow-up NOT sent to {name} — could not open conversation from profile")
+                    notify_error(f"Follow-up skipped for {name} — Message button not found on connections page")
                 except Exception:
                     pass
                 failed_messages += 1
                 continue
 
             try:
+                message_button_el.scroll_into_view_if_needed()
+                human_pause(1, 2)
+                try:
+                    message_button_el.click(timeout=5000)
+                except Exception:
+                    try:
+                        message_button_el.evaluate("el => el.click()")
+                    except Exception:
+                        human_move_click(page, message_button_el)
+                human_pause(3, 5)
+
+                # Verify the shadow-DOM dialog opened for the RIGHT person
+                import time as _time
+                _deadline = _time.time() + 10
+                _verified = False
+                while _time.time() < _deadline:
+                    if verify_recipient_in_overlay(page, name):
+                        _verified = True
+                        break
+                    _time.sleep(0.5)
+
+                if not _verified:
+                    print(f"   ⚠️ [{name}] conversation overlay didn't show '{name}' — SKIPPING")
+                    try:
+                        from notifier import notify_error
+                        notify_error(f"Follow-up NOT sent to {name} — wrong recipient in overlay after click")
+                    except Exception:
+                        pass
+                    close_all_message_overlays(page)
+                    failed_messages += 1
+                    continue
+
                 human_pause(1, 2)
 
                 result = send_followup_to_lead(page, lead_data)

@@ -567,52 +567,70 @@ def open_conversation_via_profile(page, profile_url, lead_name, lead_headline=No
 def close_all_message_overlays(page):
     """Force-close any open message overlays/dialogs.
 
-    LinkedIn's bottom-right messaging lets multiple conversations stay open
-    as stacked overlays. If we leave one open, subsequent "Message" clicks
-    may leak text into it. This closes them ALL via every known mechanism.
+    LinkedIn's bottom-right messaging overlays live in the #interop-outlet
+    shadow DOM. Close buttons are INSIDE the shadow root, so regular Playwright
+    selectors can't see them. We use page.evaluate to close from within.
     """
-    # Press Escape multiple times — closes most overlays
+    # 1. Press Escape multiple times — closes most overlays
     for _ in range(3):
         try:
             page.keyboard.press("Escape")
         except Exception:
             pass
-        _pause(0.2, 0.4)
+        _pause(0.2, 0.3)
 
-    # Click any visible Close/Dismiss button in messaging overlays.
-    # All selectors use ARIA labels — no LinkedIn-specific class names.
-    close_selectors = [
-        'button[aria-label="Close your conversation"]',
-        'button[aria-label="Schließen Sie Ihr Gespräch"]',
-        'button[aria-label*="Close conversation" i]',
-        'button[aria-label*="close" i][aria-label*="conversation" i]',
-        'button[aria-label*="close" i][aria-label*="messaging" i]',
-        '[role="dialog"] button[aria-label="Close"]',
-        '[role="dialog"] button[aria-label="Dismiss"]',
-    ]
-    for sel in close_selectors:
-        try:
-            loc = page.locator(sel)
-            for i in range(loc.count()):
-                el = loc.nth(i)
-                if el.is_visible():
-                    try:
-                        el.click(timeout=1500)
-                    except Exception:
-                        try:
-                            el.evaluate("el => el.click()")
-                        except Exception:
-                            pass
-                    _pause(0.2, 0.4)
-        except Exception:
-            pass
+    # 2. Close ALL conversation bubbles via shadow DOM
+    try:
+        page.evaluate("""
+        () => {
+            const closeIn = (root) => {
+                // Find all close buttons inside messaging dialogs
+                const sels = [
+                    'button[aria-label*="close" i]',
+                    'button[aria-label*="Close" i]',
+                    'button[aria-label*="schließen" i]',
+                ];
+                for (const sel of sels) {
+                    root.querySelectorAll(sel).forEach(btn => {
+                        const r = btn.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) {
+                            try { btn.click(); } catch {}
+                        }
+                    });
+                }
+                // Also try to minimize/close all conversation bubbles
+                root.querySelectorAll('[data-msg-overlay-conversation-bubble-open]').forEach(bubble => {
+                    // Click the close/minimize button inside each bubble
+                    bubble.querySelectorAll('button').forEach(btn => {
+                        const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                        if (label.includes('close') || label.includes('minimize') ||
+                            label.includes('schließen') || label.includes('minimieren')) {
+                            try { btn.click(); } catch {}
+                        }
+                    });
+                });
+            };
+            // Shadow root
+            const host = document.querySelector('#interop-outlet');
+            if (host && host.shadowRoot) closeIn(host.shadowRoot);
+            // Light DOM fallback
+            closeIn(document);
+        }
+        """)
+    except Exception:
+        pass
+    _pause(0.5, 1.0)
 
-    # Final: click on the body (not on any dialog) to defocus
+    # 3. Final Escape + body click to defocus
+    try:
+        page.keyboard.press("Escape")
+    except Exception:
+        pass
     try:
         page.locator("body").first.click(position={"x": 5, "y": 5}, timeout=1000)
     except Exception:
         pass
-    _pause(0.3, 0.6)
+    _pause(0.3, 0.5)
 
 
 def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=8):

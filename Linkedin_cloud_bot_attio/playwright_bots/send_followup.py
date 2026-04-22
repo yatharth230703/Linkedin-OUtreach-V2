@@ -36,24 +36,37 @@ load_dotenv()
 def validate_lead_match(scraped_name, scraped_headline, db_lead_data, similarity_threshold=0.7):
     """
     Validate that scraped LinkedIn data matches Attio database entry.
+
+    When the database headline is EMPTY, trust the name match alone.
     """
     db_name = db_lead_data.get('full_name', '').strip()
     db_headline = db_lead_data.get('headline', '').strip()
 
     name_similarity = SequenceMatcher(None, scraped_name.lower(), db_name.lower()).ratio()
-    headline_similarity = SequenceMatcher(None, scraped_headline.lower(), db_headline.lower()).ratio()
 
-    confidence = (name_similarity * 0.7) + (headline_similarity * 0.3)
-
-    is_match = name_similarity > 0.9 and headline_similarity > similarity_threshold
-    should_proceed = is_match or (name_similarity > 0.95 and headline_similarity > 0.5)
-
-    if is_match:
-        reason = f"Strong match (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
-    elif should_proceed:
-        reason = f"Acceptable match with manual review (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+    if not db_headline:
+        headline_similarity = 1.0 if not scraped_headline else 0.5
+        confidence = name_similarity
+        if name_similarity > 0.9:
+            is_match = True
+            should_proceed = True
+            reason = f"Strong name match, no headline in DB (name: {name_similarity:.2f})"
+        else:
+            is_match = False
+            should_proceed = False
+            reason = f"Weak name match, no headline in DB (name: {name_similarity:.2f})"
     else:
-        reason = f"Poor match - potential mismatch (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+        headline_similarity = SequenceMatcher(None, scraped_headline.lower(), db_headline.lower()).ratio()
+        confidence = (name_similarity * 0.7) + (headline_similarity * 0.3)
+        is_match = name_similarity > 0.9 and headline_similarity > similarity_threshold
+        should_proceed = is_match or (name_similarity > 0.95 and headline_similarity > 0.5)
+
+        if is_match:
+            reason = f"Strong match (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+        elif should_proceed:
+            reason = f"Acceptable match with manual review (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+        else:
+            reason = f"Poor match - potential mismatch (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
 
     return {
         'is_match': is_match,
@@ -610,8 +623,12 @@ def message_relay(page, message_text, lead_name):
         print(f"   Starting message relay for {lead_name}")
         human_pause(3, 4)
 
-        # CRITICAL: check if lead has already replied — skip sending in that case
+        # CRITICAL: check if lead has already replied — skip sending in that case.
+        # Two-tier check: existing shadow DOM parser + robust class-free fallback.
         has_replied = check_if_lead_replied(page, lead_name)
+        if not has_replied:
+            from playwright_bots.robust_messaging import check_for_reply_robust
+            has_replied = check_for_reply_robust(page, lead_name)
         if has_replied:
             print(f"      {lead_name} has already replied! Skipping follow-up message.")
             update_lead_status_to_replied(lead_name)
@@ -864,9 +881,12 @@ def message_all_followup_leads(page, leads_to_message):
                         human_move_click(page, message_button_el)
                 human_pause(3, 5)
 
-                # Verify the shadow-DOM dialog opened for the RIGHT person
+                # Verify the dialog opened for the RIGHT person.
+                # For follow-ups, the existing thread should open directly.
+                # If a "New message" compose opens instead, use compose setup.
                 import time as _time
-                _deadline = _time.time() + 10
+                from playwright_bots.robust_messaging import _setup_compose_recipient
+                _deadline = _time.time() + 6
                 _verified = False
                 while _time.time() < _deadline:
                     if verify_recipient_in_overlay(page, name):
@@ -875,15 +895,21 @@ def message_all_followup_leads(page, leads_to_message):
                     _time.sleep(0.5)
 
                 if not _verified:
-                    print(f"   ⚠️ [{name}] conversation overlay didn't show '{name}' — SKIPPING")
-                    try:
-                        from notifier import notify_error
-                        notify_error(f"Follow-up NOT sent to {name} — wrong recipient in overlay after click")
-                    except Exception:
-                        pass
-                    close_all_message_overlays(page)
-                    failed_messages += 1
-                    continue
+                    # Try compose dialog recipient setup (same as message bot)
+                    print(f"   [{name}] direct thread not found — trying compose dialog...")
+                    compose_ok = _setup_compose_recipient(page, name)
+                    if compose_ok:
+                        _verified = True
+                    else:
+                        print(f"   ⚠️ [{name}] could not open conversation — SKIPPING")
+                        try:
+                            from notifier import notify_error
+                            notify_error(f"Follow-up NOT sent to {name} — could not open conversation")
+                        except Exception:
+                            pass
+                        close_all_message_overlays(page)
+                        failed_messages += 1
+                        continue
 
                 human_pause(1, 2)
 
@@ -904,7 +930,11 @@ def message_all_followup_leads(page, leads_to_message):
                 failed_messages += 1
                 continue
 
-            human_pause(5, 7)
+            # CRITICAL: close + verify overlay is gone before next lead
+            from playwright_bots.robust_messaging import close_and_verify
+            connections_url = "https://www.linkedin.com/mynetwork/invite-connect/connections/"
+            close_and_verify(page, max_attempts=3, page_url_fallback=connections_url)
+            human_pause(3, 5)
 
         except Exception as e:
             print(f"   Error processing lead {lead_data.get('name', 'unknown')}: {e}")

@@ -290,10 +290,11 @@ Examples:
     # This also matches the VM environment exactly (VM always uses CLOUD_MODE).
     os.environ["CLOUD_MODE"] = "true"
 
-    # Skip cookie-based login — go straight to password login.
-    # Cookie login fails on all iproyal IPs (redirect loop). Password login
-    # works reliably. This avoids 3 wasted retry cycles (~3 min) on every run.
-    os.environ["SKIP_COOKIE_LOGIN"] = "true"
+    # Match cloud environment: cookie login is tried first (persisted cookies
+    # + persisted proxy session keep the session alive across runs).
+    # Only set SKIP_COOKIE_LOGIN if explicitly requested via --password-only.
+    if args.password_only:
+        os.environ["SKIP_COOKIE_LOGIN"] = "true"
 
     if args.no_stealth:
         os.environ["DISABLE_STEALTH"] = "true"

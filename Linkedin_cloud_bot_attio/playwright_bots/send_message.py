@@ -36,24 +36,41 @@ load_dotenv()
 def validate_lead_match(scraped_name, scraped_headline, db_lead_data, similarity_threshold=0.7):
     """
     Validate that scraped LinkedIn data matches Attio database entry.
+
+    When the database headline is EMPTY (common for leads added by the
+    connection bot before headline scraping was fixed), we trust the name
+    match alone — we simply don't have headline data to compare.
     """
     db_name = db_lead_data.get('full_name', '').strip()
     db_headline = db_lead_data.get('headline', '').strip()
 
     name_similarity = SequenceMatcher(None, scraped_name.lower(), db_name.lower()).ratio()
-    headline_similarity = SequenceMatcher(None, scraped_headline.lower(), db_headline.lower()).ratio()
 
-    confidence = (name_similarity * 0.7) + (headline_similarity * 0.3)
-
-    is_match = name_similarity > 0.9 and headline_similarity > similarity_threshold
-    should_proceed = is_match or (name_similarity > 0.95 and headline_similarity > 0.5)
-
-    if is_match:
-        reason = f"Strong match (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
-    elif should_proceed:
-        reason = f"Acceptable match with manual review (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+    # If database headline is empty, headline comparison is meaningless —
+    # don't penalise the match score for missing data.
+    if not db_headline:
+        headline_similarity = 1.0 if not scraped_headline else 0.5  # neutral
+        confidence = name_similarity  # name-only confidence
+        if name_similarity > 0.9:
+            is_match = True
+            should_proceed = True
+            reason = f"Strong name match, no headline in DB (name: {name_similarity:.2f})"
+        else:
+            is_match = False
+            should_proceed = False
+            reason = f"Weak name match, no headline in DB (name: {name_similarity:.2f})"
     else:
-        reason = f"Poor match - potential mismatch (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+        headline_similarity = SequenceMatcher(None, scraped_headline.lower(), db_headline.lower()).ratio()
+        confidence = (name_similarity * 0.7) + (headline_similarity * 0.3)
+        is_match = name_similarity > 0.9 and headline_similarity > similarity_threshold
+        should_proceed = is_match or (name_similarity > 0.95 and headline_similarity > 0.5)
+
+        if is_match:
+            reason = f"Strong match (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+        elif should_proceed:
+            reason = f"Acceptable match with manual review (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
+        else:
+            reason = f"Poor match - potential mismatch (name: {name_similarity:.2f}, headline: {headline_similarity:.2f})"
 
     return {
         'is_match': is_match,
@@ -182,38 +199,22 @@ def _scrape_connections_robust(page):
             // Only match /in/<slug> links (not /in/edit/, not company links)
             if (!href.match(/\\/in\\/[\\w-]+\\/?$/)) continue;
 
-            const name = (link.innerText || link.textContent || '').trim();
+            const fullText = (link.innerText || link.textContent || '').trim();
+            if (!fullText || fullText.length < 2) continue;
+
+            // LinkedIn wraps name + headline inside the same <a>.
+            // Split on newlines: first non-empty line = name, rest = headline.
+            const lines = fullText.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+            const name = lines[0] || '';
             if (!name || name.length < 2 || seen.has(name)) continue;
 
-            // Walk up to find the card container (li, article, or div with
-            // specific structure). Stop at 6 levels to avoid over-walking.
-            let card = link;
-            for (let d = 0; d < 6; d++) {
-                card = card.parentElement;
-                if (!card) break;
-                if (card.tagName === 'LI' || card.tagName === 'ARTICLE') break;
-                // LinkedIn uses div-based cards with "entity-result" or similar role
-                if (card.getAttribute('data-view-name') || card.classList.length > 3) {
-                    // Likely a card container — check if it has more than just the name
-                    const ps = card.querySelectorAll('p, span');
-                    if (ps.length >= 2) break;
-                }
-            }
-            if (!card) continue;
-
-            // Find the headline — it's typically the SECOND substantial text
-            // element in the card (first is the name, second is headline).
+            // Headline is everything after the first line (skip connection
+            // degree markers like "1st", "2nd", "3rd")
             let headline = '';
-            const textEls = card.querySelectorAll('p, span');
-            for (const el of textEls) {
-                const t = (el.innerText || '').trim();
-                // Skip: the name itself, "Connected on...", timestamps, short text
-                if (!t || t === name || t.length < 5) continue;
-                if (t.toLowerCase().startsWith('connected on')) continue;
-                if (t.match(/^\\d+\\s+(follower|connection)/i)) continue;
-                // Skip "Message" button text
-                if (t === 'Message' || t === 'Nachricht') continue;
-                headline = t;
+            for (let li = 1; li < lines.length; li++) {
+                const line = lines[li];
+                if (line.match(/^(1st|2nd|3rd|\\d+th)$/i)) continue;
+                headline = line;
                 break;
             }
 
@@ -552,12 +553,10 @@ def message_all_leads(page, leads_to_message):
                                         #    /html/body/div[1]/div[2]/div[2]/div[2]/div/main/div/div/div[1]/section/div/div[2]/div/div/div[5]/div/div[2]/div/div/a
 
             # Message from the CONNECTIONS PAGE (same page, no navigation).
-            # Close any stale overlay first so the click opens a fresh thread.
             from playwright_bots.robust_messaging import (
                 lead_identity_hash, close_all_message_overlays,
                 find_message_button_for, verify_recipient_in_overlay,
             )
-            close_all_message_overlays(page)
 
             lead_hash = lead_identity_hash(name, lead_data.get('headline', ''))
             print(f"   Lead identity: {name} [{lead_hash}]")
@@ -587,9 +586,11 @@ def message_all_leads(page, leads_to_message):
                         human_move_click(page, message_button_el)
                 human_pause(3, 5)
 
-                # Verify the shadow-DOM dialog opened for the RIGHT person
+                # Check if a direct conversation opened (for already-messaged people)
+                # or a "New message" compose opened (for first-time messages).
                 import time as _time
-                _deadline = _time.time() + 10
+                from playwright_bots.robust_messaging import _setup_compose_recipient
+                _deadline = _time.time() + 6
                 _verified = False
                 while _time.time() < _deadline:
                     if verify_recipient_in_overlay(page, name):
@@ -598,15 +599,22 @@ def message_all_leads(page, leads_to_message):
                     _time.sleep(0.5)
 
                 if not _verified:
-                    print(f"   ⚠️ [{name}] conversation overlay didn't show '{name}' — SKIPPING")
-                    try:
-                        from notifier import notify_error
-                        notify_error(f"Message NOT sent to {name} — wrong recipient in overlay after click")
-                    except Exception:
-                        pass
-                    close_all_message_overlays(page)
-                    failed_messages += 1
-                    continue
+                    # It's likely a "New message" compose dialog (first-time message).
+                    # Set the recipient via the compose's autocomplete search.
+                    print(f"   [{name}] direct thread not found — trying compose dialog recipient setup...")
+                    compose_ok = _setup_compose_recipient(page, name)
+                    if compose_ok:
+                        _verified = True
+                    else:
+                        print(f"   ⚠️ [{name}] could not set recipient in compose dialog — SKIPPING")
+                        try:
+                            from notifier import notify_error
+                            notify_error(f"Message NOT sent to {name} — could not set recipient in compose")
+                        except Exception:
+                            pass
+                        close_all_message_overlays(page)
+                        failed_messages += 1
+                        continue
 
                 human_pause(1, 2)
 
@@ -624,7 +632,13 @@ def message_all_leads(page, leads_to_message):
                 failed_messages += 1
                 continue
 
-            human_pause(5, 7)
+            # CRITICAL: close the message overlay and VERIFY it's gone
+            # before proceeding to the next lead. Without this, the next
+            # lead's message gets typed into the still-open overlay.
+            from playwright_bots.robust_messaging import close_and_verify
+            connections_url = "https://www.linkedin.com/mynetwork/invite-connect/connections/"
+            close_and_verify(page, max_attempts=3, page_url_fallback=connections_url)
+            human_pause(3, 5)
 
         except Exception as e:
             print(f"   Error processing lead {lead_data.get('name', 'unknown')}: {e}")
@@ -684,6 +698,17 @@ def main():
 
         print("   Session Active. Ready to navigate to connections.")
         human_scroll(page)
+
+        # Initialize LinkedIn's messaging app state by briefly visiting /messaging/.
+        # Without this, clicking Message on connection cards creates empty dialog
+        # shells (React never hydrates the messaging overlay). Visiting /messaging/
+        # first forces the JS bundle to load + session state to initialize.
+        print("   Initializing messaging state...")
+        try:
+            _safe_goto(page, "https://www.linkedin.com/messaging/", timeout=30000)
+            human_pause(3, 5)
+        except Exception:
+            print("   ⚠️ Messaging page load timed out — proceeding anyway")
 
         connections_url = "https://www.linkedin.com/mynetwork/invite-connect/connections/"
         print(f"   Navigating to: {connections_url}")

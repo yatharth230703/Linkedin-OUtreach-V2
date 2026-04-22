@@ -49,6 +49,44 @@ def _distinctive_headline_snippet(headline, min_len=12, max_len=40):
     return candidate if len(candidate) >= min_len else None
 
 
+def _highlight(page, element, color="red", label="", duration_ms=1500):
+    """Flash a colored border + label on an element for visual debugging."""
+    try:
+        element.evaluate(f"""(el) => {{
+            el.style.outline = '3px solid {color}';
+            el.style.outlineOffset = '2px';
+            const lbl = document.createElement('div');
+            lbl.textContent = '{label}';
+            lbl.style.cssText = 'position:fixed;top:0;left:0;background:{color};color:white;' +
+                'padding:4px 12px;font-size:14px;font-weight:bold;z-index:999999;border-radius:4px;';
+            const r = el.getBoundingClientRect();
+            lbl.style.top = Math.max(0, r.top - 28) + 'px';
+            lbl.style.left = r.left + 'px';
+            document.body.appendChild(lbl);
+            setTimeout(() => {{ el.style.outline = ''; lbl.remove(); }}, {duration_ms});
+        }}""")
+    except Exception:
+        pass
+
+
+def _highlight_in_shadow(page, js_selector_code, color="red", label=""):
+    """Highlight an element found via shadow DOM JS."""
+    try:
+        page.evaluate(f"""
+        () => {{
+            const host = document.querySelector('#interop-outlet');
+            if (!host || !host.shadowRoot) return;
+            const el = {js_selector_code};
+            if (!el) return;
+            el.style.outline = '3px solid {color}';
+            el.style.outlineOffset = '2px';
+            setTimeout(() => {{ el.style.outline = ''; }}, 1500);
+        }}
+        """)
+    except Exception:
+        pass
+
+
 def _visible_first(page, *selectors, timeout=0):
     """Return first visible match across selectors, or None."""
     for sel in selectors:
@@ -83,11 +121,75 @@ def find_message_button_for(page, lead_name, lead_headline=None):
     ident = lead_identity_hash(lead_name, lead_headline or "")
     snippet = _distinctive_headline_snippet(lead_headline) if lead_headline else None
 
+    # ── 0. JS card walk — PRIMARY approach for all names ──────────────────
+    # Finds the card container with the lead's name, scrolls it into view,
+    # highlights it (green = card, yellow = button), returns the Message
+    # button. Works for ALL names including "A. Khan", hyphens, unicode.
+    try:
+        handle = page.evaluate_handle("""
+        (nameAndHeadline) => {
+            const [name, headline] = nameAndHeadline;
+            const lower = name.toLowerCase();
+            const hlLower = (headline || '').toLowerCase();
+            const links = document.querySelectorAll('a[href*="/in/"]');
+            for (const link of links) {
+                const linkText = (link.innerText || '').split('\\n')[0].trim().toLowerCase();
+                if (linkText !== lower && !linkText.includes(lower)) continue;
+
+                // Walk up to card container
+                let card = link;
+                for (let d = 0; d < 8; d++) {
+                    card = card.parentElement;
+                    if (!card) break;
+                    if (card.tagName === 'LI' || card.tagName === 'ARTICLE') break;
+                    if (card.children.length >= 3) break;
+                }
+                if (!card) continue;
+
+                // If headline provided, verify the card contains it (disambiguation)
+                if (hlLower && hlLower.length > 10) {
+                    const cardText = (card.innerText || '').toLowerCase();
+                    const hlSnippet = hlLower.substring(0, 30);
+                    if (!cardText.includes(hlSnippet)) continue;
+                }
+
+                // Scroll card into view
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Find Message button inside THIS card
+                const btns = card.querySelectorAll('a, button');
+                for (const btn of btns) {
+                    const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                    const text = (btn.innerText || '').toLowerCase().trim();
+                    if ((label.includes('message') || text === 'message' ||
+                         label.includes('nachricht') || text === 'nachricht') &&
+                        btn.getBoundingClientRect().width > 0) {
+                        card.style.outline = '3px solid lime';
+                        card.style.outlineOffset = '4px';
+                        btn.style.outline = '3px solid yellow';
+                        setTimeout(() => { card.style.outline = ''; btn.style.outline = ''; }, 2500);
+                        return btn;
+                    }
+                }
+            }
+            return null;
+        }
+        """, [lead_name, lead_headline or ""])
+        if handle:
+            elem = handle.as_element()
+            if elem:
+                print(f"      [{ident}] found card + scrolled + Message button for '{lead_name}'")
+                _pause(0.8, 1.2)  # let scroll settle
+                return elem
+    except Exception as e:
+        print(f"      [{ident}] JS card walk error: {e}")
+
     # ── 1. Card scoped by name + headline snippet (STRONG disambiguation) ──
     if snippet:
         try:
-            # Iterate candidate cards that visibly contain the name, then keep
-            # only the one(s) that also contain the headline snippet.
+            # Iterate candidate cards that visibly contain the name.
+            # Use exact=False to handle names with special chars (periods,
+            # hyphens, middle initials like "Ammar A. Khan").
             name_matches = page.get_by_text(lead_name, exact=False)
             n = name_matches.count()
             for i in range(n):
@@ -127,6 +229,7 @@ def find_message_button_for(page, lead_name, lead_headline=None):
                 )
                 if msg.count() > 0 and msg.first.is_visible():
                     print(f"      [{ident}] matched card by name+headline snippet: {snippet!r}")
+                    _highlight(page, msg.first, color="green", label=f"MSG BTN: {lead_name}")
                     return msg.first
         except Exception:
             pass
@@ -161,7 +264,67 @@ def find_message_button_for(page, lead_name, lead_headline=None):
     )
     if el:
         print(f"      [{ident}] matched by aria-label (fallback, name only — check for duplicates)")
+        _highlight(page, el, color="orange", label=f"MSG BTN (aria-label): {lead_name}")
         return el
+
+    # ── 4. JS-based card walk — works for ALL names including special chars.
+    # This is the PRIMARY approach: find the card with the lead's name,
+    # scroll it into view, then return the Message button inside it.
+    try:
+        handle = page.evaluate_handle("""
+        (name) => {
+            const lower = name.toLowerCase();
+            // Find all profile links on the connections page
+            const links = document.querySelectorAll('a[href*="/in/"]');
+            for (const link of links) {
+                const linkText = (link.innerText || '').split('\\n')[0].trim().toLowerCase();
+                if (linkText !== lower && !linkText.includes(lower)) continue;
+
+                // Walk up to find the card container
+                let card = link;
+                for (let d = 0; d < 8; d++) {
+                    card = card.parentElement;
+                    if (!card) break;
+                    if (card.tagName === 'LI' || card.tagName === 'ARTICLE') break;
+                    // Stop at divs that look like a card (have multiple children)
+                    if (card.children.length >= 3) break;
+                }
+                if (!card) continue;
+
+                // SCROLL the card into view first
+                card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                // Find the Message button INSIDE this specific card
+                const btns = card.querySelectorAll('a, button');
+                for (const btn of btns) {
+                    const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                    const text = (btn.innerText || '').toLowerCase().trim();
+                    if ((label.includes('message') || text === 'message' ||
+                         label.includes('nachricht') || text === 'nachricht') &&
+                        btn.getBoundingClientRect().width > 0) {
+                        // Highlight the card and button for debug visibility
+                        card.style.outline = '3px solid lime';
+                        card.style.outlineOffset = '4px';
+                        btn.style.outline = '3px solid yellow';
+                        setTimeout(() => {
+                            card.style.outline = '';
+                            btn.style.outline = '';
+                        }, 2000);
+                        return btn;
+                    }
+                }
+            }
+            return null;
+        }
+        """, lead_name)
+        if handle:
+            elem = handle.as_element()
+            if elem:
+                print(f"      [{ident}] found card + Message button for '{lead_name}'")
+                _pause(0.5, 1.0)  # let scroll settle
+                return elem
+    except Exception as e:
+        print(f"      [{ident}] JS card walk error: {e}")
 
     print(f"      [{ident}] no match found for Message button")
     return None
@@ -465,8 +628,40 @@ def verify_recipient_in_overlay(page, expected_name):
     }
     """
     try:
-        return bool(page.evaluate(js, lower_name))
-    except Exception:
+        result = page.evaluate(js, lower_name)
+        if not result:
+            # Debug: dump what the shadow DOM actually contains
+            try:
+                debug_info = page.evaluate("""
+                () => {
+                    const info = { shadowHostExists: false, dialogCount: 0, dialogTexts: [] };
+                    const host = document.querySelector('#interop-outlet');
+                    if (host && host.shadowRoot) {
+                        info.shadowHostExists = true;
+                        const dialogs = host.shadowRoot.querySelectorAll('[role="dialog"]');
+                        info.dialogCount = dialogs.length;
+                        for (const d of dialogs) {
+                            const min = d.getAttribute('data-msg-overlay-conversation-bubble-is-minimized');
+                            const text = (d.innerText || '').substring(0, 200);
+                            info.dialogTexts.push({ minimized: min, text: text });
+                        }
+                    }
+                    // Also check light DOM
+                    const lightDialogs = document.querySelectorAll('[role="dialog"]');
+                    info.lightDialogCount = lightDialogs.length;
+                    return info;
+                }
+                """)
+                print(f"      [verify-debug] shadow={debug_info.get('shadowHostExists')}, "
+                      f"dialogs={debug_info.get('dialogCount')}, "
+                      f"light_dialogs={debug_info.get('lightDialogCount')}")
+                for i, d in enumerate(debug_info.get('dialogTexts', [])):
+                    print(f"      [verify-debug] dialog[{i}] minimized={d.get('minimized')} text={d.get('text', '')[:100]!r}")
+            except Exception as e:
+                print(f"      [verify-debug] could not inspect: {e}")
+        return bool(result)
+    except Exception as e:
+        print(f"      [verify-debug] evaluate failed: {e}")
         return False
 
 
@@ -579,47 +774,67 @@ def close_all_message_overlays(page):
             pass
         _pause(0.2, 0.3)
 
-    # 2. Close ALL conversation bubbles via shadow DOM
+    # 2. Close ALL conversation bubbles + draft composes via shadow DOM
+    try:
+        closed = page.evaluate("""
+        () => {
+            const report = { found: 0, clicked: 0, labels: [] };
+            const closeIn = (root) => {
+                // Scan ALL buttons and log what we find
+                root.querySelectorAll('button').forEach(btn => {
+                    const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                    const text = (btn.innerText || btn.textContent || '').toLowerCase().trim();
+                    const r = btn.getBoundingClientRect();
+                    const visible = r.width > 0 && r.height > 0;
+
+                    // Click ANY button that looks like close/minimize/discard
+                    if (visible && (
+                        label.includes('close') || label.includes('minimize') ||
+                        label.includes('discard') || label.includes('schließen') ||
+                        label.includes('minimieren') || label.includes('verwerfen') ||
+                        text.includes('close') || text.includes('discard')
+                    )) {
+                        report.found++;
+                        report.labels.push(label || text);
+                        try { btn.click(); report.clicked++; } catch {}
+                    }
+                });
+            };
+            const host = document.querySelector('#interop-outlet');
+            if (host && host.shadowRoot) closeIn(host.shadowRoot);
+            closeIn(document);
+            return report;
+        }
+        """)
+        if closed:
+            print(f"      [close-debug] found={closed.get('found',0)} clicked={closed.get('clicked',0)} labels={closed.get('labels',[])[: 5]}")
+    except Exception as e:
+        print(f"      [close-debug] error: {e}")
+    _pause(1.0, 1.5)
+
+    # If a "discard" confirmation dialog appeared, confirm it
     try:
         page.evaluate("""
         () => {
             const closeIn = (root) => {
-                // Find all close buttons inside messaging dialogs
-                const sels = [
-                    'button[aria-label*="close" i]',
-                    'button[aria-label*="Close" i]',
-                    'button[aria-label*="schließen" i]',
-                ];
-                for (const sel of sels) {
-                    root.querySelectorAll(sel).forEach(btn => {
+                root.querySelectorAll('button').forEach(btn => {
+                    const text = (btn.innerText || '').toLowerCase().trim();
+                    if (text === 'discard' || text === 'verwerfen') {
                         const r = btn.getBoundingClientRect();
                         if (r.width > 0 && r.height > 0) {
                             try { btn.click(); } catch {}
                         }
-                    });
-                }
-                // Also try to minimize/close all conversation bubbles
-                root.querySelectorAll('[data-msg-overlay-conversation-bubble-open]').forEach(bubble => {
-                    // Click the close/minimize button inside each bubble
-                    bubble.querySelectorAll('button').forEach(btn => {
-                        const label = (btn.getAttribute('aria-label') || '').toLowerCase();
-                        if (label.includes('close') || label.includes('minimize') ||
-                            label.includes('schließen') || label.includes('minimieren')) {
-                            try { btn.click(); } catch {}
-                        }
-                    });
+                    }
                 });
             };
-            // Shadow root
             const host = document.querySelector('#interop-outlet');
             if (host && host.shadowRoot) closeIn(host.shadowRoot);
-            // Light DOM fallback
             closeIn(document);
         }
         """)
     except Exception:
         pass
-    _pause(0.5, 1.0)
+    _pause(0.5, 0.8)
 
     # 3. Final Escape + body click to defocus
     try:
@@ -631,6 +846,445 @@ def close_all_message_overlays(page):
     except Exception:
         pass
     _pause(0.3, 0.5)
+
+
+def close_and_verify(page, max_attempts=3, page_url_fallback=None):
+    """Close ALL message overlays and VERIFY they're gone.
+
+    This is the strict version called BETWEEN leads to prevent message leakage.
+    Checks shadow DOM dialog count after each attempt. If dialogs persist after
+    max_attempts, refreshes the page as nuclear option.
+
+    Args:
+        page: Playwright Page
+        max_attempts: number of close cycles before giving up
+        page_url_fallback: URL to navigate to if close fails (nuclear refresh)
+    """
+    for attempt in range(max_attempts):
+        close_all_message_overlays(page)
+        _pause(0.5, 0.8)
+
+        # Verify: count non-minimized dialogs in shadow DOM
+        try:
+            open_count = page.evaluate("""
+            () => {
+                let count = 0;
+                const host = document.querySelector('#interop-outlet');
+                if (host && host.shadowRoot) {
+                    host.shadowRoot.querySelectorAll('[role="dialog"]').forEach(dlg => {
+                        const min = dlg.getAttribute('data-msg-overlay-conversation-bubble-is-minimized');
+                        if (min !== 'true') {
+                            const r = dlg.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) count++;
+                        }
+                    });
+                }
+                return count;
+            }
+            """)
+        except Exception:
+            open_count = 0
+
+        if open_count == 0:
+            print(f"      [close-verify] ✓ all dialogs closed (attempt {attempt + 1})")
+            return True
+        else:
+            print(f"      [close-verify] {open_count} dialog(s) still open (attempt {attempt + 1}/{max_attempts})")
+
+        # Try harder: also handle discard confirmation
+        try:
+            page.evaluate("""
+            () => {
+                const tryRoot = (root) => {
+                    root.querySelectorAll('button').forEach(btn => {
+                        const t = (btn.innerText || '').toLowerCase().trim();
+                        const l = (btn.getAttribute('aria-label') || '').toLowerCase();
+                        if (t === 'discard' || t === 'verwerfen' ||
+                            l.includes('close') || l.includes('discard') ||
+                            l.includes('schließen')) {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) {
+                                try { btn.click(); } catch {}
+                            }
+                        }
+                    });
+                };
+                const host = document.querySelector('#interop-outlet');
+                if (host && host.shadowRoot) tryRoot(host.shadowRoot);
+                tryRoot(document);
+            }
+            """)
+        except Exception:
+            pass
+        _pause(0.5, 0.8)
+
+    # Nuclear option: refresh the page to kill all overlays
+    if page_url_fallback:
+        print(f"      [close-verify] ⚠️ dialogs won't close — refreshing page")
+        try:
+            page.goto(page_url_fallback, wait_until="domcontentloaded", timeout=30000)
+            _pause(3, 5)
+        except Exception:
+            pass
+        return True
+    else:
+        print(f"      [close-verify] ⚠️ dialogs still open after {max_attempts} attempts — proceeding anyway")
+        return False
+
+
+def _setup_compose_recipient(page, lead_name, timeout_s=10):
+    """Handle the 'New message' compose dialog: clear stale recipients, type
+    the target name, and select them from the autocomplete dropdown.
+
+    LinkedIn opens a 'New message' compose when clicking Message for someone
+    you haven't messaged yet. It may have a stale recipient chip from a
+    previous draft. This function cleans up and sets the correct recipient.
+
+    Returns True if the correct recipient was selected, False otherwise.
+    """
+    try:
+        # Step 1: Find and clear any existing recipient chips (the "×" buttons)
+        cleared = page.evaluate("""
+        () => {
+            let cleared = 0;
+            const checkRoot = (root) => {
+                // Find recipient chip remove buttons ("Remove Shashvat Singhal")
+                root.querySelectorAll('button').forEach(btn => {
+                    const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                    if (label.includes('remove') && !label.includes('formatting')) {
+                        const r = btn.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) {
+                            try { btn.click(); cleared++; } catch {}
+                        }
+                    }
+                });
+            };
+            const host = document.querySelector('#interop-outlet');
+            if (host && host.shadowRoot) checkRoot(host.shadowRoot);
+            checkRoot(document);
+            return cleared;
+        }
+        """)
+        if cleared:
+            print(f"      Cleared {cleared} stale recipient chip(s)")
+        _pause(0.5, 1.0)
+
+        # Verify ALL chips are gone — repeat until none remain
+        for _clear_attempt in range(5):
+            remaining = page.evaluate("""
+            () => {
+                let count = 0;
+                const checkRoot = (root) => {
+                    root.querySelectorAll('button').forEach(btn => {
+                        const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                        if (label.includes('remove') && !label.includes('formatting')) {
+                            const r = btn.getBoundingClientRect();
+                            if (r.width > 0 && r.height > 0) {
+                                try { btn.click(); count++; } catch {}
+                            }
+                        }
+                    });
+                };
+                const host = document.querySelector('#interop-outlet');
+                if (host && host.shadowRoot) checkRoot(host.shadowRoot);
+                checkRoot(document);
+                return count;
+            }
+            """)
+            if remaining == 0:
+                break
+            print(f"      Cleared {remaining} more stale chip(s)")
+            _pause(0.3, 0.5)
+
+        # Step 2: Find the recipient input field and type the target name
+        # Highlight for visual debugging
+        # The compose dialog has an input with placeholder like "Type a name"
+        input_handle = page.evaluate_handle("""
+        () => {
+            const findIn = (root) => {
+                // The recipient search input
+                const sels = [
+                    'input[aria-label*="message recipients" i]',
+                    'input[aria-label*="recipients" i]',
+                    'input[aria-label*="name" i][type="text"]',
+                    'input[placeholder*="name" i]',
+                    'input[placeholder*="recipient" i]',
+                    'input[role="combobox"]',
+                ];
+                for (const sel of sels) {
+                    for (const el of root.querySelectorAll(sel)) {
+                        const r = el.getBoundingClientRect();
+                        if (r.width > 0 && r.height > 0) return el;
+                    }
+                }
+                return null;
+            };
+            const host = document.querySelector('#interop-outlet');
+            if (host && host.shadowRoot) {
+                const found = findIn(host.shadowRoot);
+                if (found) return found;
+            }
+            return findIn(document);
+        }
+        """)
+        input_el = input_handle.as_element() if input_handle else None
+        if not input_el:
+            print(f"      ⚠️ recipient input not found in compose dialog")
+            return False
+
+        _highlight(page, input_el, color="blue", label="RECIPIENT INPUT")
+        # Click to focus, then type the name using keyboard
+        # (ElementHandle.fill/type can fail across shadow DOM boundaries)
+        try:
+            input_el.click(timeout=3000)
+        except Exception:
+            try:
+                input_el.evaluate("el => el.focus()")
+            except Exception:
+                pass
+        _pause(0.3, 0.5)
+
+        # Clear existing text via keyboard (Ctrl+A, Delete), then type name
+        page.keyboard.press("Control+a")
+        page.keyboard.press("Delete")
+        _pause(0.2, 0.3)
+        page.keyboard.type(lead_name, delay=50)
+        _pause(2.0, 3.0)  # wait for autocomplete dropdown
+
+        # Step 3: Select the correct person from the autocomplete dropdown
+        # The dropdown items are in shadow DOM, contain the lead's name
+        deadline = time.time() + timeout_s
+        while time.time() < deadline:
+            selected = page.evaluate("""
+            (targetName) => {
+                const lower = targetName.toLowerCase();
+                const tryRoot = (root) => {
+                    const sels = [
+                        '[role="option"]',
+                        '[role="listbox"] > *',
+                        'li',
+                    ];
+                    let bestMatch = null;
+                    for (const sel of sels) {
+                        for (const el of root.querySelectorAll(sel)) {
+                            const t = (el.innerText || '').toLowerCase();
+                            const r = el.getBoundingClientRect();
+                            if (!t.includes(lower) || r.width <= 0 || r.height <= 0) continue;
+
+                            // SKIP group conversations — they contain phrases like
+                            // "X people in this conversation", multiple names with
+                            // "and", or "group" indicators
+                            if (t.includes('people in this conversation') ||
+                                t.includes('personen in dieser unterhaltung') ||
+                                t.includes(' and you') ||
+                                t.includes(' und du') ||
+                                t.includes('group')) {
+                                continue;
+                            }
+
+                            // Prefer EXACT name match over partial/substring
+                            if (t.trim() === lower || t.startsWith(lower + '\n')) {
+                                // Best possible match — click immediately
+                                try { el.click(); return 'exact'; } catch {}
+                            }
+                            // Store as candidate if no exact match yet
+                            if (!bestMatch) bestMatch = el;
+                        }
+                    }
+                    // Fall back to best non-group candidate
+                    if (bestMatch) {
+                        try { bestMatch.click(); return 'partial'; } catch {}
+                    }
+                    return null;
+                };
+                const host = document.querySelector('#interop-outlet');
+                if (host && host.shadowRoot) {
+                    const r = tryRoot(host.shadowRoot);
+                    if (r) return r;
+                }
+                return tryRoot(document);
+            }
+            """, lead_name)
+            if selected:
+                print(f"      ✓ Selected '{lead_name}' from autocomplete ({selected} match)")
+                _pause(1.0, 1.5)
+
+                # Verify: exactly 1 recipient chip, matching our target name
+                chip_check = page.evaluate("""
+                (targetName) => {
+                    const lower = targetName.toLowerCase();
+                    const checkRoot = (root) => {
+                        let chips = [];
+                        root.querySelectorAll('button').forEach(btn => {
+                            const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                            if (label.includes('remove') && !label.includes('formatting')) {
+                                const r = btn.getBoundingClientRect();
+                                if (r.width > 0 && r.height > 0) chips.push(label);
+                            }
+                        });
+                        return chips;
+                    };
+                    const chips = [];
+                    const host = document.querySelector('#interop-outlet');
+                    if (host && host.shadowRoot) chips.push(...checkRoot(host.shadowRoot));
+                    chips.push(...checkRoot(document));
+                    return { count: chips.length, labels: chips.slice(0, 5),
+                             hasTarget: chips.some(c => c.includes(lower)) };
+                }
+                """, lead_name)
+                chip_count = chip_check.get('count', 0) if chip_check else 0
+                has_target = chip_check.get('hasTarget', False) if chip_check else False
+                print(f"      [chip-check] count={chip_count}, hasTarget={has_target}, labels={chip_check.get('labels', [])[:3]}")
+
+                if chip_count > 1:
+                    print(f"      ⚠️ Multiple recipient chips ({chip_count}) — clearing extras to prevent group message")
+                    # Clear all chips except the target
+                    page.evaluate("""
+                    (targetName) => {
+                        const lower = targetName.toLowerCase();
+                        const clearIn = (root) => {
+                            root.querySelectorAll('button').forEach(btn => {
+                                const label = (btn.getAttribute('aria-label') || '').toLowerCase();
+                                if (label.includes('remove') && !label.includes('formatting') &&
+                                    !label.includes(lower)) {
+                                    const r = btn.getBoundingClientRect();
+                                    if (r.width > 0 && r.height > 0) {
+                                        try { btn.click(); } catch {}
+                                    }
+                                }
+                            });
+                        };
+                        const host = document.querySelector('#interop-outlet');
+                        if (host && host.shadowRoot) clearIn(host.shadowRoot);
+                        clearIn(document);
+                    }
+                    """, lead_name)
+                    _pause(0.5, 0.8)
+
+                return True
+            time.sleep(0.5)
+
+        # Debug: dump what's visible in the dropdown area
+        try:
+            dropdown_info = page.evaluate("""
+            () => {
+                const info = { options: [] };
+                const checkRoot = (root) => {
+                    // Check for listbox, options, or any dropdown-like elements
+                    root.querySelectorAll('[role="option"], [role="listbox"] > *, li').forEach(el => {
+                        const t = (el.innerText || '').trim().substring(0, 100);
+                        const r = el.getBoundingClientRect();
+                        if (t && r.width > 0) info.options.push(t);
+                    });
+                };
+                const host = document.querySelector('#interop-outlet');
+                if (host && host.shadowRoot) checkRoot(host.shadowRoot);
+                checkRoot(document);
+                return info;
+            }
+            """)
+            print(f"      [autocomplete-debug] visible options: {dropdown_info.get('options', [])[:5]}")
+        except Exception:
+            pass
+        print(f"      ⚠️ '{lead_name}' not found in autocomplete dropdown")
+        # Try pressing Enter as last resort (selects first autocomplete result)
+        try:
+            page.keyboard.press("Enter")
+            _pause(1.0, 1.5)
+            # Check if it worked
+            if verify_recipient_in_overlay(page, lead_name):
+                print(f"      ✓ Selected '{lead_name}' via Enter key fallback")
+                return True
+        except Exception:
+            pass
+        return False
+
+    except Exception as e:
+        print(f"      ⚠️ compose recipient setup failed: {e}")
+        return False
+
+
+def check_for_reply_robust(page, lead_name):
+    """Check if the lead has replied in the CURRENTLY OPEN conversation.
+
+    XPath-free, class-free approach. Scans the active dialog's text content
+    for messages that appear to be FROM the lead (not from "You" / the bot).
+
+    LinkedIn conversation threads show messages with sender names. If we find
+    the lead's name as a sender of any message, they've replied.
+
+    Returns True if reply detected, False otherwise.
+    """
+    lower_name = (lead_name or "").strip().lower()
+    if not lower_name:
+        return False
+
+    try:
+        result = page.evaluate("""
+        (lowerName) => {
+            const checkRoot = (root) => {
+                // Find active (non-minimized) conversation dialog
+                const dialogs = root.querySelectorAll('[role="dialog"]');
+                for (const dlg of dialogs) {
+                    const min = dlg.getAttribute('data-msg-overlay-conversation-bubble-is-minimized');
+                    if (min === 'true') continue;
+
+                    const fullText = (dlg.innerText || '').toLowerCase();
+
+                    // Quick check: does the dialog text contain the lead's name at all?
+                    if (!fullText.includes(lowerName)) continue;
+
+                    // Scan for message-like patterns. LinkedIn renders messages as:
+                    //   "SenderName\nTimestamp\nMessage text"
+                    // or with profile links containing the sender's name.
+                    //
+                    // Strategy: find all links with /in/ href (profile links of senders),
+                    // check if any match the lead's name. Profile links in messages
+                    // are sender attribution — if the lead's name appears as a link,
+                    // they sent at least one message.
+                    const profileLinks = dlg.querySelectorAll('a[href*="/in/"]');
+                    for (const link of profileLinks) {
+                        const linkText = (link.innerText || link.textContent || '').toLowerCase().trim();
+                        if (linkText.includes(lowerName) || lowerName.includes(linkText)) {
+                            // Verify this isn't our OWN profile link (which would be in the header)
+                            // Check if there's message content NEAR this link
+                            const parent = link.parentElement;
+                            if (parent) {
+                                const parentText = (parent.innerText || '').toLowerCase();
+                                // Skip if this is just the conversation header
+                                if (parentText.includes('open the options') ||
+                                    parentText.includes('optionen öffnen')) continue;
+                                return { replied: true, sender: linkText, source: 'profile_link' };
+                            }
+                        }
+                    }
+
+                    // Fallback: check for "Name:" pattern in the text
+                    // (some LinkedIn layouts show "Name: message text")
+                    const nameColonPattern = lowerName + ':';
+                    if (fullText.includes(nameColonPattern)) {
+                        return { replied: true, sender: lowerName, source: 'name_colon_pattern' };
+                    }
+                }
+                return { replied: false };
+            };
+
+            const host = document.querySelector('#interop-outlet');
+            if (host && host.shadowRoot) {
+                const r = checkRoot(host.shadowRoot);
+                if (r.replied) return r;
+            }
+            return checkRoot(document);
+        }
+        """, lower_name)
+
+        if result and result.get('replied'):
+            print(f"      🔔 REPLY DETECTED from {lead_name} (source: {result.get('source')})")
+            return True
+        return False
+    except Exception as e:
+        print(f"      ⚠️ Reply check error: {e}")
+        return False
 
 
 def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=8):
@@ -668,40 +1322,69 @@ def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=
         _dump_overlay_diagnostic(page, lead_name, "wrong_recipient")
         return "FAILED_WRONG_RECIPIENT"
 
-    # ── 1. Locate textbox and focus it ────────────────────────────
+    # ── 1. Focus the message body textbox ────────────────────────
+    # Shadow DOM elements can't be reliably focused via Playwright's
+    # ElementHandle.click() or JS el.focus() across shadow boundaries.
+    # Instead: use Tab key to navigate from the recipient field (which
+    # has focus after autocomplete selection) to the message body.
+    # Also try direct click/focus as fallback.
     textbox = _find_message_textbox(page)
-    if not textbox:
-        print(f"      ✗ [{lead_name}] message textbox not found — cannot send")
-        _dump_overlay_diagnostic(page, lead_name, "no_textbox")
-        return "FAILED_NO_TEXTBOX"
 
-    try:
-        textbox.click(timeout=5000)
-        _pause(0.3, 0.6)
-    except Exception as e:
-        print(f"      ✗ [{lead_name}] textbox click failed: {str(e)[:100]}")
-        # Try focusing via JS as a fallback
+    # Strategy A: Tab into the textbox from current focus position
+    for tab_attempt in range(5):
+        page.keyboard.press("Tab")
+        _pause(0.2, 0.3)
         try:
-            textbox.evaluate("el => el.focus()")
-        except Exception:
-            return "FAILED_NO_FOCUS"
-
-    # Confirm focus landed on the textbox (anti-false-success check)
-    try:
-        focused_in_textbox = page.evaluate(
-            "() => { const a = document.activeElement; "
-            "return !!a && (a.getAttribute('role') === 'textbox' || a.isContentEditable); }"
-        )
-    except Exception:
-        focused_in_textbox = False
-
-    if not focused_in_textbox:
-        print(f"      ⚠️ [{lead_name}] textbox is not the active element — forcing focus via JS")
-        try:
-            textbox.evaluate("el => el.focus()")
-            _pause(0.3, 0.5)
+            focused_ok = page.evaluate("""
+            () => {
+                const a = document.activeElement;
+                if (a && a.isContentEditable) return true;
+                // Check shadow DOM — activeElement might be the shadow host
+                const host = document.querySelector('#interop-outlet');
+                if (host && host.shadowRoot) {
+                    // Shadow root doesn't have activeElement in all browsers,
+                    // but Chromium supports it
+                    const sa = host.shadowRoot.activeElement;
+                    if (sa && sa.isContentEditable) return true;
+                }
+                return false;
+            }
+            """)
+            if focused_ok:
+                print(f"      Focused message textbox via Tab (attempt {tab_attempt + 1})")
+                _highlight_in_shadow(page,
+                    "host.shadowRoot.activeElement",
+                    color="cyan", label="TEXTBOX (Tab-focused)")
+                break
         except Exception:
             pass
+    else:
+        # Strategy B: Direct click/focus on found textbox element
+        if textbox:
+            try:
+                textbox.click(timeout=3000)
+                _pause(0.3, 0.5)
+            except Exception:
+                try:
+                    textbox.evaluate("el => { el.focus(); el.click(); }")
+                except Exception:
+                    pass
+
+        # Final check
+        try:
+            focused_ok = page.evaluate(
+                "() => { const a = document.activeElement; "
+                "return !!a && a.isContentEditable; }"
+            )
+        except Exception:
+            focused_ok = False
+
+        if not focused_ok:
+            print(f"      ⚠️ [{lead_name}] could not focus message textbox")
+            if not textbox:
+                print(f"      ✗ [{lead_name}] textbox element not found either")
+                _dump_overlay_diagnostic(page, lead_name, "no_textbox")
+                return "FAILED_NO_TEXTBOX"
 
     # ── 2. Record baseline message count ──────────────────────────
     before_count = _count_thread_messages(page)
@@ -718,14 +1401,39 @@ def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=
         return "FAILED_TYPING"
 
     # HARD CHECK: did typing actually land in the textbox?
-    # If the textbox is empty after typing, focus went to void — we MUST NOT
-    # click Send because (a) nothing will send in this thread, OR (b) the
-    # text went into a different open overlay. Either way: abort, don't send.
+    # Shadow DOM complication: document.activeElement is the shadow HOST
+    # (#interop-outlet), not the contenteditable inside. We must check
+    # shadowRoot.activeElement to see if text landed there.
     try:
-        typed_ok = page.evaluate(
-            "() => { const a = document.activeElement; "
-            "return a && (a.innerText || '').trim().length > 0; }"
-        )
+        typed_ok = page.evaluate("""
+        () => {
+            // Check light DOM active element first
+            const a = document.activeElement;
+            if (a && a.isContentEditable && (a.innerText || '').trim().length > 0) return true;
+            // Check shadow DOM — the real focused element is inside the shadow root
+            const host = document.querySelector('#interop-outlet');
+            if (host && host.shadowRoot) {
+                const sa = host.shadowRoot.activeElement;
+                if (sa && sa.isContentEditable && (sa.innerText || '').trim().length > 0) return true;
+                // Walk deeper — activeElement might be a wrapper, check contenteditable children
+                if (sa) {
+                    const ce = sa.querySelector && sa.querySelector('[contenteditable="true"]');
+                    if (ce && (ce.innerText || '').trim().length > 0) return true;
+                }
+                // Last resort: find any visible contenteditable with text inside the dialog
+                const dialogs = host.shadowRoot.querySelectorAll('[role="dialog"]');
+                for (const dlg of dialogs) {
+                    const min = dlg.getAttribute('data-msg-overlay-conversation-bubble-is-minimized');
+                    if (min === 'true') continue;
+                    const ces = dlg.querySelectorAll('[contenteditable="true"]');
+                    for (const ce of ces) {
+                        if ((ce.innerText || '').trim().length > 0) return true;
+                    }
+                }
+            }
+            return false;
+        }
+        """)
     except Exception:
         typed_ok = True  # can't tell → assume OK
 
@@ -740,6 +1448,7 @@ def send_message_in_open_thread(page, message_text, lead_name, verify_timeout_s=
     send_btn = _find_send_button(page)
     send_method_used = None
     if send_btn:
+        _highlight(page, send_btn, color="red", label="SEND BUTTON")
         try:
             send_btn.click(timeout=5000)
             send_method_used = "button_click"

@@ -121,22 +121,46 @@ def scroll_to_top(page):
 
 
 def scroll_to_load_all_connections(page):
-    """Scroll down incrementally to force LinkedIn to lazy-load all connection cards, then scroll back to top."""
+    """Scroll down to force LinkedIn to lazy-load ALL connection cards.
+
+    Instead of checking scrollHeight (unreliable — LinkedIn's React may not
+    change document height immediately), we count actual profile links
+    (`a[href*="/in/"]`) after each scroll. When the count stabilizes for
+    3 consecutive scrolls, all connections are loaded.
+    """
     print("   Scrolling to load all connections...")
-    prev_height = 0
-    stable_count = 0
-    while stable_count < 3:
+    prev_count = 0
+    stable_rounds = 0
+    max_scrolls = 50  # safety limit
+
+    for _ in range(max_scrolls):
         page.evaluate("window.scrollBy(0, 800)")
         time.sleep(random.uniform(0.8, 1.5))
-        curr_height = page.evaluate("document.documentElement.scrollHeight")
-        if curr_height == prev_height:
-            stable_count += 1
+
+        # Count unique profile links currently rendered
+        curr_count = page.evaluate("""
+        () => {
+            const links = document.querySelectorAll('a[href*="/in/"]');
+            const unique = new Set();
+            for (const l of links) {
+                const href = l.getAttribute('href') || '';
+                if (href.match(/\\/in\\/[\\w-]+\\/?$/)) unique.add(href);
+            }
+            return unique.size;
+        }
+        """)
+
+        if curr_count == prev_count:
+            stable_rounds += 1
+            if stable_rounds >= 3:
+                break
         else:
-            stable_count = 0
-        prev_height = curr_height
+            stable_rounds = 0
+        prev_count = curr_count
+
     page.evaluate("window.scrollTo(0, 0)")
     time.sleep(random.uniform(1.5, 2.5))
-    print("   All connections loaded, back at top.")
+    print(f"   All connections loaded ({prev_count} profiles found), back at top.")
 
 
 def _check_page_is_linkedin(page):

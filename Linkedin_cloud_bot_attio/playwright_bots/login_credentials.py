@@ -1255,12 +1255,44 @@ def linkedin_login(suspicious_otp=None, account_name=""):
     """
     Simple LinkedIn login function with CLI input prompts.
     First checks if already logged in, then proceeds with login if needed.
-    Args:
-        suspicious_otp: Optional OTP for suspicious login challenge (from argparse)
-        account_name: Account name for multi-account support
+
+    SESSION REUSE: if the browser profile (user_data_*) already exists from a
+    previous bot in the same campaign, we try to reuse it WITHOUT wiping. This
+    avoids creating a "new device" event on LinkedIn for every bot, which triggers
+    their session-revocation security (logs the user out of their real browser).
+
+    Only wipe + re-inject cookies if the existing profile can't authenticate.
     """
-    # If extension cookies exist, always start fresh
     ext_cookies = _get_extension_cookies(account_name)
+
+    # Try REUSING the existing browser profile first (no wipe, no injection).
+    # If the previous bot in this campaign left a valid session, we just open it.
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    slug = _account_slug(account_name)
+    dir_name = f"user_data_{slug}" if slug else "user_data_yath"
+    profile_exists = os.path.exists(os.path.join(script_dir, dir_name, "Default"))
+
+    if profile_exists:
+        print("   Trying to reuse existing browser profile (no wipe)...")
+        driver = setup_playwright_browser(account_name)
+        if driver:
+            page = driver.page
+            try:
+                if check_if_logged_in(page, account_name=account_name):
+                    print("   ✓ Reused existing session — no new login needed!")
+                    log_action(page, "session_reused")
+                    _persist_cookies_after_login(driver, account_name)
+                    return driver
+            except Exception:
+                pass
+            # Existing profile didn't work — close and fall through to fresh login
+            try:
+                driver.quit()
+            except Exception:
+                pass
+            print("   Existing profile session expired — falling back to fresh login")
+
+    # Fresh login: wipe profile and inject cookies
     if ext_cookies:
         _wipe_profile(account_name)
 
@@ -1271,10 +1303,6 @@ def linkedin_login(suspicious_otp=None, account_name=""):
     page = driver.page
 
     try:
-        # If extension cookies exist, inject ONLY the persistent auth tokens
-        # (li_at, li_rm). LinkedIn will mint a fresh session for this device on
-        # the upcoming navigation, leaving the user's other browser sessions
-        # untouched. See _PERSISTENT_AUTH_COOKIES for the rationale.
         if ext_cookies:
             inject_extension_cookies(driver, account_name=account_name)
 

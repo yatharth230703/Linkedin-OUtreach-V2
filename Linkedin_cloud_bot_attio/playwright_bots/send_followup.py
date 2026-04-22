@@ -183,22 +183,42 @@ def scroll_to_top(page):
 
 
 def scroll_to_load_all_connections(page):
-    """Scroll down incrementally to force LinkedIn to lazy-load all connection cards, then scroll back to top."""
+    """Scroll down to force LinkedIn to lazy-load ALL connection cards.
+
+    Counts actual profile links instead of checking scrollHeight (unreliable).
+    """
     print("   Scrolling to load all connections...")
-    prev_height = 0
-    stable_count = 0
-    while stable_count < 3:
+    prev_count = 0
+    stable_rounds = 0
+    max_scrolls = 50
+
+    for _ in range(max_scrolls):
         page.evaluate("window.scrollBy(0, 800)")
         time.sleep(random.uniform(0.8, 1.5))
-        curr_height = page.evaluate("document.documentElement.scrollHeight")
-        if curr_height == prev_height:
-            stable_count += 1
+
+        curr_count = page.evaluate("""
+        () => {
+            const links = document.querySelectorAll('a[href*="/in/"]');
+            const unique = new Set();
+            for (const l of links) {
+                const href = l.getAttribute('href') || '';
+                if (href.match(/\\/in\\/[\\w-]+\\/?$/)) unique.add(href);
+            }
+            return unique.size;
+        }
+        """)
+
+        if curr_count == prev_count:
+            stable_rounds += 1
+            if stable_rounds >= 3:
+                break
         else:
-            stable_count = 0
-        prev_height = curr_height
+            stable_rounds = 0
+        prev_count = curr_count
+
     page.evaluate("window.scrollTo(0, 0)")
     time.sleep(random.uniform(1.5, 2.5))
-    print("   All connections loaded, back at top.")
+    print(f"   All connections loaded ({prev_count} profiles found), back at top.")
 
 
 def scrape_all_connections_for_followup(page, lead_manager=""):

@@ -199,56 +199,79 @@ def _check_page_is_linkedin(page):
 
 
 def _scrape_connections_robust(page):
-    """Scrape connection names + headlines using JS, no XPaths.
+    """Scrape ALL connection names + headlines by scrolling and collecting.
 
-    Strategy: find all profile links (`a[href*="/in/"]`) on the connections
-    page. For each, extract the link text (name) and find the nearest
-    headline text in the same card container. Returns parallel lists.
+    LinkedIn uses VIRTUAL SCROLLING on the connections page — only ~20 cards
+    are in the DOM at any time. As you scroll, new cards render and old ones
+    are recycled. Scrolling back to top only shows the first ~20 again.
 
-    This is immune to LinkedIn's DOM restructuring because it only relies on:
-      - `a[href*="/in/"]` (profile URL pattern — 15+ years stable)
-      - Ancestor walk to find the card container
-      - Second text element in the card = headline (structural invariant)
+    Strategy: scroll incrementally, collecting visible profile links at each
+    position into a cumulative set. Stop when no new names appear for 3
+    consecutive scrolls. Never scroll back to top before we're done.
     """
-    result = page.evaluate("""
-    () => {
-        const connections = [];
-        const seen = new Set();
+    print("   Scrolling to load all connections...")
+    all_connections = {}  # name → {name, headline, position}
+    stable_rounds = 0
+    max_scrolls = 80
 
-        // Find all profile links on the page — each represents one connection card
-        const links = document.querySelectorAll('a[href*="/in/"]');
+    for scroll_idx in range(max_scrolls):
+        # Collect visible connections at current scroll position
+        batch = page.evaluate("""
+        () => {
+            const connections = [];
+            const links = document.querySelectorAll('a[href*="/in/"]');
+            for (const link of links) {
+                const href = link.getAttribute('href') || '';
+                if (!href.match(/\\/in\\/[\\w-]+\\/?$/)) continue;
 
-        for (const link of links) {
-            const href = link.getAttribute('href') || '';
-            // Only match /in/<slug> links (not /in/edit/, not company links)
-            if (!href.match(/\\/in\\/[\\w-]+\\/?$/)) continue;
+                const fullText = (link.innerText || link.textContent || '').trim();
+                if (!fullText || fullText.length < 2) continue;
 
-            const fullText = (link.innerText || link.textContent || '').trim();
-            if (!fullText || fullText.length < 2) continue;
+                const lines = fullText.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
+                const name = lines[0] || '';
+                if (!name || name.length < 2) continue;
 
-            // LinkedIn wraps name + headline inside the same <a>.
-            // Split on newlines: first non-empty line = name, rest = headline.
-            const lines = fullText.split('\\n').map(l => l.trim()).filter(l => l.length > 0);
-            const name = lines[0] || '';
-            if (!name || name.length < 2 || seen.has(name)) continue;
-
-            // Headline is everything after the first line (skip connection
-            // degree markers like "1st", "2nd", "3rd")
-            let headline = '';
-            for (let li = 1; li < lines.length; li++) {
-                const line = lines[li];
-                if (line.match(/^(1st|2nd|3rd|\\d+th)$/i)) continue;
-                headline = line;
-                break;
+                let headline = '';
+                for (let li = 1; li < lines.length; li++) {
+                    const line = lines[li];
+                    if (line.match(/^(1st|2nd|3rd|\\d+th)$/i)) continue;
+                    headline = line;
+                    break;
+                }
+                connections.push({ name, headline });
             }
-
-            seen.add(name);
-            connections.push({ name: name, headline: headline, position: connections.length + 1 });
+            return connections;
         }
-        return connections;
-    }
-    """)
-    return result or []
+        """)
+
+        prev_count = len(all_connections)
+        for c in (batch or []):
+            name = c.get('name', '')
+            if name and name not in all_connections:
+                all_connections[name] = {
+                    'name': name,
+                    'headline': c.get('headline', ''),
+                    'position': len(all_connections) + 1,
+                }
+
+        new_count = len(all_connections)
+        if new_count == prev_count:
+            stable_rounds += 1
+            if stable_rounds >= 3:
+                break
+        else:
+            stable_rounds = 0
+
+        # Scroll down for next batch
+        page.evaluate("window.scrollBy(0, 600)")
+        time.sleep(random.uniform(0.6, 1.2))
+
+    # Scroll back to top (needed for card-walk message button clicks later)
+    page.evaluate("window.scrollTo(0, 0)")
+    time.sleep(random.uniform(1.0, 2.0))
+    print(f"   All connections loaded ({len(all_connections)} total), back at top.")
+
+    return list(all_connections.values())
 
 
 def scrape_all_connections_brute(page, lead_manager=""):
@@ -266,9 +289,8 @@ def scrape_all_connections_brute(page, lead_manager=""):
 
     attio_leads_data, contacted_leads = get_attio_leads_data(lead_manager)
 
-    scroll_to_load_all_connections(page)
-
-    # Robust JS scraping — no XPaths, no hashed classes
+    # Combined scroll + scrape — handles LinkedIn's virtual scrolling by
+    # collecting names at each scroll position into a cumulative set.
     scraped = _scrape_connections_robust(page)
     names_list = [c['name'] for c in scraped]
     headline_list = [c['headline'] for c in scraped]

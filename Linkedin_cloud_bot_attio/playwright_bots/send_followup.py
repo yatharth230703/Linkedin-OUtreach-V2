@@ -238,8 +238,7 @@ def scrape_all_connections_for_followup(page, lead_manager=""):
 
     attio_leads_data, eligible_leads = get_attio_followup_leads_data(lead_manager)
 
-    scroll_to_load_all_connections(page)
-
+    # _scrape_connections_robust handles its own scrolling (virtual scroll aware)
     scraped = _scrape_connections_robust(page)
     names_list = [c['name'] for c in scraped]
     headline_list = [c['headline'] for c in scraped]

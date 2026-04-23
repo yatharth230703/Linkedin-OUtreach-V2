@@ -1083,7 +1083,7 @@ def _setup_compose_recipient(page, lead_name, timeout_s=10):
                             }
 
                             // Prefer EXACT name match over partial/substring
-                            if (t.trim() === lower || t.startsWith(lower + '\n')) {
+                            if (t.trim() === lower || t.startsWith(lower + '\\n')) {
                                 // Best possible match — click immediately
                                 try { el.click(); return 'exact'; } catch {}
                             }

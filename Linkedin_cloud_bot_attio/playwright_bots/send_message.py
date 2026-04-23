@@ -262,12 +262,61 @@ def _scrape_connections_robust(page):
         else:
             stable_rounds = 0
 
-        # Scroll down for next batch
-        page.evaluate("window.scrollBy(0, 600)")
+        # Scroll down for next batch.
+        # LinkedIn's connections list may scroll inside its own container
+        # (not the window). Try the container that holds the profile links,
+        # falling back to window scroll.
+        page.evaluate("""
+        () => {
+            // Find the scrollable ancestor of the first profile link
+            const link = document.querySelector('a[href*="/in/"]');
+            if (link) {
+                let el = link;
+                for (let i = 0; i < 10; i++) {
+                    el = el.parentElement;
+                    if (!el) break;
+                    const style = getComputedStyle(el);
+                    const isScrollable = el.scrollHeight > el.clientHeight &&
+                        (style.overflowY === 'auto' || style.overflowY === 'scroll');
+                    if (isScrollable) {
+                        el.scrollBy(0, 600);
+                        return;
+                    }
+                }
+            }
+            // Fallback: try main, then window
+            const main = document.querySelector('main');
+            if (main && main.scrollHeight > main.clientHeight) {
+                main.scrollBy(0, 600);
+            } else {
+                window.scrollBy(0, 600);
+            }
+        }
+        """)
         time.sleep(random.uniform(0.6, 1.2))
 
     # Scroll back to top (needed for card-walk message button clicks later)
-    page.evaluate("window.scrollTo(0, 0)")
+    page.evaluate("""
+    () => {
+        const link = document.querySelector('a[href*="/in/"]');
+        if (link) {
+            let el = link;
+            for (let i = 0; i < 10; i++) {
+                el = el.parentElement;
+                if (!el) break;
+                const style = getComputedStyle(el);
+                if (el.scrollHeight > el.clientHeight &&
+                    (style.overflowY === 'auto' || style.overflowY === 'scroll')) {
+                    el.scrollTo(0, 0);
+                    return;
+                }
+            }
+        }
+        const main = document.querySelector('main');
+        if (main) main.scrollTo(0, 0);
+        window.scrollTo(0, 0);
+    }
+    """)
     time.sleep(random.uniform(1.0, 2.0))
     print(f"   All connections loaded ({len(all_connections)} total), back at top.")
 

@@ -394,7 +394,22 @@ class AttioClient:
                 "linkedin_url": self._extract_value(values, "linkedin_url").strip(),
             }
 
-            if status == "first message sent":
+            # ANY status beyond PENDING/SCRAPED means the lead has been
+            # contacted. DO NOT send another first message to these.
+            # Previously only "first message sent" was checked — this caused
+            # leads with "LEAD REPLIED", "follow-up N sent", "CONNECTED" etc.
+            # to be treated as new and re-messaged.
+            _skip_statuses = {
+                "first message sent",
+                "follow-up 1 sent",
+                "follow-up 2 sent",
+                "follow-up 3 sent",
+                "follow-up 4 sent",
+                "LEAD REPLIED",
+                "CONNECTED",
+                "CONNECT_FAILED",
+            }
+            if status in _skip_statuses:
                 contacted_leads.add(full_name)
 
         return leads_data, contacted_leads

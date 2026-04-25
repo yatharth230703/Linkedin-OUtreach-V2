@@ -187,6 +187,108 @@ Based on LinkedIn's known thresholds (as of 2025-2026):
 
 ---
 
+## 5. Adding a New Prompt Template
+
+### Overview
+Prompt templates control what the AI (Gemini) writes for outreach and follow-up messages. Each template defines 5 prompts (1 outreach + 4 follow-ups) and is stored as a JSON file.
+
+### Step 1: Create the Template File
+
+Copy an existing template and modify it:
+
+```bash
+cp Linkedin_cloud_bot_attio/prompt_template_1.json Linkedin_cloud_bot_attio/prompt_template_5.json
+```
+
+Edit `prompt_template_5.json` — it needs these **6 required fields**:
+
+```json
+{
+  "outreach_prompt": "Your initial message prompt... {profile_str} {posts_str}",
+  "followup_1_prompt": "First follow-up prompt... {profile_str} {posts_str} {context_str}",
+  "followup_2_prompt": "Second follow-up prompt... {profile_str} {posts_str} {context_str}",
+  "followup_3_prompt": "Third follow-up prompt... {profile_str} {posts_str} {context_str}",
+  "followup_4_prompt": "Fourth follow-up prompt... {profile_str} {posts_str} {context_str}",
+  "description": "Short description of what this template does"
+}
+```
+
+**Available placeholders** (auto-filled at runtime):
+| Placeholder | Content | Available in |
+|-------------|---------|-------------|
+| `{profile_str}` | Name, headline, about, experience from LinkedIn | All prompts |
+| `{posts_str}` | Recent LinkedIn posts scraped via Apify | All prompts |
+| `{context_str}` | Previous message history with this lead | Follow-up prompts only |
+
+### Step 2: Assign to Leads in Attio
+
+In the Attio **bot_inputs** table, set the `prompt_template` column:
+- `template_5` → uses `prompt_template_5.json`
+- Leave blank → defaults to `template_1`
+
+### Step 3: Deploy
+
+If the template is baked into the repo:
+```bash
+git add Linkedin_cloud_bot_attio/prompt_template_5.json
+git commit -m "add prompt template 5"
+git push  # CI deploys to VM
+```
+
+If uploaded via the web extension at runtime, place it at:
+```
+/app/state/templates/prompt_template_5.json
+```
+(This path is checked first, before the baked-in repo copy.)
+
+### Template Loading Priority
+
+1. **State dir** (`STATE_DIR/templates/prompt_template_5.json`) — runtime uploads via web extension
+2. **Repo baked-in** (`Linkedin_cloud_bot_attio/prompt_template_5.json`) — committed in code
+
+If any of the 6 required fields are missing, the system auto-falls back to `template_1` with a warning.
+
+### Testing Locally
+
+```bash
+python3 -c "
+from Linkedin_cloud_bot_attio.gemini_outreach import GeminiLinkedInMessager
+m = GeminiLinkedInMessager(template_name='template_5')
+print('Loaded:', m.template_data.get('description', 'no description'))
+"
+```
+
+### Existing Templates
+
+| Template | File | Description |
+|----------|------|-------------|
+| `template_1` | `prompt_template_1.json` | Default — genuine connection + value-driven messaging |
+| `template_2` | `prompt_template_2.json` | Variant 2 |
+| `template_3` | `prompt_template_3.json` | Variant 3 |
+| `template_4` | `prompt_template_4.json` | Variant 4 |
+
+### How Template Selection Flows
+
+```
+Attio bot_inputs record
+  └─ prompt_template: "template_5"
+      │
+      └─ Connection Bot reads this per lead
+          └─ generate_ai_messages(template_name="template_5")
+              └─ GeminiLinkedInMessager("template_5")
+                  └─ Loads prompt_template_5.json
+                  └─ Generates: outreach + 4 follow-ups
+                  └─ Saves all 5 drafts to Attio leads_sources
+                      │
+                      ├─ message_1_draft (outreach) → used by Message Bot
+                      ├─ message_2_draft (follow-up 1) → used by Follow-up Bot
+                      ├─ message_3_draft (follow-up 2)
+                      ├─ message_4_draft (follow-up 3)
+                      └─ message_5_draft (follow-up 4)
+```
+
+---
+
 ## File Reference
 
 | File | Purpose |

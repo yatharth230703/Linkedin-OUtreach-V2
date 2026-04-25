@@ -390,24 +390,48 @@ def _validate_template(data):
 
 @app.route("/api/templates", methods=["POST"])
 def upload_template():
-    """Validate and save an uploaded JSON template as the next numbered file."""
+    """Validate and save an uploaded JSON template.
+
+    Accepts optional `template_number` in the request body to save as a
+    specific template (e.g. template_number=5 → prompt_template_5.json).
+    If not provided, auto-assigns the next available number by scanning
+    BOTH the state dir AND the baked-in templates in the Docker image.
+    """
     data = request.get_json()
     if not data:
         return jsonify({"success": False, "error": "No template data provided"}), 400
+
+    # template_number can be passed alongside the template content
+    requested_num = data.pop("template_number", None)
 
     ok, error = _validate_template(data)
     if not ok:
         return jsonify({"success": False, "error": error}), 400
 
-    # Find next template number
-    existing = sorted(glob_module.glob(template_glob()))
-    next_num = 1
-    for f in existing:
+    if requested_num is not None:
         try:
-            num = int(os.path.basename(f).replace("prompt_template_", "").replace(".json", ""))
-            next_num = max(next_num, num + 1)
-        except ValueError:
-            continue
+            next_num = int(requested_num)
+        except (ValueError, TypeError):
+            return jsonify({"success": False, "error": f"Invalid template_number: {requested_num}"}), 400
+    else:
+        # Auto-assign: scan state dir AND baked-in templates for highest number
+        next_num = 1
+        # State dir templates
+        for f in glob_module.glob(template_glob()):
+            try:
+                num = int(os.path.basename(f).replace("prompt_template_", "").replace(".json", ""))
+                next_num = max(next_num, num + 1)
+            except ValueError:
+                continue
+        # Also check baked-in templates (inside the container image)
+        baked_in_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                    "Linkedin_cloud_bot_attio")
+        for f in glob_module.glob(os.path.join(baked_in_dir, "prompt_template_*.json")):
+            try:
+                num = int(os.path.basename(f).replace("prompt_template_", "").replace(".json", ""))
+                next_num = max(next_num, num + 1)
+            except ValueError:
+                continue
 
     filepath = template_path(next_num)
     filename = os.path.basename(filepath)
